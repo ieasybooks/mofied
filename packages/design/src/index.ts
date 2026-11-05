@@ -17,7 +17,6 @@ const ar = {
   info: "عن التطبيق",
   privacy: "سياسة الخصوصية",
   support: "التواصل والدعم",
-  sources: "المصادر والتراخيص",
   language: "اللغة",
   version: "الإصدار",
   resume: "متابعة المشاهدة",
@@ -48,9 +47,7 @@ const ar = {
   aboutBody: "مفيد مساحة لمواد نافعة وجلسات محدودة، تتخلّلها لحظات للتأمّل.",
   privacyBody:
     "لا يتطلّب مفيد حسابًا. يُحفظ موضع الجلسة وتفضيل الصوت محليًا على جهازك. تُحمّل المواد والصور من خوادم الوسائط، وقد تسجّل هذه الخوادم معلومات الاتصال المعتادة. لا يتضمّن هذا الإصدار أدوات إعلانية أو تحليلات.",
-  supportBody: "يمكنك الإبلاغ عن مشكلة أو اقتراح تحسين من صفحة دعم المشروع.",
-  sourcesBody:
-    "المواد وروابط المتحدثين من فقيه. نص القرآن من Tanzil. يعتمد التطبيق على برمجيات مفتوحة المصدر، منها React وExpo وhls.js وLucide.",
+  supportBody: "مفيد من تطوير مبادرة الكتب المُيسّرة. يمكنكم التواصل معنا عبر:",
   offline: "الاتصال غير متاح حاليًا",
 } as const;
 const en: Record<keyof typeof ar, string> = {
@@ -58,7 +55,6 @@ const en: Record<keyof typeof ar, string> = {
   info: "About Mofied",
   privacy: "Privacy policy",
   support: "Contact & support",
-  sources: "Sources & licenses",
   language: "Language",
   version: "Version",
   resume: "Continue watching",
@@ -91,9 +87,7 @@ const en: Record<keyof typeof ar, string> = {
   privacyBody:
     "Mofied does not require an account. Session progress and sound preferences are saved locally on your device. Media and images load from media servers, which may record ordinary connection information. This version has no advertising or analytics tools.",
   supportBody:
-    "Report a problem or suggest an improvement through the project support page.",
-  sourcesBody:
-    "Media and speaker links come from Faqieh. Quran text comes from Tanzil. The app uses open-source software including React, Expo, hls.js and Lucide.",
+    "Mofied is developed by the EasyBooks initiative. You can contact us through:",
   offline: "You are currently offline",
 };
 export const copy = { ar, en };
@@ -153,3 +147,4 @@ export function formatCitation(citation: string) {
       `\u2066${range.replace(/\s*[-–—]\s*/g, "\u200E - \u200E")}\u2069`,
   );
 }
+export { contactLinks } from "./contact";

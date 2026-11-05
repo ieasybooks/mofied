@@ -4,7 +4,6 @@ import {
   Info,
   Shield,
   Mail,
-  BookOpen,
   Globe,
   ChevronLeft,
   ChevronRight,
@@ -12,8 +11,9 @@ import {
 } from "lucide-react";
 import { copy, type Locale } from "@mofied/design";
 import appIcon from "@mofied/design/assets/icons/app-icon-flat-dark-1024.png";
+import { ContactLinks } from "./ContactLinks";
 
-type Page = "info" | "privacy" | "support" | "sources";
+type Page = "info" | "privacy" | "support";
 export function About({
   locale,
   setLocale,
@@ -35,13 +35,11 @@ export function About({
     [Info, "info"],
     [Shield, "privacy"],
     [Mail, "support"],
-    [BookOpen, "sources"],
   ] as const;
   const bodies = {
     info: t.aboutBody,
     privacy: t.privacyBody,
     support: t.supportBody,
-    sources: t.sourcesBody,
   };
   return (
     <dialog
@@ -85,24 +83,7 @@ export function About({
       {page ? (
         <div className="about-content">
           <p>{bodies[page]}</p>
-          {page === "support" && (
-            <a
-              href="https://github.com/ieasybooks/mofied/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub
-            </a>
-          )}
-          {page === "sources" && (
-            <a
-              href="https://tanzil.net/docs/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Tanzil
-            </a>
-          )}
+          {page === "support" && <ContactLinks locale={locale} />}
           <button
             type="button"
             className="text-button"

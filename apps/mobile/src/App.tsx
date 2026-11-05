@@ -18,6 +18,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type TextStyle,
 } from "react-native";
 import {
   SafeAreaProvider,
@@ -56,6 +57,7 @@ import {
 } from "@mofied/design";
 import { NativeMedia } from "./NativeMedia";
 import { loadSession } from "./provider";
+import { ContactLinks } from "./ContactLinks";
 
 const icon = require("../../../packages/design/assets/icons/icon-white-1024.png");
 const appIcon = require("../../../packages/design/assets/icons/app-icon-flat-dark-1024.png");
@@ -71,6 +73,7 @@ export default function App() {
     NotoNaskhUIBold: require("../../../packages/design/assets/fonts/NotoNaskhArabicUI-600.ttf"),
     Kitab: require("../../../packages/design/assets/fonts/Kitab-Regular.ttf"),
     Gilroy: require("../../../packages/design/assets/fonts/Gilroy-Regular.ttf"),
+    GilroyMedium: require("../../../packages/design/assets/fonts/Gilroy-Medium.ttf"),
   });
   return (
     <SafeAreaProvider>
@@ -488,7 +491,7 @@ function SessionView({
   );
 }
 
-type AboutPage = "info" | "privacy" | "support" | "sources";
+type AboutPage = "info" | "privacy" | "support";
 function About({
   visible,
   hasPlayback,
@@ -512,15 +515,22 @@ function About({
     [Info, "info"],
     [Shield, "privacy"],
     [Mail, "support"],
-    [BookOpen, "sources"],
   ] as const;
   const bodies = {
     info: t.aboutBody,
     privacy: t.privacyBody,
     support: t.supportBody,
-    sources: t.sourcesBody,
   };
   const Chevron = locale === "ar" ? ChevronLeft : ChevronRight;
+  const isArabic = locale === "ar";
+  const textDirection: TextStyle = {
+    writingDirection: isArabic ? "rtl" : "ltr",
+  };
+  const textAlignment: TextStyle = { textAlign: isArabic ? "right" : "left" };
+  const uiStyle: TextStyle = {
+    ...textDirection,
+    fontFamily: isArabic ? "NotoNaskhUI" : "Gilroy",
+  };
   const rowDirection = {
     flexDirection:
       locale === "ar" ? ("row-reverse" as const) : ("row" as const),
@@ -545,17 +555,37 @@ function About({
           accessibilityViewIsModal
         >
           <View style={styles.handle} />
-          <View style={styles.aboutHead}>
+          <View
+            style={[
+              styles.aboutHead,
+              rowDirection,
+              {
+                paddingLeft: isArabic ? 44 : 0,
+                paddingRight: isArabic ? 0 : 44,
+              },
+            ]}
+          >
             <Image source={appIcon} style={styles.aboutIcon} />
-            <View>
-              <Text style={styles.aboutName}>{page ? t[page] : t.name}</Text>
+            <View style={styles.aboutHeadCopy}>
+              <Text style={[styles.aboutName, textDirection, textAlignment]}>
+                {page ? t[page] : t.name}
+              </Text>
               {hasPlayback && (
-                <Text style={styles.aboutSubtitle}>{t.pausedAbout}</Text>
+                <Text style={[styles.aboutSubtitle, uiStyle, textAlignment]}>
+                  {t.pausedAbout}
+                </Text>
               )}
             </View>
           </View>
           <Pressable
-            style={[styles.circle, styles.close]}
+            style={[
+              styles.circle,
+              styles.close,
+              {
+                left: isArabic ? 20 : undefined,
+                right: isArabic ? undefined : 20,
+              },
+            ]}
             accessibilityRole="button"
             accessibilityLabel={t.close}
             onPress={close}
@@ -568,31 +598,18 @@ function About({
           >
             {page ? (
               <View style={styles.aboutCopy}>
-                <Text style={styles.body}>{bodies[page]}</Text>
+                <Text style={[styles.body, uiStyle, textAlignment]}>
+                  {bodies[page]}
+                </Text>
                 {page === "support" && (
-                  <Pressable
-                    onPress={() =>
-                      open("https://github.com/ieasybooks/mofied/issues")
-                    }
-                    accessibilityRole="link"
-                  >
-                    <Text style={styles.link}>GitHub</Text>
-                  </Pressable>
-                )}
-                {page === "sources" && (
-                  <Pressable
-                    onPress={() => open("https://tanzil.net/docs/")}
-                    accessibilityRole="link"
-                  >
-                    <Text style={styles.link}>Tanzil</Text>
-                  </Pressable>
+                  <ContactLinks locale={locale} open={open} />
                 )}
                 <Pressable
                   style={styles.readButton}
                   onPress={() => setPage(null)}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.ui}>{t.back}</Text>
+                  <Text style={[styles.ui, uiStyle]}>{t.back}</Text>
                 </Pressable>
               </View>
             ) : (
@@ -606,7 +623,7 @@ function About({
                   >
                     <View style={[styles.rowLead, rowDirection]}>
                       <Icon size={20} color="#aaa" />
-                      <Text style={styles.rowText}>{t[key]}</Text>
+                      <Text style={[styles.rowText, uiStyle]}>{t[key]}</Text>
                     </View>
                     <Chevron size={18} color="#888" />
                   </Pressable>
@@ -618,10 +635,12 @@ function About({
                 >
                   <View style={[styles.rowLead, rowDirection]}>
                     <Globe size={20} color="#aaa" />
-                    <Text style={styles.rowText}>{t.language}</Text>
+                    <Text style={[styles.rowText, uiStyle]}>{t.language}</Text>
                   </View>
                   <View style={[styles.rowLead, rowDirection]}>
-                    <Text style={styles.aboutSubtitle}>
+                    <Text
+                      style={[styles.aboutSubtitle, uiStyle, textAlignment]}
+                    >
                       {locale === "ar" ? "العربية" : "English"}
                     </Text>
                     <Chevron size={18} color="#888" />
@@ -630,18 +649,28 @@ function About({
               </View>
             )}
           </ScrollView>
-          <Text style={styles.version}>{t.version} 0.1.0</Text>
+          <Text style={[styles.version, uiStyle]}>{t.version} 0.1.0</Text>
           {hasPlayback && (
             <>
               <Pressable
-                style={styles.resume}
+                style={[styles.resume, rowDirection]}
                 onPress={close}
                 accessibilityRole="button"
               >
                 <Play size={18} color="#000" />
-                <Text style={styles.resumeText}>{t.resume}</Text>
+                <Text
+                  style={[
+                    styles.resumeText,
+                    textDirection,
+                    {
+                      fontFamily: isArabic ? "NotoNaskhUIBold" : "GilroyMedium",
+                    },
+                  ]}
+                >
+                  {t.resume}
+                </Text>
               </Pressable>
-              <Text style={styles.note}>{t.resumeNote}</Text>
+              <Text style={[styles.note, uiStyle]}>{t.resumeNote}</Text>
             </>
           )}
         </View>
@@ -908,8 +937,8 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 12,
-    paddingLeft: 44,
   },
+  aboutHeadCopy: { flex: 1, minWidth: 0 },
   aboutIcon: {
     width: 48,
     height: 48,
@@ -932,7 +961,6 @@ const styles = StyleSheet.create({
   },
   close: {
     position: "absolute",
-    left: 20,
     top: 30,
     backgroundColor: "#ffffff08",
     borderWidth: 0,
@@ -975,10 +1003,4 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   aboutCopy: { gap: 18 },
-  link: {
-    fontFamily: "Gilroy",
-    fontSize: 16,
-    color: "white",
-    textDecorationLine: "underline",
-  },
 });

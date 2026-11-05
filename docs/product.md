@@ -11,6 +11,7 @@ This is the behavior baseline for the initial implementation. The approved desig
 - A pending reminder cannot be skipped. Pause-to-read stops its countdown. A consumed reminder does not repeat when navigating backward then forward.
 - Reminder screens show the citation without Quran/hadith text-source footnotes. Numeric citation ranges use a plain hyphen with spaces and keep their order in RTL text. Timer labels use Arabic singular/dual/plural forms and English singular/plural forms.
 - The language row places the selected language before the trailing arrow in the current UI reading direction.
+- About contains app information, privacy, Contact, language and version. There is no Sources & Licenses screen. Contact credits the EasyBooks initiative and uses the public Telegram, YouTube, X, Facebook, GitHub organization and email destinations from Faqieh’s footer; it does not link to the private Mofied repository.
 - Finite ending with reflection and Info. No restart, new-session or replay action. About at the ending has no “continue watching” button.
 
 ## Playback and timing
@@ -44,6 +45,6 @@ A media error first consumes one server-supplied replacement, preserving the fol
 
 ## Before public launch
 
-The support row currently links to this private development repository. Replace it with a public support contact. The in-app privacy copy describes the implemented local persistence and external media requests; publish a canonical privacy URL reflecting the actual API/CDN logging and any future analytics. Sources/licenses need the final release notices. No authentication is needed for Info or privacy.
+Contact uses the initiative’s public social channels and easybooksdev@gmail.com. The in-app privacy copy describes the implemented local persistence and external media requests; publish a canonical privacy URL reflecting the actual API/CDN logging and any future analytics. No authentication is needed for Info or privacy.
 
 Language switching changes UI labels locally. The sample media, reminder and ending text remain the language supplied by the plan. Server-localized plans and persistent language preference can be connected with the API integration.

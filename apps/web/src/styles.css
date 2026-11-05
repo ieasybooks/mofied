@@ -646,8 +646,26 @@ kbd {
   gap: 18px;
   padding-top: 28px;
 }
-.about-content a {
-  text-decoration: underline;
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.contact-link {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ffffff26;
+  border-radius: 50%;
+  color: #e2e2e2;
+  background: #ffffff05;
+}
+.contact-link:hover {
+  border-color: #ffffff55;
+  background: #ffffff15;
 }
 @keyframes spin {
   to {
