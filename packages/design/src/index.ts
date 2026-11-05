@@ -95,16 +95,17 @@ const numberFormatters = {
   ar: new Intl.NumberFormat("ar-u-nu-arab"),
   en: new Intl.NumberFormat("en"),
 };
-const arabicPlurals = new Intl.PluralRules("ar");
-
 function arabicCount(
   value: number,
   forms: { one: string; two: string; few: string; other: string },
 ) {
-  const plural = arabicPlurals.select(value);
-  if (plural === "one") return forms.one;
-  if (plural === "two") return forms.two;
-  return `${numberFormatters.ar.format(value)} ${plural === "few" ? forms.few : forms.other}`;
+  // Callers supply rounded, nonnegative integers. Arabic cardinal rules use
+  // singular/dual only for exactly 1/2; the few form applies to 3–10 modulo 100.
+  // Keep this independent of Intl.PluralRules, which native Hermes lacks.
+  if (value === 1) return forms.one;
+  if (value === 2) return forms.two;
+  const remainder = value % 100;
+  return `${numberFormatters.ar.format(value)} ${remainder >= 3 && remainder <= 10 ? forms.few : forms.other}`;
 }
 
 export function formatTime(milliseconds: number) {

@@ -212,6 +212,37 @@ test("continues actual media playback and reminder-to-media transitions in a hid
   }
 });
 
+test("a buffered stalled event keeps playing and counting beyond the recovery timeout", async ({
+  page,
+}) => {
+  test.setTimeout(40_000);
+  const session = plan();
+  session.replacements = [media("spare")];
+  await start(page, session);
+  await expect.poll(() => position(page)).toBeGreaterThan(0.5);
+  const readiness = await page
+    .locator("video")
+    .evaluate((video: HTMLVideoElement) => {
+      // Keep the 12-second local clip playing past the 20-second watchdog. This
+      // exercises real decoded playback with the native-HLS buffered-stalled sequence.
+      video.loop = true;
+      video.dispatchEvent(new Event("stalled"));
+      return { readyState: video.readyState, paused: video.paused };
+    });
+  expect(readiness.readyState).toBeGreaterThanOrEqual(3);
+  expect(readiness.paused).toBe(false);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  await page.waitForTimeout(22_000);
+  await expect(page.locator("main")).toHaveAttribute("data-item-id", "first");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  await expect(page.locator(".player-status")).toHaveCount(0);
+  const saved = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem("mofied.session.v1.development")!),
+  );
+  expect(saved.activeMs).toBeGreaterThan(19_000);
+  expect(saved.usedReplacements).toEqual([]);
+});
+
 test("unavailable media uses the supplied spare once, without changing the following reminder", async ({
   page,
 }) => {

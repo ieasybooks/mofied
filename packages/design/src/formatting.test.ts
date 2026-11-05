@@ -1,7 +1,40 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { countdownLabel, remainingLabel } from "./index";
 
 describe("localized timer labels", () => {
+  it("imports and formats timers when Hermes has no Intl.PluralRules", async () => {
+    const intl = Object.create(Intl);
+    intl.PluralRules = undefined;
+    vi.stubGlobal("Intl", intl);
+    vi.resetModules();
+    try {
+      const design = await import("./index");
+      expect(design.countdownLabel(1000, "ar")).toBe(
+        "تُستأنف المواد بعد ثانية واحدة",
+      );
+      expect(design.countdownLabel(2000, "ar")).toBe(
+        "تُستأنف المواد بعد ثانيتين",
+      );
+      expect(design.countdownLabel(3000, "ar")).toBe(
+        "تُستأنف المواد بعد ٣ ثوانٍ",
+      );
+      expect(design.countdownLabel(11_000, "ar")).toBe(
+        "تُستأنف المواد بعد ١١ ثانية",
+      );
+      expect(design.countdownLabel(103_000, "ar")).toBe(
+        "تُستأنف المواد بعد ١٠٣ ثوانٍ",
+      );
+      expect(design.remainingLabel(120_000, "ar")).toBe("بقيت دقيقتان");
+      expect(design.countdownLabel(1000, "en")).toBe(
+        "Media resumes in 1 second",
+      );
+      expect(design.remainingLabel(120_000, "en")).toBe("2 minutes left");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+
   it("uses Arabic singular, dual and counted forms across plural-rule boundaries", () => {
     const cases = [
       [1, "ثانية واحدة"],

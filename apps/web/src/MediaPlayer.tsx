@@ -4,6 +4,7 @@ import { Pause, Play, Volume2, VolumeX, ChevronUp } from "lucide-react";
 import type { MediaItem } from "@mofied/contracts";
 import { copy, formatTime, type Locale } from "@mofied/design";
 import type { SessionController, SessionSnapshot } from "@mofied/session";
+import { watchPlaybackHealth } from "./playback-health";
 
 export function MediaPlayer({
   item,
@@ -30,12 +31,7 @@ export function MediaPlayer({
     let recoveries = 0;
     const progress = () =>
       session.mediaProgress(item.id, video.currentTime * 1000);
-    const playing = () =>
-      session.mediaPlaying(item.id, video.currentTime * 1000);
-    const waiting = () => {
-      progress();
-      session.mediaBuffering(item.id);
-    };
+    const stopWatching = watchPlaybackHealth(video, session, item.id);
     const ended = () => session.mediaEnded(item.id, video.currentTime * 1000);
     const failed = () => {
       if (!cancelled) session.mediaFailed(item.id);
@@ -87,10 +83,6 @@ export function MediaPlayer({
       }
     };
     for (const [event, handler] of Object.entries({
-      timeupdate: progress,
-      playing,
-      waiting,
-      stalled: waiting,
       ended,
       pause: pausedExternally,
       error: failed,
@@ -124,11 +116,8 @@ export function MediaPlayer({
     if (session.getSnapshot().shouldPlay) void play();
     return () => {
       cancelled = true;
+      stopWatching();
       for (const [event, handler] of Object.entries({
-        timeupdate: progress,
-        playing,
-        waiting,
-        stalled: waiting,
         ended,
         pause: pausedExternally,
         error: failed,
@@ -158,13 +147,6 @@ export function MediaPlayer({
       });
     } else video.pause();
   }, [state.shouldPlay, state.muted, item.id, session, attempt]);
-
-  useEffect(() => {
-    if (!state.shouldPlay || !["loading", "buffering"].includes(state.status))
-      return;
-    const timer = window.setTimeout(() => session.mediaFailed(item.id), 20_000);
-    return () => clearTimeout(timer);
-  }, [state.status, state.shouldPlay, item.id, session]);
 
   const retry = () => {
     startPosition.current = state.positionMs / 1000;
