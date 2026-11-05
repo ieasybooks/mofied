@@ -1,6 +1,6 @@
 # Implementation verification
 
-Updated after the runtime fixes on 2026-11-05. The external end-to-end report for `5481285` found a native startup crash and false web HLS buffering despite passing builds. This report distinguishes the corrected automated checks, actual web playback, and native runtime verification that is still outstanding.
+Updated after the accepted player overlay on 2026-11-05. TypeScript, all 29 unit tests, all 7 headed browser tests, the web production build and all three Expo exports were rerun successfully after the overlay changes. The external end-to-end report for `5481285` found a native startup crash and false web HLS buffering despite passing builds; those earlier fixes remain covered. This report distinguishes automated checks, actual web playback, and native runtime verification that is still outstanding.
 
 | Check                                                           | Result                                                                                                         |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -14,6 +14,16 @@ Updated after the runtime fixes on 2026-11-05. The external end-to-end report fo
 | iOS/Android native builds at `5481285`                          | Reported passed by the external tester; both installed apps then failed at startup                             |
 | Installed iOS/Android launch and journeys after these fixes     | Not verified: Agent device access is disabled in this session, and this Linux host has no Xcode                |
 
+## Accepted player overlay
+
+The running web app and Expo browser preview were checked at 393×852, 360×800 and 320×568 with public R2 media, Arabic/English UI, single- and two-line titles, and a missing portrait. Desktop was captured at 1440×900. The phone bottom fade measures 214px for a single-line title and 256px for two lines without safe insets, matching the accepted spec. Info and sound each measure 44×44px, with a 12px gap; the English time pill clears both controls at the narrowest tested width. No horizontal overflow or page errors occurred.
+
+The existing mobile browser test now activates sound, verifies mute state and preserved pause intent, and taps/swipes through the fade above the metadata. It confirms that the sound control disappears on reminders. The same interaction checks passed in the Expo browser preview, including About/language switching and swiping into the reminder. These preview checks do not establish native gestures or rendering on installed iOS/Android apps.
+
+Contrast was measured on the actual rendered UI over a solid white frame, with text hidden and text shadows removed. The brightest pixel within each visible text line was used. Across the phone cases, minimum ratios were 4.85:1 for speaker text, 6.04:1 for titles and 6.34:1 for elapsed/total time. Desktop time in the new 128px fade measured 5.04:1. All checked text met its WCAG AA threshold.
+
+The implementation captures and accepted dimensions are linked from [the overlay spec](design/player-overlay.md). Detailed layout, contrast and interaction evidence remains in ignored `artifacts/player-overlay-implementation/`; check/export logs are `artifacts/player-overlay-*.log`. Device safe-area rendering and installed runtime verification remain outstanding.
+
 ## Runtime regressions
 
 Both new regressions failed against the original implementation before the fixes were applied.
@@ -24,7 +34,7 @@ Web playback now distinguishes a stalled network fetch from stopped media. Buffe
 
 The browser regression plays real decoded local media, injects a buffered `stalled` event, and continues for 22 seconds beyond that event. It verifies that the original media remains, the buffering indicator is absent, session time advances, and no replacement is consumed. The short test clip loops only inside the test to keep it playing beyond the watchdog deadline.
 
-The separate public-stream check used the unmodified `normal` fixture and no media interception or injected events. Chrome reported `canPlayType("application/vnd.apple.mpegurl") === "maybe"` and played the direct `.m3u8` URL. Its first real `stalled` event occurred at 3.42 seconds with `readyState === 4`; four more followed. The same `media-44445` was still playing at 35.10 seconds, the last persisted active counter was 34.16 seconds, and `usedReplacements` was empty. This verifies the native HLS browser path on Linux Chrome; it does not substitute for Safari or the reported macOS Electron environment. The event log and screenshot are under ignored `artifacts/runtime-fixes/`.
+The earlier runtime-fix public-stream check used the unmodified `normal` fixture and no media interception or injected events. Chrome reported `canPlayType("application/vnd.apple.mpegurl") === "maybe"` and played the direct `.m3u8` URL. Its first real `stalled` event occurred at 3.42 seconds with `readyState === 4`; four more followed. The same `media-44445` was still playing at 35.10 seconds, the last persisted active counter was 34.16 seconds, and `usedReplacements` was empty. This verifies the native HLS browser path on Linux Chrome; it does not substitute for Safari or the reported macOS Electron environment. The event log and screenshot are under ignored `artifacts/runtime-fixes/`.
 
 ## Automated coverage
 

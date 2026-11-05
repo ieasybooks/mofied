@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { Pause, Play, Volume2, VolumeX, ChevronUp } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import type { MediaItem } from "@mofied/contracts";
 import { copy, formatTime, type Locale } from "@mofied/design";
 import type { SessionController, SessionSnapshot } from "@mofied/session";
@@ -229,67 +229,59 @@ export function MediaPlayer({
         >
           {state.shouldPlay ? <Pause size={18} /> : <Play size={18} />}
         </button>
-        <div className="media-time" dir="ltr">
-          {formatTime(state.positionMs)} / {formatTime(duration)}
-        </div>
-        <div
-          className="media-progress"
-          role="progressbar"
-          aria-label={item.title}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.min(
-            100,
-            Math.round((state.positionMs / duration) * 100),
-          )}
-        >
-          <i
-            style={{
-              width: `${Math.min(100, (state.positionMs / duration) * 100)}%`,
-            }}
-          />
-        </div>
       </div>
-      <div className="metadata" dir="rtl">
-        <a
-          className="speaker"
-          href={item.speaker.pageUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {item.speaker.imageUrl && (
-            <img
-              src={item.speaker.imageUrl}
-              alt=""
-              onError={(event) => {
-                event.currentTarget.hidden = true;
-              }}
-            />
-          )}
-          <span>{item.speaker.name}</span>
-        </a>
-        <h1 className="media-title">
+      <div className="media-bottom">
+        <div className="metadata" dir="rtl">
           <a
-            href={item.pageUrl}
+            className="speaker"
+            href={item.speaker.pageUrl}
             target="_blank"
             rel="noopener noreferrer"
-            title={item.title}
           >
-            {item.title}
+            {item.speaker.imageUrl && (
+              <img
+                src={item.speaker.imageUrl}
+                alt=""
+                onError={(event) => {
+                  event.currentTarget.hidden = true;
+                }}
+              />
+            )}
+            <span>{item.speaker.name}</span>
           </a>
-        </h1>
-      </div>
-      <button
-        type="button"
-        className="mobile-sound round-button"
-        aria-label={state.muted ? t.soundOn : t.soundOff}
-        onClick={session.toggleMuted}
-      >
-        {state.muted ? <VolumeX size={21} /> : <Volume2 size={21} />}
-      </button>
-      <div className="swipe-hint" aria-hidden="true">
-        <ChevronUp size={18} />
-        <span>{t.swipe}</span>
+          <h1 className="media-title">
+            <a
+              href={item.pageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={item.title}
+            >
+              {item.title}
+            </a>
+          </h1>
+        </div>
+        <div className="media-timing">
+          <div className="media-time" dir="ltr">
+            {formatTime(state.positionMs)} / {formatTime(duration)}
+          </div>
+          <div
+            className="media-progress"
+            role="progressbar"
+            aria-label={item.title}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.min(
+              100,
+              Math.round((state.positionMs / duration) * 100),
+            )}
+          >
+            <i
+              style={{
+                width: `${Math.min(100, (state.positionMs / duration) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
       </div>
     </>
   );

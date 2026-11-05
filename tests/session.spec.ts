@@ -295,7 +295,7 @@ test("failed session responses show an error instead of silently playing fixture
   ).toHaveCount(0);
 });
 
-test("mobile browser layout clamps titles, supports swiping and has no extra transport toolbar", async ({
+test("mobile overlay keeps sound, tap and swipe navigation accessible without extra controls", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 800 });
@@ -306,7 +306,23 @@ test("mobile browser layout clamps titles, supports swiping and has no extra tra
       .evaluate((element) => getComputedStyle(element).webkitLineClamp),
   ).toBe("2");
   await expect(page.locator(".control-rail")).toBeHidden();
-  await page.mouse.move(180, 540);
+  const sound = page.getByRole("button", { name: "تشغيل الصوت", exact: true });
+  await expect(sound).toHaveCount(1);
+  await sound.click();
+  await expect(page.locator("video")).toHaveJSProperty("muted", false);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+
+  // The decorative fade must not intercept taps or swipes above the links.
+  const overlay = await page.locator(".media-bottom").boundingBox();
+  const gestureY = overlay!.y + 40;
+  await page.mouse.click(180, gestureY);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+  await page.getByRole("button", { name: "كتم الصوت", exact: true }).click();
+  await expect(page.locator("video")).toHaveJSProperty("muted", true);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+  await page.mouse.click(180, gestureY);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  await page.mouse.move(180, gestureY);
   await page.mouse.down();
   await page.mouse.move(180, 240, { steps: 8 });
   await page.mouse.up();
@@ -314,6 +330,9 @@ test("mobile browser layout clamps titles, supports swiping and has no extra tra
     "data-item-id",
     "reminder",
   );
+  await expect(
+    page.getByRole("button", { name: /^(تشغيل الصوت|كتم الصوت)$/ }),
+  ).toHaveCount(0);
   const overflowing = await page.evaluate(
     () => document.documentElement.scrollWidth > innerWidth,
   );

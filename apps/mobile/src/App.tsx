@@ -36,7 +36,6 @@ import {
   VolumeX,
   Play,
   Pause,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   X,
@@ -61,6 +60,35 @@ import { ContactLinks } from "./ContactLinks";
 
 const icon = require("../../../packages/design/assets/icons/icon-white-1024.png");
 const appIcon = require("../../../packages/design/assets/icons/app-icon-flat-dark-1024.png");
+const overlayFadeStops = [
+  0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1,
+] as const;
+const bottomFadeColors = [
+  "rgba(0, 0, 0, 0)",
+  "rgba(0, 0, 0, 0.017)",
+  "rgba(0, 0, 0, 0.064)",
+  "rgba(0, 0, 0, 0.134)",
+  "rgba(0, 0, 0, 0.218)",
+  "rgba(0, 0, 0, 0.31)",
+  "rgba(0, 0, 0, 0.402)",
+  "rgba(0, 0, 0, 0.486)",
+  "rgba(0, 0, 0, 0.556)",
+  "rgba(0, 0, 0, 0.603)",
+  "rgba(0, 0, 0, 0.62)",
+] as const;
+const topFadeColors = [
+  "rgba(0, 0, 0, 0.45)",
+  "rgba(0, 0, 0, 0.437)",
+  "rgba(0, 0, 0, 0.403)",
+  "rgba(0, 0, 0, 0.353)",
+  "rgba(0, 0, 0, 0.292)",
+  "rgba(0, 0, 0, 0.225)",
+  "rgba(0, 0, 0, 0.158)",
+  "rgba(0, 0, 0, 0.097)",
+  "rgba(0, 0, 0, 0.047)",
+  "rgba(0, 0, 0, 0.013)",
+  "rgba(0, 0, 0, 0)",
+] as const;
 const storageKey = `mofied.session.v1.${__DEV__ ? "development" : "production"}`;
 const open = (url: string) => {
   void Linking.openURL(url).catch(() => {});
@@ -257,14 +285,9 @@ function SessionView({
             state={state}
           />
           <LinearGradient
-            colors={["#00000066", "transparent"]}
-            style={styles.topScrim}
-            pointerEvents="none"
-          />
-          <LinearGradient
-            colors={["transparent", "#00000099", "#000000dd", "#000000ee"]}
-            locations={[0, 0.38, 0.64, 1]}
-            style={styles.bottomScrim}
+            colors={topFadeColors}
+            locations={overlayFadeStops}
+            style={[styles.topScrim, { height: insets.top + 110 }]}
             pointerEvents="none"
           />
           <View
@@ -284,77 +307,80 @@ function SessionView({
               else session.togglePlayback();
             }}
           />
-          <View style={[styles.metadata, { bottom: insets.bottom + 112 }]}>
-            <Pressable
-              style={styles.speaker}
-              accessibilityRole="link"
-              onPress={() => open(item.speaker.pageUrl)}
-            >
-              {item.speaker.imageUrl && (
-                <Image
-                  source={{ uri: item.speaker.imageUrl }}
-                  style={styles.portrait}
-                />
-              )}
-              <Text style={styles.speakerName}>{item.speaker.name}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => open(item.pageUrl)}
-            >
-              <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-                {item.title}
-              </Text>
-            </Pressable>
-          </View>
-          <Pressable
-            style={[
-              styles.circle,
-              styles.sound,
-              { bottom: insets.bottom + 44 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={state.muted ? t.soundOn : t.soundOff}
-            onPress={session.toggleMuted}
-            hitSlop={4}
-          >
-            {state.muted ? (
-              <VolumeX color="white" size={21} />
-            ) : (
-              <Volume2 color="white" size={21} />
-            )}
-          </Pressable>
           <View
-            style={[styles.swipe, { bottom: insets.bottom + 46 }]}
-            pointerEvents="none"
+            style={[styles.mediaBottom, { paddingBottom: insets.bottom + 16 }]}
+            pointerEvents="box-none"
+            testID="media-bottom"
           >
-            <ChevronUp size={18} color="#ffffffc4" />
-            <Text style={styles.swipeText}>{t.swipe}</Text>
-          </View>
-          <Text style={[styles.time, { bottom: insets.bottom + 44 }]}>
-            {formatTime(state.positionMs)} / {formatTime(item.durationMs)}
-          </Text>
-          <View
-            style={[styles.progress, { bottom: insets.bottom + 24 }]}
-            accessible
-            accessibilityRole="progressbar"
-            accessibilityValue={{
-              min: 0,
-              max: 100,
-              now: Math.min(
-                100,
-                Math.round((state.positionMs / item.durationMs) * 100),
-              ),
-            }}
-          >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${Math.min(100, (state.positionMs / item.durationMs) * 100)}%`,
-                },
-              ]}
+            <LinearGradient
+              colors={bottomFadeColors}
+              locations={overlayFadeStops}
+              style={styles.bottomFeather}
+              pointerEvents="none"
             />
+            <LinearGradient
+              colors={["rgba(0, 0, 0, 0.62)", "rgba(0, 0, 0, 0.68)"]}
+              style={styles.bottomScrim}
+              pointerEvents="none"
+            />
+            <View pointerEvents="box-none">
+              <Pressable
+                style={styles.speaker}
+                accessibilityRole="link"
+                onPress={() => open(item.speaker.pageUrl)}
+              >
+                {item.speaker.imageUrl && (
+                  <Image
+                    source={{ uri: item.speaker.imageUrl }}
+                    style={styles.portrait}
+                  />
+                )}
+                <Text style={[styles.speakerName, styles.overlayTextShadow]}>
+                  {item.speaker.name}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => open(item.pageUrl)}
+              >
+                <Text
+                  style={[styles.title, styles.overlayTextShadow]}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  {item.title}
+                </Text>
+              </Pressable>
+            </View>
+            <Text
+              style={[styles.time, styles.overlayTextShadow]}
+              pointerEvents="none"
+            >
+              {formatTime(state.positionMs)} / {formatTime(item.durationMs)}
+            </Text>
+            <View
+              style={styles.progress}
+              pointerEvents="none"
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityValue={{
+                min: 0,
+                max: 100,
+                now: Math.min(
+                  100,
+                  Math.round((state.positionMs / item.durationMs) * 100),
+                ),
+              }}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${Math.min(100, (state.positionMs / item.durationMs) * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
           </View>
           {state.status === "paused" && !state.aboutOpen && (
             <View pointerEvents="none" style={styles.center}>
@@ -462,19 +488,41 @@ function SessionView({
         style={[styles.header, { top: insets.top + 18 }]}
         pointerEvents="box-none"
       >
-        <Pressable
-          style={styles.circle}
-          onPress={session.openAbout}
-          accessibilityRole="button"
-          accessibilityLabel={t.info}
-          hitSlop={4}
-        >
-          <Info size={21} color="white" />
-        </Pressable>
+        <View style={styles.headerControls} pointerEvents="box-none">
+          <Pressable
+            style={styles.circle}
+            onPress={session.openAbout}
+            accessibilityRole="button"
+            accessibilityLabel={t.info}
+            hitSlop={4}
+          >
+            <Info size={21} color="white" />
+          </Pressable>
+          {item?.kind === "media" && (
+            <Pressable
+              style={styles.circle}
+              accessibilityRole="button"
+              accessibilityLabel={state.muted ? t.soundOn : t.soundOff}
+              onPress={session.toggleMuted}
+              hitSlop={4}
+            >
+              {state.muted ? (
+                <VolumeX color="white" size={21} />
+              ) : (
+                <Volume2 color="white" size={21} />
+              )}
+            </Pressable>
+          )}
+        </View>
         {item && (
           <View style={styles.budget}>
             <Clock3 size={15} color="#f5f5f5" />
-            <Text style={styles.budgetText}>
+            <Text
+              style={[
+                styles.budgetText,
+                { fontFamily: locale === "ar" ? "NotoNaskhUI" : "Gilroy" },
+              ]}
+            >
               {remainingLabel(state.remainingMs, locale)}
             </Text>
           </View>
@@ -704,10 +752,17 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   startupMark: { width: 64, height: 64 },
-  topScrim: { position: "absolute", top: 0, left: 0, right: 0, height: "30%" },
+  topScrim: { position: "absolute", top: 0, left: 0, right: 0 },
+  bottomFeather: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
   bottomScrim: {
     position: "absolute",
-    top: "30%",
+    top: 80,
     bottom: 0,
     left: 0,
     right: 0,
@@ -720,6 +775,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  headerControls: { flexDirection: "row", alignItems: "center", gap: 12 },
   circle: {
     width: 44,
     height: 44,
@@ -742,8 +798,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#00000099",
   },
   budgetText: { fontFamily: "NotoNaskhUI", fontSize: 14, color: colors.text },
-  metadata: { position: "absolute", left: 24, right: 24, gap: 6 },
-  speaker: { flexDirection: "row-reverse", alignItems: "center", gap: 9 },
+  mediaBottom: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 80,
+    paddingHorizontal: 20,
+  },
+  speaker: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 9,
+    minHeight: 44,
+  },
   portrait: {
     width: 30,
     height: 30,
@@ -754,6 +822,7 @@ const styles = StyleSheet.create({
   speakerName: {
     fontFamily: "NotoNaskhUI",
     fontSize: 16,
+    lineHeight: 24,
     color: "#e2e2e2",
     flexShrink: 1,
     textAlign: "right",
@@ -767,23 +836,24 @@ const styles = StyleSheet.create({
     textAlign: "right",
     writingDirection: "rtl",
   },
-  sound: { position: "absolute", left: 20, backgroundColor: "#ffffff08" },
-  swipe: { position: "absolute", left: 76, right: 76, alignItems: "center" },
-  swipeText: { fontFamily: "NotoNaskhUI", fontSize: 13, color: "#ffffffc4" },
+  overlayTextShadow: {
+    textShadowColor: "rgba(0, 0, 0, 0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
+  },
   time: {
-    position: "absolute",
-    right: 20,
     fontFamily: "Gilroy",
     fontSize: 13,
+    lineHeight: 16,
+    textAlign: "right",
+    marginTop: 4,
     color: "#f0f0f0",
     writingDirection: "ltr",
     fontVariant: ["tabular-nums"],
   },
   progress: {
-    position: "absolute",
     height: 2,
-    left: 20,
-    right: 20,
+    marginTop: 10,
     backgroundColor: "#ffffff38",
   },
   progressFill: { height: 2, backgroundColor: "white" },

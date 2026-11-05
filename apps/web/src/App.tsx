@@ -205,14 +205,26 @@ function SessionView({
         }}
       >
         <header className="session-header">
-          <button
-            type="button"
-            className="info-button round-button"
-            aria-label={t.info}
-            onClick={session.openAbout}
-          >
-            <Info size={21} />
-          </button>
+          <div className="header-controls">
+            <button
+              type="button"
+              className="info-button round-button"
+              aria-label={t.info}
+              onClick={session.openAbout}
+            >
+              <Info size={21} />
+            </button>
+            {item?.kind === "media" && (
+              <button
+                type="button"
+                className="mobile-sound round-button"
+                aria-label={state.muted ? t.soundOn : t.soundOff}
+                onClick={session.toggleMuted}
+              >
+                {state.muted ? <VolumeX size={21} /> : <Volume2 size={21} />}
+              </button>
+            )}
+          </div>
           <div className="brand-budget">
             <img className="header-mark" src={logo} alt={t.name} />
             {item && (
