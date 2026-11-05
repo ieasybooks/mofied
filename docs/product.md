@@ -42,7 +42,7 @@ Web uses tab-scoped `sessionStorage`; native uses local AsyncStorage. Both save 
 
 An API error remains an error and offers retry; it never silently substitutes a fixture. Info/privacy stay accessible before a session loads. Requests time out after 15 seconds.
 
-A media error first consumes one server-supplied replacement, preserving the following reminder slot. Without a spare, the controller advances within the existing plan until the consecutive-failure cap or last item, then shows retry. Buffering has a 20-second watchdog while playback is intended. OS interruptions and explicit pauses do not run that watchdog.
+A media error first consumes one server-supplied replacement, preserving the following reminder slot. Without a spare, the controller advances within the existing plan until the consecutive-failure cap or last item, then shows retry. Twenty seconds without playback progress triggers recovery while playback is intended. OS interruptions and explicit pauses do not run that watchdog. Native buffering callbacks preserve play intent; they do not imply browser-style autoplay denial.
 
 ## Before public launch
 

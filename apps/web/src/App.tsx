@@ -230,7 +230,9 @@ function SessionView({
             {item && (
               <div className="budget">
                 <Clock3 className="budget-clock" size={16} />
-                <span>{remainingLabel(state.remainingMs, locale)}</span>
+                <span dir={locale === "ar" ? "rtl" : "ltr"}>
+                  {remainingLabel(state.remainingMs, locale)}
+                </span>
                 <div className="budget-line">
                   <i
                     style={{

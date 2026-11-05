@@ -111,6 +111,50 @@ test("opens directly into playback; About pauses and restores the same position 
   await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
 });
 
+test("English remaining time reads number-first on desktop and phone, including behind Info", async ({
+  page,
+}) => {
+  const session = plan();
+  session.policy.maxActiveMs = 480_000;
+  await start(page, session);
+  await page.getByRole("button", { name: "عن التطبيق", exact: true }).click();
+  await page.getByRole("button", { name: /اللغة/ }).click();
+  await page.evaluate(() => document.fonts.ready);
+  const label = page.locator(".budget > span");
+  const checkOrder = async () => {
+    await expect(label).toHaveText("8 minutes left");
+    const positions = await label.evaluate((element) => {
+      const text = element.textContent!;
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let offset = 0;
+      const positions: Record<string, number> = {};
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        for (const token of ["8", "minutes left"]) {
+          const index = text.indexOf(token) - offset;
+          if (index >= 0 && index + token.length <= node.textContent!.length) {
+            const range = document.createRange();
+            range.setStart(node, index);
+            range.setEnd(node, index + token.length);
+            positions[token] = range.getBoundingClientRect().x;
+          }
+        }
+        offset += node.textContent!.length;
+      }
+      return positions;
+    });
+    expect(positions["8"]).toBeLessThan(positions["minutes left"]!);
+  };
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    await checkOrder();
+  }
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await checkOrder();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await checkOrder();
+});
+
 test("media ends into the ordered reminder, which cannot be skipped; ends quietly after the last media", async ({
   page,
 }) => {
