@@ -1,0 +1,70 @@
+{
+  "purpose": "Approved product design and behavior baseline for implementation.",
+  "precedence": [
+    "Latest visual correction: remove the Faqieh attribution line beneath media titles; design otherwise approved",
+    "Latest visual correction: icon-only desktop Info; exact Faqieh fonts, Thmanyah titles and Noto Naskh UI",
+    "Latest user correction: no repeat-session action and no added player controls",
+    "Latest explicit user behavior choices",
+    "Approved tmp/shorts-stack-review/mockups screens plus speaker-portrait and Faqieh-link additions",
+    "Supplied brand kit visual assets/type/colors only; its UX examples are not product requirements",
+    "Earlier assistant suggestions are not user approvals"
+  ],
+  "userCorrection": "Look the branding has things we didn’t agree on like repeat the session for example and the extra controls in the player. Work with opus 5.5 xhigh to adapt the branding to our initial decisions and screen designs, then show me how it will look.",
+  "approvedReferenceImages": [
+    "web.png",
+    "native.png",
+    "ending.png",
+    "long-title.png"
+  ],
+  "shared": [
+    "Direct-to-player; no homepage, account, social actions or catalog screen",
+    "Small persistent About access with privacy, support, sources/licenses, language and version",
+    "Remaining session time; keep timer from the original designs, not a 3-of-8 item counter",
+    "Speaker name and 28-32px circular portrait when available; missing portrait gives name alone",
+    "Title opens the actual Faqieh media page; speaker name/portrait opens actual speaker page",
+    "Full title from Rails; clamp two lines on native, three on web with ellipsis if necessary; no media-details sheet and no more button",
+    "About pauses media/reminder and returns to same position, preserving explicit pause intent",
+    "Finite ending with reflection; no replay, restart, new-session, continue-watching or home CTA in these mockups",
+    "No library attribution line below media titles"
+  ],
+  "native": [
+    "Same iOS/Android interface, platform-appropriate safe areas",
+    "Full-height media, overlay speaker/title near bottom",
+    "Swipe vertically to navigate; tap media to pause/resume",
+    "One small sound control, thin media progress and elapsed/total time",
+    "Info at upper left and remaining-time pill at upper right, as approved mockup",
+    "No fixed central transport row, fullscreen button, PiP/cast buttons or bottom previous/next toolbar",
+    "Background/lock pauses media/reminder/session timing; no PiP or background audio"
+  ],
+  "web": [
+    "Centered portrait viewer with metadata in right side column and slim vertical arrows/sound rail on the left",
+    "Small pause control and thin progress inside player; original keyboard hint remains",
+    "Icon-only Info at upper left (accessible name “عن التطبيق”); Mofied icon and remaining-time block at upper right",
+    "Switching browser tabs continues media, reminder countdown and session timing, subject to browser suspension",
+    "Responsive narrow browser layout shares the simple mobile presentation; no new controls"
+  ],
+  "reminder": [
+    "Rails chooses exact ordered position, text and duration; do not invent cadence/count client side",
+    "Text screen with source/citation, remaining session time, About, countdown and pause/resume-reading control from original approved design",
+    "No previous/next buttons or new skip button during pending reminder",
+    "No reminder videos",
+    "Sample scripture and timings are illustrative; not new fixed product limits"
+  ],
+  "interruptions": [
+    "Control Center/notification drawer alone does not pause",
+    "After calls resume only if active beforehand and platform allows; prior manual pause wins"
+  ],
+  "branding": [
+    "Use supplied standalone meem/play icon unchanged in this UI pass",
+    "Use supplied monochrome neutral tokens; no teal/indigo/orange from rejected explorations",
+    "Thmanyah Serif Display 500 for titles; NotoNaskhArabicUI 400–700 for Arabic UI; Gilroy 400/500/700 for Latin and timers; Kitab 400 for Quran text. Exact Faqieh WOFF2 files.",
+    "Small icon in desktop header, About/end and app icons; do not add header clutter on native",
+    "Use media / مادة / مواد in user-visible copy"
+  ],
+  "notToFreeze": [
+    "20-minute limit, countdown total and displayed remaining minutes are example values until supplied by session API",
+    "Native return-to-app resume policy was proposed earlier but is not necessary to settle for static visual mockups",
+    "No adoption of latest assistant suggestions for extra next/skip/reminder controls, new-session CTA or other new behaviors"
+  ],
+  "designStatus": "Approved after removing the Faqieh attribution line, per the latest user instruction."
+}

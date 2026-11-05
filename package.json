@@ -1,0 +1,43 @@
+{
+  "name": "mofied",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --cwd apps/web dev",
+    "dev:mobile": "bun run --cwd apps/mobile start",
+    "build": "bun run --cwd apps/web build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/mobile/tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "bun run typecheck && bun run test && bun run build",
+    "mobile:export": "bun run --cwd apps/mobile export",
+    "contract:generate": "bun scripts/generate-contract.ts",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "@types/node": "^24.0.0",
+    "vitest": "^5.0.5",
+    "@playwright/test": "^1.60.0",
+    "prettier": "^3.6.0",
+    "zod": "^4.0.0",
+    "@mofied/contracts": "workspace:*",
+    "@mofied/session": "workspace:*",
+    "@mofied/fixtures": "workspace:*",
+    "@mofied/design": "workspace:*"
+  },
+  "trustedDependencies": [
+    "esbuild"
+  ],
+  "patchedDependencies": {
+    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch"
+  }
+}

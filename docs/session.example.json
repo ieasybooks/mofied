@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "id": "development-normal-v1",
+  "locale": "ar",
+  "expiresAt": null,
+  "policy": {
+    "maxActiveMs": 600000,
+    "limitBehavior": "finish-current-item",
+    "maxConsecutiveFailures": 3
+  },
+  "items": [
+    {
+      "kind": "media",
+      "id": "media-44445",
+      "mediaId": "44445",
+      "title": "أوقات زكاة الفطر خمسةٌ",
+      "pageUrl": "https://faqieh.com/ar/media/44445",
+      "posterUrl": "https://files.faqieh.com/4tv0u4djxyoxh0zwaiugzn0zzs2p",
+      "durationMs": 167000,
+      "playback": {
+        "url": "https://shorts.faqieh.com/youtube/-82_bOv1QMg/master.m3u8",
+        "mimeType": "application/vnd.apple.mpegurl"
+      },
+      "speaker": {
+        "id": "6",
+        "name": "لبيب نجيب عبدالله",
+        "pageUrl": "https://faqieh.com/ar/speakers/6",
+        "imageUrl": "https://files.faqieh.com/phqguw772yfgw4jimohz74l49c15"
+      }
+    },
+    {
+      "kind": "reminder",
+      "id": "reminder-ash-sharh",
+      "durationMs": 20000,
+      "content": {
+        "kind": "quran",
+        "body": "فَإِذَا فَرَغْتَ فَٱنصَبْ ﴿٧﴾\nوَإِلَىٰ رَبِّكَ فَٱرْغَب ﴿٨﴾",
+        "citation": "سورة الشرح، الآيتان ٧–٨",
+        "source": "Tanzil"
+      }
+    },
+    {
+      "kind": "media",
+      "id": "media-48193",
+      "mediaId": "48193",
+      "title": "معاني سورة الشرح | الشيخ صالح العصيمي",
+      "pageUrl": "https://faqieh.com/ar/media/48193",
+      "posterUrl": "https://files.faqieh.com/fhab8822xmw3oaxbyq988m6xcnvx",
+      "durationMs": 146000,
+      "playback": {
+        "url": "https://shorts.faqieh.com/youtube/6ZzO7OTUm34/master.m3u8",
+        "mimeType": "application/vnd.apple.mpegurl"
+      },
+      "speaker": {
+        "id": "12",
+        "name": "صالح العصيمي",
+        "pageUrl": "https://faqieh.com/ar/speakers/12",
+        "imageUrl": "https://files.faqieh.com/c6olwno5j3sgmfqy172sh28ygcmr"
+      }
+    }
+  ],
+  "replacements": [
+    {
+      "kind": "media",
+      "id": "replacement-781",
+      "mediaId": "781",
+      "title": "همة عالية، عالم مالكي ينظم الفقه في 17 ألف بيتٍ ا الشيخ محمد سالم بحيري",
+      "pageUrl": "https://faqieh.com/ar/media/781",
+      "posterUrl": "https://files.faqieh.com/6ncrupocg5ox8qv0yfmhxdjtem5s",
+      "durationMs": 170000,
+      "playback": {
+        "url": "https://shorts.faqieh.com/youtube/x9NlGtFs6LI/master.m3u8",
+        "mimeType": "application/vnd.apple.mpegurl"
+      },
+      "speaker": {
+        "id": "5",
+        "name": "محمد سالم بحيري",
+        "pageUrl": "https://faqieh.com/ar/speakers/5",
+        "imageUrl": "https://files.faqieh.com/6kzfcw42760sx202dmk1jjkvplqe"
+      }
+    }
+  ],
+  "ending": {
+    "title": "حان وقت التوقّف",
+    "body": "خذ لحظةً للتأمّل، ثم اعمل بشيء مما تعلّمته؛ بصلاة، أو مساعدة أحد، أو نشر فائدة."
+  }
+}

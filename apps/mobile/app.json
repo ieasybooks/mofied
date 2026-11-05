@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "مفيد",
+    "slug": "mofied",
+    "scheme": "mofied",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "../../packages/design/assets/icons/app-icon-flat-dark-1024.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mofied.app",
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "com.mofied.app",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ],
+      "expo-font",
+      "expo-asset"
+    ],
+    "web": {
+      "bundler": "metro",
+      "favicon": "../../packages/design/assets/icons/app-icon-flat-dark-1024.png"
+    }
+  }
+}
