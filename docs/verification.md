@@ -2,18 +2,18 @@
 
 Local checks on 2026-11-05. This report distinguishes application tests, native compilation and OS/device behavior.
 
-| Check                                                        | Result                                                                           |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Strict TypeScript: web, shared packages, native              | Passed                                                                           |
-| Contract + session-controller tests                          | 16 passed                                                                        |
-| Browser integration tests                                    | 6 passed in headed Chrome under Xvfb                                             |
-| Web production build                                         | Passed                                                                           |
-| Expo production export: Android, iOS, web preview            | Passed, including Hermes bundles                                                 |
-| Android debug APK, including source-built patched expo-video | Passed                                                                           |
-| Production fixture exclusion                                 | No fixture catalog markers or R2 fixture URLs in web JS or native Hermes exports |
-| Real public R2 HLS playback                                  | Observed advancing in web and Expo browser preview                               |
-| Android installed-app lifecycle                              | Pending; software emulator available, installation/runtime checks in progress    |
-| iOS native compilation/runtime                               | Not locally verified; this Linux host has no Xcode                               |
+| Check                                                        | Result                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Strict TypeScript: web, shared packages, native              | Passed                                                                                                             |
+| Contract + session-controller tests                          | 16 passed                                                                                                          |
+| Browser integration tests                                    | 6 passed in headed Chrome under Xvfb                                                                               |
+| Web production build                                         | Passed                                                                                                             |
+| Expo production export: Android, iOS, web preview            | Passed, including Hermes bundles                                                                                   |
+| Android debug APK, including source-built patched expo-video | Passed                                                                                                             |
+| Production fixture exclusion                                 | No fixture catalog markers or R2 fixture URLs in web JS or native Hermes exports                                   |
+| Real public R2 HLS playback                                  | Observed advancing in web and Expo browser preview                                                                 |
+| Android installed-app lifecycle                              | APK installed; software emulator repeatedly reports system/launcher ANRs, so lifecycle verification is not counted |
+| iOS native compilation/runtime                               | Not locally verified; this Linux host has no Xcode                                                                 |
 
 ## Automated coverage
 
@@ -37,4 +37,6 @@ Use installed development builds with the Expo interruption patch, then repeat o
 6. Disconnect network, restore it, and exercise finite recovery/retry. Relaunch an in-progress session and check paused restoration; an ended session must not resurrect.
 7. Verify VoiceOver/TalkBack, font scaling, small devices/tablets, and actual Safari/iOS browser autoplay and tab policies.
 
-CI contains web/shared checks plus separate Android and unsigned iOS simulator build jobs. Build success does not replace the physical interruption and audio-routing pass.
+CI contains web/shared checks plus separate Android and unsigned iOS simulator build jobs. The first GitHub run could not start any jobs: GitHub reported “recent account payments have failed or your spending limit needs to be increased.” This is an account runner block, not a test result. Resolve it in Billing & plans and rerun the workflow. The iOS compilation job has therefore not run.
+
+Build success does not replace the physical interruption and audio-routing pass.
