@@ -141,7 +141,7 @@ export function About({
               <span>{t.language}</span>
             </span>
             <span className="row-trail">
-              {locale === "ar" ? "العربية" : "English"}
+              <bdi>{locale === "ar" ? "العربية" : "English"}</bdi>
               {locale === "ar" ? (
                 <ChevronLeft size={18} />
               ) : (

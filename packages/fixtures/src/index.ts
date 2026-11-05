@@ -52,7 +52,7 @@ export function fixture(name: FixtureName = "normal"): SessionPlan {
         content: {
           kind: "quran",
           body: "فَإِذَا فَرَغْتَ فَٱنصَبْ ﴿٧﴾\nوَإِلَىٰ رَبِّكَ فَٱرْغَب ﴿٨﴾",
-          citation: "سورة الشرح، الآيتان ٧–٨",
+          citation: "سورة الشرح، الآيتان ٧ - ٨",
           source: "Tanzil",
         },
       },

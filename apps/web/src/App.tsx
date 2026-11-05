@@ -15,6 +15,7 @@ import {
   copy,
   remainingLabel,
   countdownLabel,
+  formatCitation,
   type Locale,
 } from "@mofied/design";
 import logo from "@mofied/design/assets/icons/icon-white.svg";
@@ -288,7 +289,7 @@ function SessionView({
               </p>
               <div className="text-rule" />
               <p className="citation" dir="rtl">
-                {item.content.citation}
+                {formatCitation(item.content.citation)}
               </p>
             </div>
             <div className="reminder-bottom">
@@ -315,11 +316,6 @@ function SessionView({
                 {state.wantsToPlay ? <Pause size={18} /> : <Play size={18} />}
                 <span>{state.wantsToPlay ? t.pauseRead : t.resumeRead}</span>
               </button>
-              <p className="quran-source">
-                {item.content.kind === "quran"
-                  ? t.textSource
-                  : item.content.source}
-              </p>
             </div>
           </section>
         )}

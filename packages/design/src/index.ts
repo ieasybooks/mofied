@@ -44,7 +44,6 @@ const ar = {
   reflection: "تذكير",
   pauseRead: "أوقف العدّ لمواصلة القراءة",
   resumeRead: "متابعة العدّ",
-  textSource: "نص المصحف: Tanzil",
   back: "رجوع",
   aboutBody: "مفيد مساحة لمواد نافعة وجلسات محدودة، تتخلّلها لحظات للتأمّل.",
   privacyBody:
@@ -86,7 +85,6 @@ const en: Record<keyof typeof ar, string> = {
   reflection: "Reminder",
   pauseRead: "Pause the countdown to read",
   resumeRead: "Resume countdown",
-  textSource: "Quran text: Tanzil",
   back: "Back",
   aboutBody:
     "Mofied offers useful media in finite sessions, with moments to reflect.",
@@ -99,22 +97,59 @@ const en: Record<keyof typeof ar, string> = {
   offline: "You are currently offline",
 };
 export const copy = { ar, en };
+const numberFormatters = {
+  ar: new Intl.NumberFormat("ar-u-nu-arab"),
+  en: new Intl.NumberFormat("en"),
+};
+const arabicPlurals = new Intl.PluralRules("ar");
+
+function arabicCount(
+  value: number,
+  forms: { one: string; two: string; few: string; other: string },
+) {
+  const plural = arabicPlurals.select(value);
+  if (plural === "one") return forms.one;
+  if (plural === "two") return forms.two;
+  return `${numberFormatters.ar.format(value)} ${plural === "few" ? forms.few : forms.other}`;
+}
+
 export function formatTime(milliseconds: number) {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 export function remainingLabel(ms: number, locale: Locale) {
   const minutes = Math.ceil(Math.max(0, ms) / 60_000);
-  const number = new Intl.NumberFormat(
-    locale === "ar" ? "ar-u-nu-arab" : "en",
-  ).format(minutes);
-  return locale === "ar" ? `بقي ${number} دقيقة` : `${number} min left`;
+  if (locale === "en")
+    return `${numberFormatters.en.format(minutes)} ${minutes === 1 ? "minute" : "minutes"} left`;
+  if (minutes === 0) return "لم يتبقّ وقت";
+  return `بقيت ${arabicCount(minutes, {
+    one: "دقيقة واحدة",
+    two: "دقيقتان",
+    few: "دقائق",
+    other: "دقيقة",
+  })}`;
 }
 export function countdownLabel(ms: number, locale: Locale) {
-  const seconds = new Intl.NumberFormat(
-    locale === "ar" ? "ar-u-nu-arab" : "en",
-  ).format(Math.ceil(Math.max(0, ms) / 1000));
-  return locale === "ar"
-    ? `تُستأنف المواد بعد ${seconds} ثوانٍ`
-    : `Media resumes in ${seconds}s`;
+  const seconds = Math.ceil(Math.max(0, ms) / 1000);
+  if (seconds === 0)
+    return locale === "ar" ? "تُستأنف المواد الآن" : "Media resumes now";
+  if (locale === "en")
+    return `Media resumes in ${numberFormatters.en.format(seconds)} ${seconds === 1 ? "second" : "seconds"}`;
+  return `تُستأنف المواد بعد ${arabicCount(seconds, {
+    one: "ثانية واحدة",
+    two: "ثانيتين",
+    few: "ثوانٍ",
+    other: "ثانية",
+  })}`;
+}
+
+/** Keep numeric citation ranges in their supplied order inside RTL text. */
+export function formatCitation(citation: string) {
+  return citation.replace(
+    /[0-9٠-٩۰-۹]+(?:\s*[-–—]\s*[0-9٠-٩۰-۹]+)+/g,
+    // Arabic-Indic digits resolve a neutral hyphen as RTL even inside an LTR
+    // isolate. Direction marks around the separator preserve the range order.
+    (range) =>
+      `\u2066${range.replace(/\s*[-–—]\s*/g, "\u200E - \u200E")}\u2069`,
+  );
 }

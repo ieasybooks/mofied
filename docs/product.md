@@ -9,6 +9,8 @@ This is the behavior baseline for the initial implementation. The approved desig
 - Desktop has a slim previous/next/sound rail, small pause control and keyboard navigation. Native has swipe navigation, tap-to-pause, one sound button, time/progress and Info.
 - Rails orders all media and reminders, including text and duration. The client does not choose a cadence, shuffle the catalog, or download the catalog.
 - A pending reminder cannot be skipped. Pause-to-read stops its countdown. A consumed reminder does not repeat when navigating backward then forward.
+- Reminder screens show the citation without Quran/hadith text-source footnotes. Numeric citation ranges use a plain hyphen with spaces and keep their order in RTL text. Timer labels use Arabic singular/dual/plural forms and English singular/plural forms.
+- The language row places the selected language before the trailing arrow in the current UI reading direction.
 - Finite ending with reflection and Info. No restart, new-session or replay action. About at the ending has no “continue watching” button.
 
 ## Playback and timing

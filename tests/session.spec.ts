@@ -42,8 +42,8 @@ const plan = (durationMs = 2000): SessionPlan => ({
       content: {
         kind: "text",
         body: "لحظة للتأمّل والعمل بما تعلّمت.",
-        citation: "تذكير",
-        source: "",
+        citation: "الأحاديث ١٠–١٢",
+        source: "Reminder text source",
       },
     },
     media("last"),
@@ -134,6 +134,23 @@ test("media ends into the ordered reminder, which cannot be skipped; ends quietl
   const remaining = await page
     .getByRole("progressbar")
     .getAttribute("aria-valuenow");
+  await expect(
+    page.getByText("Reminder text source", { exact: true }),
+  ).toHaveCount(0);
+  const reference = await page.locator(".citation").evaluate((element) => {
+    const node = element.firstChild!;
+    const text = node.textContent!;
+    const positions = ["١٠", "١٢"].map((number) => {
+      const start = text.indexOf(number);
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + number.length);
+      return range.getBoundingClientRect().x;
+    });
+    return { text: text.replace(/[\u200E\u2066\u2069]/g, ""), positions };
+  });
+  expect(reference.text).toBe("الأحاديث ١٠ - ١٢");
+  expect(reference.positions[0]).toBeLessThan(reference.positions[1]!);
   await page.waitForTimeout(900);
   expect(
     await page.getByRole("progressbar").getAttribute("aria-valuenow"),

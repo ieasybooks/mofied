@@ -5,7 +5,7 @@ Local checks on 2026-11-05. This report distinguishes application tests, native 
 | Check                                                        | Result                                                                                                             |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | Strict TypeScript: web, shared packages, native              | Passed                                                                                                             |
-| Contract + session-controller tests                          | 16 passed                                                                                                          |
+| Contract, session and timer-label tests                      | 20 passed                                                                                                          |
 | Browser integration tests                                    | 6 passed in headed Chrome under Xvfb                                                                               |
 | Web production build                                         | Passed                                                                                                             |
 | Expo production export: Android, iOS, web preview            | Passed, including Hermes bundles                                                                                   |
@@ -19,7 +19,9 @@ Local checks on 2026-11-05. This report distinguishes application tests, native 
 
 The shared tests cover advancing media time, buffering, pause, seek jumps, stale callbacks, hidden-tab delayed progress, ordered non-skippable reminders, countdown overshoot, pause-to-read, consumed reminders, About, native background intent, interruption resumption permission, the finish-current-item budget, bounded replacements, natural endings and paused restoration. Contract tests cover fixtures, identity/URL/version/expiry validation, API failures and request timeouts.
 
-The browser tests exercise actual HTML media playback, About and privacy, manual pause preservation, reminder completion and ending, replacement media, API failure without fixtures, title clamping and swipe navigation.
+The browser tests exercise actual HTML media playback, About and privacy, manual pause preservation, reminder completion and ending, replacement media, API failure without fixtures, title clamping and swipe navigation. They also check plain-hyphen citation ranges in actual rendered left-to-right number order within Arabic text and the absence of reminder source footnotes.
+
+The reminder UI correction pass additionally verified Arabic/English countdown and minute plurals, including dual forms and plural-rule boundaries. Arabic and English web/native-layout screenshots confirm the selected language comes before the trailing arrow. Native layout verification uses the Expo browser preview; platform runtime limitations below still apply.
 
 One browser test deliberately attaches to a raw Chrome process with Playwright's default focus emulation disabled. It verifies `document.visibilityState === 'hidden'`, advancing media position, reminder countdown and subsequent media playback after a user gesture enables sound. A synthetic visibility event is not used as proof of background playback. Chrome's untouched-muted-autoplay suspension remains a browser restriction, reflected in the UI.
 

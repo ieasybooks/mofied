@@ -50,6 +50,7 @@ import {
   copy,
   remainingLabel,
   countdownLabel,
+  formatCitation,
   formatTime,
   type Locale,
 } from "@mofied/design";
@@ -411,7 +412,9 @@ function SessionView({
               {item.content.body}
             </Text>
             <View style={styles.rule} />
-            <Text style={styles.citation}>{item.content.citation}</Text>
+            <Text style={styles.citation}>
+              {formatCitation(item.content.citation)}
+            </Text>
           </View>
           <View style={[styles.reminderBottom, { bottom: insets.bottom + 40 }]}>
             <Text style={styles.countdown}>
@@ -441,11 +444,6 @@ function SessionView({
                 {state.wantsToPlay ? t.pauseRead : t.resumeRead}
               </Text>
             </Pressable>
-            <Text style={styles.source}>
-              {item.content.kind === "quran"
-                ? t.textSource
-                : item.content.source}
-            </Text>
           </View>
         </>
       )}
@@ -523,6 +521,10 @@ function About({
     sources: t.sourcesBody,
   };
   const Chevron = locale === "ar" ? ChevronLeft : ChevronRight;
+  const rowDirection = {
+    flexDirection:
+      locale === "ar" ? ("row-reverse" as const) : ("row" as const),
+  };
   return (
     <Modal
       visible={visible}
@@ -598,11 +600,11 @@ function About({
                 {rows.map(([Icon, key]) => (
                   <Pressable
                     key={key}
-                    style={styles.aboutRow}
+                    style={[styles.aboutRow, rowDirection]}
                     onPress={() => setPage(key)}
                     accessibilityRole="button"
                   >
-                    <View style={styles.rowLead}>
+                    <View style={[styles.rowLead, rowDirection]}>
                       <Icon size={20} color="#aaa" />
                       <Text style={styles.rowText}>{t[key]}</Text>
                     </View>
@@ -610,19 +612,19 @@ function About({
                   </Pressable>
                 ))}
                 <Pressable
-                  style={styles.aboutRow}
+                  style={[styles.aboutRow, rowDirection]}
                   onPress={() => setLocale(locale === "ar" ? "en" : "ar")}
                   accessibilityRole="button"
                 >
-                  <View style={styles.rowLead}>
+                  <View style={[styles.rowLead, rowDirection]}>
                     <Globe size={20} color="#aaa" />
                     <Text style={styles.rowText}>{t.language}</Text>
                   </View>
-                  <View style={styles.rowLead}>
-                    <Chevron size={18} color="#888" />
+                  <View style={[styles.rowLead, rowDirection]}>
                     <Text style={styles.aboutSubtitle}>
                       {locale === "ar" ? "العربية" : "English"}
                     </Text>
+                    <Chevron size={18} color="#888" />
                   </View>
                 </Pressable>
               </View>
@@ -854,13 +856,6 @@ const styles = StyleSheet.create({
     gap: 9,
     paddingHorizontal: 18,
     backgroundColor: "#ffffff05",
-  },
-  source: {
-    fontFamily: "NotoNaskhUI",
-    fontSize: 13,
-    color: "#a3a3a3",
-    textAlign: "center",
-    marginTop: 18,
   },
   ending: {
     flex: 1,

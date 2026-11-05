@@ -1,6 +1,7 @@
 {
   "purpose": "Approved product design and behavior baseline for implementation.",
   "precedence": [
+    "Latest corrections: no Quran/hadith source footnotes on reminders; plain hyphen between citation numbers; selected language before trailing arrow; localized timer plurals",
     "Latest visual correction: remove the Faqieh attribution line beneath media titles; design otherwise approved",
     "Latest visual correction: icon-only desktop Info; exact Faqieh fonts, Thmanyah titles and Noto Naskh UI",
     "Latest user correction: no repeat-session action and no added player controls",
@@ -45,7 +46,7 @@
   ],
   "reminder": [
     "Rails chooses exact ordered position, text and duration; do not invent cadence/count client side",
-    "Text screen with source/citation, remaining session time, About, countdown and pause/resume-reading control from original approved design",
+    "Text screen with citation, remaining session time, About, countdown and pause/resume-reading control; no Quran/hadith text-source footnotes",
     "No previous/next buttons or new skip button during pending reminder",
     "No reminder videos",
     "Sample scripture and timings are illustrative; not new fixed product limits"

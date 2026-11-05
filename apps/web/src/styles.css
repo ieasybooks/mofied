@@ -434,11 +434,6 @@ kbd {
 .reading-button:hover {
   background: #ffffff0d;
 }
-.quran-source {
-  font-size: 13px;
-  color: #a3a3a3;
-  margin-top: 18px;
-}
 .ending-frame {
   display: flex;
   flex-direction: column;
@@ -868,9 +863,6 @@ kbd {
   }
   .countdown-line {
     margin: 10px 8px 14px;
-  }
-  .quran-source {
-    margin-top: 10px;
   }
   .ending-mark {
     width: 54px;
