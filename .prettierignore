@@ -7,3 +7,5 @@ apps/mobile/android
 apps/mobile/ios
 dist
 node_modules
+
+tests/assets/

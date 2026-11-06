@@ -59,6 +59,18 @@ function setup(overrides: Partial<SessionPlan> = {}) {
 }
 
 describe("session execution", () => {
+  it("reconciles sampling jitter over continuous playback without losing elapsed time", () => {
+    const { session, step } = setup();
+    session.mediaPlaying("a", 0);
+    let position = 0;
+    for (let sample = 0; sample < 240; sample++) {
+      step(250);
+      position += sample % 2 === 0 ? 230 : 270;
+      session.mediaProgress("a", position);
+    }
+    expect(session.getSnapshot().activeMs).toBe(60_000);
+  });
+
   it("counts progressing playback, excluding buffering, pauses, seeks and stale player events", () => {
     const { session: s, step } = setup();
     s.mediaPlaying("a", 0);

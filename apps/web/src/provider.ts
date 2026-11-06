@@ -1,5 +1,6 @@
 import {
   createHttpProvider,
+  SessionLoadError,
   parseSession,
   type SessionPlan,
 } from "@mofied/contracts";
@@ -18,13 +19,22 @@ export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
         : "normal";
     if (new URLSearchParams(location.search).has("test-session")) {
       const response = await fetch("/__test/session", { signal });
-      if (!response.ok) throw new Error("Test session request failed");
+      if (!response.ok)
+        throw new SessionLoadError(
+          "http",
+          "Test session request failed",
+          response.status,
+        );
       return parseSession(await response.json());
     }
     signal?.throwIfAborted();
     return fixture(selected);
   }
   const endpoint = import.meta.env.VITE_SESSION_API_URL;
-  if (!endpoint) throw new Error("Session API is not configured");
+  if (!endpoint)
+    throw new SessionLoadError(
+      "configuration",
+      "Session API is not configured",
+    );
   return createHttpProvider(endpoint).load(signal);
 }

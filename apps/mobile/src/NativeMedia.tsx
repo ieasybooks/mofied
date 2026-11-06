@@ -33,18 +33,6 @@ export function NativeMedia({ item, session, state }: MediaProps) {
     let disposed = false;
     const stopHealth = watchNativePlaybackHealth(player, session, item.id);
     const subscriptions = [
-      // Native event supplied by the pinned expo-video patch. Audio focus and
-      // AVAudioSession decide when resumption is allowed; the controller keeps
-      // manual pause, About and background intent separate.
-      player.addListener("audioInterruption", ({ interrupted, mayResume }) => {
-        if (interrupted) {
-          session.setInterrupted(true);
-          session.mediaBuffering(item.id);
-        } else {
-          session.setInterrupted(false, mayResume);
-          if (session.getSnapshot().shouldPlay) player.play();
-        }
-      }),
       player.addListener("sourceLoad", () => {
         if (start.current > 0) {
           player.currentTime = start.current;
@@ -75,24 +63,10 @@ export function NativeMedia({ item, session, state }: MediaProps) {
   useEffect(() => {
     player.muted = state.muted;
     if (state.shouldPlay) player.play();
-    else if (
-      !state.interrupted ||
-      !state.wantsToPlay ||
-      state.aboutOpen ||
-      state.backgrounded
-    )
-      player.pause();
-    // During an OS interruption, leave native play intent intact for the OS to
-    // resume when permitted. A manual pause, About or backgrounding overrides it.
-  }, [
-    player,
-    state.shouldPlay,
-    state.muted,
-    state.interrupted,
-    state.wantsToPlay,
-    state.aboutOpen,
-    state.backgrounded,
-  ]);
+    else player.pause();
+    // Session-level native events restore permission. Keep actual playback,
+    // including muted playback, aligned with accounting during interruptions.
+  }, [player, state.shouldPlay, state.muted]);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <VideoView

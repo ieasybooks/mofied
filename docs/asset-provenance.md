@@ -30,6 +30,12 @@ The sample Quran text and reflection wording are from the approved screen refere
 ffmpeg -f lavfi -i testsrc2=size=180x320:rate=24 -f lavfi -i sine=frequency=440:sample_rate=44100 -t 12 -c:v libx264 -pix_fmt yuv420p -c:a aac -movflags +faststart tests/assets/media.mp4
 ```
 
+`tests/assets/hls` segments the same generated pattern into a small VOD playlist for real hls.js decoding and manifest/segment failure tests. No public speaker media is bundled in the test assets. Regenerate it with:
+
+```sh
+ffmpeg -i tests/assets/media.mp4 -c:v libx264 -pix_fmt yuv420p -g 120 -keyint_min 120 -sc_threshold 0 -c:a aac -f hls -hls_time 5 -hls_playlist_type vod -hls_segment_filename tests/assets/hls/segment-%02d.ts tests/assets/hls/index.m3u8
+```
+
 Third-party source dependencies retain their package licenses. The narrowly scoped Expo patch modifies Expo's MIT-licensed playback module and is maintained separately under `patches/`.
 
 ## Contact icons

@@ -76,6 +76,54 @@ afterEach(() => {
 });
 
 describe("native playback health", () => {
+  it("caps consecutive ready-but-stalled players before any healthy playback", () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const plan = fixture();
+    const original = plan.items.find((item) => item.kind === "media")!;
+    plan.items = Array.from({ length: 6 }, (_, index) => ({
+      ...original,
+      id: `stalled-${index}`,
+    }));
+    plan.replacements = [];
+    plan.policy.maxConsecutiveFailures = 3;
+    const session = new SessionController(plan, () => now);
+    const attempted: string[] = [];
+    while (session.getSnapshot().status !== "error" && attempted.length < 6) {
+      const id = session.getSnapshot().item!.id;
+      attempted.push(id);
+      const player = new NativePlayer();
+      player.currentTime = 0;
+      const stop = watchNativePlaybackHealth(player, session, id);
+      player.emit("playingChange", { isPlaying: true });
+      for (let second = 0; second < 20; second++) {
+        now += 1000;
+        player.emit("statusChange", { status: "readyToPlay" });
+        vi.advanceTimersByTime(1000);
+      }
+      stop();
+    }
+    expect(attempted).toEqual(["stalled-0", "stalled-1", "stalled-2"]);
+    expect(session.getSnapshot()).toMatchObject({
+      status: "error",
+      activeMs: 0,
+    });
+  });
+
+  it("pauses actual muted playback when an interruption blocks accounting", () => {
+    const { player, session, step } = setup();
+    session.setInterrupted(true);
+    player.emit("playingChange", { isPlaying: true });
+    expect(player.pause).toHaveBeenCalled();
+    player.playing = false;
+    step(10_000);
+    expect(session.getSnapshot()).toMatchObject({
+      status: "paused",
+      activeMs: 0,
+    });
+  });
+
   it("recovers on advancing time without another playing callback", () => {
     const { player, session, plan, play, step } = setup();
     play(1000);
@@ -170,12 +218,9 @@ describe("native playback health", () => {
         else session.setInterrupted(false, true);
       };
       pause();
-      // A late playing callback must not override intent or force a native pause
-      // during an OS-only interruption, when the OS still owns resumption.
+      // Late callbacks must not override intent, even for muted interruptions.
       player.emit("playingChange", { isPlaying: true });
-      expect(player.pause).toHaveBeenCalledTimes(
-        reason === "interruption" ? 0 : 1,
-      );
+      expect(player.pause).toHaveBeenCalledTimes(1);
       player.playing = false;
       player.emit("playingChange", { isPlaying: false });
       player.emit("statusChange", { status: "readyToPlay" });

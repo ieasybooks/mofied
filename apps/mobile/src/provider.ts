@@ -1,4 +1,8 @@
-import { createHttpProvider, type SessionPlan } from "@mofied/contracts";
+import {
+  createHttpProvider,
+  SessionLoadError,
+  type SessionPlan,
+} from "@mofied/contracts";
 
 export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
   const endpoint = process.env.EXPO_PUBLIC_SESSION_API_URL;
@@ -14,6 +18,10 @@ export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
         : "normal",
     );
   }
-  if (!endpoint) throw new Error("Session API is not configured");
+  if (!endpoint)
+    throw new SessionLoadError(
+      "configuration",
+      "Session API is not configured",
+    );
   return createHttpProvider(endpoint).load(signal);
 }

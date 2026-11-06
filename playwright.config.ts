@@ -15,9 +15,17 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
-  webServer: {
-    command: "bun run dev",
-    url: "http://127.0.0.1:5173",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: "bun run dev",
+      url: "http://127.0.0.1:5173",
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command:
+        "VITE_SESSION_API_URL=https://api.example.test/session bun run --cwd apps/web build --emptyOutDir --outDir ../../artifacts/e2e-production && bun run --cwd apps/web preview --outDir ../../artifacts/e2e-production --host 127.0.0.1 --port 4173 --strictPort",
+      url: "http://127.0.0.1:4173",
+      reuseExistingServer: false,
+    },
+  ],
 });

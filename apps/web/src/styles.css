@@ -394,14 +394,39 @@ kbd {
   background: linear-gradient(140deg, #171717, #0d0d0d);
   text-align: center;
 }
+.reminder .text-frame {
+  aspect-ratio: auto;
+  width: min(560px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 20px;
+}
 .reminder-body {
-  position: absolute;
-  top: 22%;
-  left: 18px;
-  right: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  padding-inline: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.reminder-copy {
+  flex: none;
+  width: 100%;
+  margin-block: auto;
+  padding-block: 8px;
   display: flex;
   align-items: center;
   flex-direction: column;
+  overflow-wrap: anywhere;
+}
+.reminder-copy > * {
+  flex-shrink: 0;
+}
+.reminder-body:focus-visible {
+  outline-offset: -2px;
 }
 .reminder-kind {
   display: flex;
@@ -436,10 +461,7 @@ kbd {
   color: #c4c4c4;
 }
 .reminder-bottom {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 30px;
+  flex: none;
   font-size: 15px;
   color: #d6d6d6;
 }
@@ -459,11 +481,15 @@ kbd {
   align-items: center;
   justify-content: center;
   gap: 9px;
-  height: 48px;
+  min-height: 48px;
+  padding: 8px 12px;
   width: 100%;
   border: 1px solid #ffffff38;
   border-radius: 28px;
   background: #ffffff05;
+}
+.reading-button svg {
+  flex: none;
 }
 .reading-button:hover {
   background: #ffffff0d;
@@ -827,7 +853,6 @@ kbd {
   .media-title a {
     -webkit-line-clamp: 2;
   }
-  .control-rail,
   .keyboard-hint,
   .small-pause {
     display: none;
@@ -852,10 +877,38 @@ kbd {
     position: static;
     margin-top: 10px;
   }
-  .reminder-body {
-    top: 25%;
-    left: 24px;
-    right: 24px;
+  .reminder .text-frame {
+    width: 100%;
+    padding: calc(env(safe-area-inset-top) + 90px) 20px
+      calc(env(safe-area-inset-bottom) + 24px);
+    gap: 16px;
+  }
+  .control-rail {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 76px);
+    left: 20px;
+    right: auto;
+    z-index: 10;
+    width: auto;
+    transform: none;
+  }
+  .control-rail > button:nth-of-type(-n + 2):not(:focus-visible) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .control-rail > button:nth-of-type(-n + 2):focus-visible {
+    background: #151515;
+  }
+  .control-rail .rail-divider,
+  .control-rail > button:nth-of-type(3),
+  .control-rail > p {
+    display: none;
   }
   .verses {
     font-size: 30px;
@@ -865,7 +918,6 @@ kbd {
     font-size: 16px;
   }
   .reminder-bottom {
-    bottom: calc(env(safe-area-inset-bottom) + 40px);
     font-size: 16px;
   }
   .citation {

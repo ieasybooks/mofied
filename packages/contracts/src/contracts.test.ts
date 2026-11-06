@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createHttpProvider, parseSession, SessionPlanSchema } from "./index";
+import {
+  createHttpProvider,
+  parseSession,
+  sessionLoadDiagnostic,
+  SessionPlanSchema,
+} from "./index";
 import { fixture } from "@mofied/fixtures";
 
 describe("session contract", () => {
@@ -65,12 +70,46 @@ describe("session contract", () => {
       );
       const result = expect(
         createHttpProvider("https://faqieh.com/api/test").load(),
-      ).rejects.toThrow("Aborted");
+      ).rejects.toMatchObject({ code: "timeout" });
       await vi.advanceTimersByTimeAsync(15_000);
       await result;
     } finally {
       globalThis.fetch = original;
       vi.useRealTimers();
+    }
+  });
+  it("distinguishes configuration, network, HTTP, malformed, invalid, expired and cancelled requests", async () => {
+    const original = globalThis.fetch;
+    try {
+      expect(() => createHttpProvider("http://example.test")).toThrow("HTTPS");
+      const provider = createHttpProvider("https://api.example.test/session");
+      for (const [response, code] of [
+        [new Response("", { status: 503 }), "http"],
+        [new Response("not json"), "invalid-json"],
+        [Response.json({ schemaVersion: 99 }), "invalid-plan"],
+        [
+          Response.json({
+            ...fixture(),
+            expiresAt: "2000-01-01T00:00:00.000Z",
+          }),
+          "expired",
+        ],
+      ] as const) {
+        globalThis.fetch = vi.fn().mockResolvedValue(response);
+        await expect(provider.load()).rejects.toMatchObject({ code });
+      }
+      globalThis.fetch = vi
+        .fn()
+        .mockRejectedValue(new TypeError("URL with private details"));
+      const error = await provider.load().catch((error: unknown) => error);
+      expect(sessionLoadDiagnostic(error)).toEqual({ category: "network" });
+      const abort = new AbortController();
+      abort.abort();
+      await expect(provider.load(abort.signal)).rejects.toMatchObject({
+        code: "aborted",
+      });
+    } finally {
+      globalThis.fetch = original;
     }
   });
 });

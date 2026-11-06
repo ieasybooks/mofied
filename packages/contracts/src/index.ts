@@ -75,22 +75,65 @@ export type SessionProvider = {
   load(signal?: AbortSignal): Promise<SessionPlan>;
 };
 
+export type SessionLoadErrorCode =
+  | "configuration"
+  | "network"
+  | "http"
+  | "invalid-json"
+  | "invalid-plan"
+  | "expired"
+  | "timeout"
+  | "aborted";
+
+export class SessionLoadError extends Error {
+  constructor(
+    readonly code: SessionLoadErrorCode,
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "SessionLoadError";
+  }
+}
+
+/** Keep diagnostics useful without logging signed URLs, payloads or user state. */
+export function sessionLoadDiagnostic(error: unknown) {
+  return error instanceof SessionLoadError
+    ? {
+        category: error.code,
+        ...(error.status === undefined ? {} : { status: error.status }),
+      }
+    : { category: "unknown" as const };
+}
+
 export function parseSession(value: unknown): SessionPlan {
-  const plan = SessionPlanSchema.parse(value);
+  const result = SessionPlanSchema.safeParse(value);
+  if (!result.success)
+    throw new SessionLoadError("invalid-plan", "Invalid session plan");
+  const plan = result.data;
   if (plan.expiresAt && Date.parse(plan.expiresAt) <= Date.now())
-    throw new Error("Session plan has expired");
+    throw new SessionLoadError("expired", "Session plan has expired");
   return plan;
 }
 
 export function createHttpProvider(endpoint: string): SessionProvider {
-  httpsUrl.parse(endpoint);
+  if (!httpsUrl.safeParse(endpoint).success)
+    throw new SessionLoadError(
+      "configuration",
+      "Session API must be configured with an HTTPS URL",
+    );
   return {
     async load(signal) {
+      if (signal?.aborted)
+        throw new SessionLoadError("aborted", "Session request cancelled");
       const request = new AbortController();
       const abort = () => request.abort();
-      if (signal?.aborted) abort();
-      else signal?.addEventListener("abort", abort, { once: true });
-      const timeout = setTimeout(abort, 15_000);
+      signal?.addEventListener("abort", abort, { once: true });
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        abort();
+      }, 15_000);
       try {
         const response = await fetch(endpoint, {
           signal: request.signal,
@@ -98,9 +141,31 @@ export function createHttpProvider(endpoint: string): SessionProvider {
           headers: { Accept: "application/json" },
         });
         if (!response.ok)
-          throw new Error(`Session request failed (${response.status})`);
+          throw new SessionLoadError(
+            "http",
+            `Session request failed (${response.status})`,
+            response.status,
+          );
+        const value = await response.json().catch((error: unknown) => {
+          if (error instanceof SyntaxError)
+            throw new SessionLoadError(
+              "invalid-json",
+              "Session response is not valid JSON",
+            );
+          throw error;
+        });
         // No fixture fallback. Invalid, expired and failed API responses remain errors.
-        return parseSession(await response.json());
+        return parseSession(value);
+      } catch (error) {
+        if (error instanceof SessionLoadError) throw error;
+        if (request.signal.aborted)
+          throw new SessionLoadError(
+            timedOut ? "timeout" : "aborted",
+            timedOut
+              ? "Session request timed out"
+              : "Session request cancelled",
+          );
+        throw new SessionLoadError("network", "Session network request failed");
       } finally {
         clearTimeout(timeout);
         signal?.removeEventListener("abort", abort);

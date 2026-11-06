@@ -11,6 +11,7 @@ import {
   Play,
 } from "lucide-react";
 import { SessionController } from "@mofied/session";
+import { sessionLoadDiagnostic } from "@mofied/contracts";
 import {
   copy,
   remainingLabel,
@@ -45,6 +46,10 @@ export function App() {
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [locale, setLocale] = useState<Locale>("ar");
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+  }, [locale]);
   const [startupInfo, setStartupInfo] = useState(false);
   const startupInfoRef = useRef(false);
   const showStartupInfo = (open: boolean) => {
@@ -55,7 +60,15 @@ export function App() {
     const abort = new AbortController();
     setError(false);
     // A fixture query intentionally starts a fresh fixture for development checks.
-    const saved = !location.search ? storageRead() : null;
+    const query = new URLSearchParams(location.search);
+    const freshFixture =
+      import.meta.env.DEV &&
+      !import.meta.env.VITE_SESSION_API_URL &&
+      (query.has("test-session") ||
+        ["normal", "long-title", "missing-portrait", "unavailable"].includes(
+          query.get("fixture") ?? "",
+        ));
+    const saved = freshFixture ? null : storageRead();
     const restored = saved ? SessionController.restore(saved) : null;
     const accept = (next: SessionController) => {
       if (abort.signal.aborted) return;
@@ -68,8 +81,14 @@ export function App() {
     }
     void loadSession(abort.signal)
       .then((plan) => accept(new SessionController(plan)))
-      .catch(() => {
-        if (!abort.signal.aborted) setError(true);
+      .catch((error: unknown) => {
+        if (!abort.signal.aborted) {
+          console.warn(
+            "[mofied] Session load failed",
+            sessionLoadDiagnostic(error),
+          );
+          setError(true);
+        }
       });
     return () => abort.abort();
   }, [attempt]);
@@ -140,10 +159,6 @@ function SessionView({
   const t = copy[locale];
   const item = state.item;
   useEffect(() => {
-    document.documentElement.lang = locale;
-    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
-  }, [locale]);
-  useEffect(() => {
     const interval = setInterval(session.tick, 100);
     const save = () => storageWrite(session.serialize());
     const persistence = setInterval(save, 1500);
@@ -163,26 +178,37 @@ function SessionView({
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
-        event.target instanceof HTMLButtonElement ||
-        event.target instanceof HTMLAnchorElement
+        event.shiftKey ||
+        event.defaultPrevented ||
+        (event.target instanceof Element &&
+          event.target.closest(
+            'dialog, [data-reading-region], input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
+          ))
       )
         return;
       if (event.code === "Space") {
+        // Buttons/links retain their normal Space/Enter activation; arrow
+        // navigation remains available after ordinary clicks and keyboard focus.
+        if (
+          event.target instanceof Element &&
+          event.target.closest('button, a, [role="button"]')
+        )
+          return;
         event.preventDefault();
         session.togglePlayback();
       }
-      if (event.code === "ArrowDown") {
+      if (item?.kind === "media" && event.code === "ArrowDown") {
         event.preventDefault();
         session.next();
       }
-      if (event.code === "ArrowUp") {
+      if (item?.kind === "media" && event.code === "ArrowUp") {
         event.preventDefault();
         session.previous();
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [session, state.aboutOpen]);
+  }, [session, state.aboutOpen, item?.kind]);
   useEffect(() => {
     if (state.status === "ended") storageWrite(null);
   }, [state.status]);
@@ -195,6 +221,11 @@ function SessionView({
         onWheel={(event) => {
           if (
             state.aboutOpen ||
+            item?.kind !== "media" ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.shiftKey ||
             Math.abs(event.deltaY) < 45 ||
             Date.now() - lastWheel.current < 700
           )
@@ -231,7 +262,7 @@ function SessionView({
               <div className="budget">
                 <Clock3 className="budget-clock" size={16} />
                 <span dir={locale === "ar" ? "rtl" : "ltr"}>
-                  {remainingLabel(state.remainingMs, locale)}
+                  {remainingLabel(state.remainingMs, locale, item.kind)}
                 </span>
                 <div className="budget-line">
                   <i
@@ -286,25 +317,44 @@ function SessionView({
             className="player-frame text-frame"
             aria-label={t.reflection}
           >
-            <div className="reminder-body">
-              <div className="reminder-kind">
-                <BookOpen size={18} />
-                <span>
-                  {item.content.kind === "quran" ? t.quran : t.reflection}
-                </span>
+            <div
+              className="reminder-body"
+              tabIndex={0}
+              data-reading-region
+              role="region"
+              aria-label={t.reflection}
+            >
+              <div className="reminder-copy">
+                <div className="reminder-kind">
+                  <BookOpen size={18} />
+                  <span>
+                    {item.content.kind === "quran" ? t.quran : t.reflection}
+                  </span>
+                </div>
+                <p
+                  dir={
+                    item.content.kind === "quran" ||
+                    session.plan.locale === "ar"
+                      ? "rtl"
+                      : "ltr"
+                  }
+                  lang={
+                    item.content.kind === "quran" ? "ar" : session.plan.locale
+                  }
+                  className={
+                    item.content.kind === "quran" ? "verses" : "reminder-text"
+                  }
+                >
+                  {item.content.body}
+                </p>
+                <div className="text-rule" />
+                <p
+                  className="citation"
+                  dir={session.plan.locale === "ar" ? "rtl" : "ltr"}
+                >
+                  {formatCitation(item.content.citation)}
+                </p>
               </div>
-              <p
-                dir="rtl"
-                className={
-                  item.content.kind === "quran" ? "verses" : "reminder-text"
-                }
-              >
-                {item.content.body}
-              </p>
-              <div className="text-rule" />
-              <p className="citation" dir="rtl">
-                {formatCitation(item.content.citation)}
-              </p>
             </div>
             <div className="reminder-bottom">
               <p>{countdownLabel(state.reminderRemainingMs, locale)}</p>

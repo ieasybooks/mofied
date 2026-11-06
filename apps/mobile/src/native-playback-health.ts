@@ -83,14 +83,7 @@ export function watchNativePlaybackHealth(
     const advanced = progress();
     const state = session.getSnapshot();
     if (!state.shouldPlay) {
-      if (
-        player.playing &&
-        (!state.interrupted ||
-          !state.wantsToPlay ||
-          state.aboutOpen ||
-          state.backgrounded)
-      )
-        player.pause();
+      if (player.playing) player.pause();
       return;
     }
     if (player.playing && player.status === "readyToPlay") playing();

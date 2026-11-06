@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import Hls from "hls.js";
+import type Hls from "hls.js";
 import { Pause, Play } from "lucide-react";
 import type { MediaItem } from "@mofied/contracts";
 import { copy, formatTime, type Locale } from "@mofied/design";
@@ -90,30 +90,43 @@ export function MediaPlayer({
     }))
       video.addEventListener(event, handler);
     document.addEventListener("visibilitychange", visibleAgain);
-    if (
-      item.playback.mimeType === "application/vnd.apple.mpegurl" &&
-      !video.canPlayType("application/vnd.apple.mpegurl") &&
-      Hls.isSupported()
-    ) {
-      const hls = new Hls({
-        maxBufferLength: 20,
-        maxMaxBufferLength: 40,
-        backBufferLength: 0,
-        enableWorker: true,
-      });
-      hlsRef.current = hls;
-      hls.loadSource(item.playback.url);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (!data.fatal) return;
-        if (recoveries++ < 2 && data.type === Hls.ErrorTypes.NETWORK_ERROR)
-          hls.startLoad();
-        else if (recoveries < 3 && data.type === Hls.ErrorTypes.MEDIA_ERROR)
-          hls.recoverMediaError();
-        else failed();
-      });
-    } else video.src = item.playback.url;
-    if (session.getSnapshot().shouldPlay) void play();
+    const load = async () => {
+      if (
+        item.playback.mimeType === "application/vnd.apple.mpegurl" &&
+        !video.canPlayType("application/vnd.apple.mpegurl")
+      ) {
+        // Native HLS and MP4 playback never download the fallback engine.
+        const { default: Hls } = await import("hls.js");
+        if (cancelled) return;
+        if (!Hls.isSupported()) return failed();
+        const hls = new Hls({
+          maxBufferLength: 20,
+          maxMaxBufferLength: 40,
+          backBufferLength: 0,
+          enableWorker: true,
+        });
+        hlsRef.current = hls;
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal || cancelled) return;
+          if (recoveries++ < 2 && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            // startLoad restarts segment loading; a failed initial manifest
+            // needs loadSource or no retry request is actually sent.
+            if (
+              data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR ||
+              data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT
+            )
+              hls.loadSource(item.playback.url);
+            else hls.startLoad();
+          } else if (recoveries < 3 && data.type === Hls.ErrorTypes.MEDIA_ERROR)
+            hls.recoverMediaError();
+          else failed();
+        });
+        hls.loadSource(item.playback.url);
+        hls.attachMedia(video);
+      } else video.src = item.playback.url;
+      if (session.getSnapshot().shouldPlay) void play();
+    };
+    void load().catch(failed);
     return () => {
       cancelled = true;
       stopWatching();
@@ -231,7 +244,11 @@ export function MediaPlayer({
         </button>
       </div>
       <div className="media-bottom">
-        <div className="metadata" dir="rtl">
+        <div
+          className="metadata"
+          dir={session.plan.locale === "ar" ? "rtl" : "ltr"}
+          lang={session.plan.locale}
+        >
           <a
             className="speaker"
             href={item.speaker.pageUrl}

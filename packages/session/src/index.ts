@@ -63,7 +63,13 @@ export class SessionController {
   private active = 0;
   private reminderRemaining = 0;
   private lastTick: number;
-  private progressSample: { position: number; at: number } | null = null;
+  private progressSample: {
+    position: number;
+    at: number;
+    advanced: number;
+    elapsed: number;
+    counted: number;
+  } | null = null;
   private failures = 0;
   private completed = new Set<string>();
   private usedReplacements = new Set<string>();
@@ -161,23 +167,41 @@ export class SessionController {
     if (!this.isCurrent(id) || !Number.isFinite(positionMs)) return;
     const now = this.clock();
     const position = Math.max(0, positionMs);
-    if (this.progressSample && this.permitted && this.ready === "playing") {
-      const delta = position - this.progressSample.position;
-      const wall = Math.max(0, now - this.progressSample.at);
+    const sample = this.progressSample;
+    let advanced = 0;
+    let elapsed = 0;
+    let counted = 0;
+    if (sample && this.permitted && this.ready === "playing") {
+      const delta = position - sample.position;
+      const wall = Math.max(0, now - sample.at);
       // A jump larger than elapsed playback is a seek, not consumed session time.
-      if (delta > 0 && delta <= wall + 750)
-        this.active += Math.min(delta, wall);
+      if (delta >= 0 && delta <= wall + 750) {
+        // Reconcile totals within this uninterrupted run. Per-sample minima
+        // permanently discard ordinary clock/playhead jitter.
+        advanced = sample.advanced + delta;
+        elapsed = sample.elapsed + wall;
+        counted = Math.min(advanced, elapsed);
+        const consumed = Math.max(0, counted - sample.counted);
+        this.active += consumed;
+        // A ready/playing callback alone is not successful playback.
+        if (consumed > 0) this.failures = 0;
+      }
     }
     this.position = position;
-    this.progressSample = { position, at: now };
+    this.progressSample = { position, at: now, advanced, elapsed, counted };
     this.publish();
   }
   mediaPlaying(id: string, positionMs: number) {
     if (!this.isCurrent(id)) return;
     this.ready = "playing";
     this.position = Math.max(0, positionMs);
-    this.progressSample = { position: this.position, at: this.clock() };
-    this.failures = 0;
+    this.progressSample = {
+      position: this.position,
+      at: this.clock(),
+      advanced: 0,
+      elapsed: 0,
+      counted: 0,
+    };
     this.publish();
   }
   mediaBuffering(id: string) {

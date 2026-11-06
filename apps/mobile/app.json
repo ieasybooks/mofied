@@ -3,7 +3,6 @@
     "name": "مفيد",
     "slug": "mofied",
     "scheme": "mofied",
-    "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "../../packages/design/assets/icons/app-icon-flat-dark-1024.png",

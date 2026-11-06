@@ -9,7 +9,7 @@ import {
   ChevronRight,
   Play,
 } from "lucide-react";
-import { copy, type Locale } from "@mofied/design";
+import { appVersion, copy, type Locale } from "@mofied/design";
 import appIcon from "@mofied/design/assets/icons/app-icon-flat-dark-1024.png";
 import { ContactLinks } from "./ContactLinks";
 
@@ -133,7 +133,7 @@ export function About({
         </div>
       )}
       <p className="version">
-        {t.version} <bdi>0.1.0</bdi>
+        {t.version} <bdi>{appVersion}</bdi>
       </p>
       {hasPlayback && (
         <>

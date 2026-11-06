@@ -1,3 +1,6 @@
+import { version } from "../../../package.json";
+
+export const appVersion = version;
 export const colors = {
   background: "#0A0A0A",
   surface: "#151515",
@@ -48,6 +51,10 @@ const ar = {
     "لا يتطلّب مفيد حسابًا. يُحفظ موضع الجلسة وتفضيل الصوت محليًا على جهازك. تُحمّل المواد والصور من خوادم الوسائط، وقد تسجّل هذه الخوادم معلومات الاتصال المعتادة. لا يتضمّن هذا الإصدار أدوات إعلانية أو تحليلات.",
   supportBody: "مفيد من تطوير مبادرة الكتب المُيسّرة. يمكنكم التواصل معنا عبر:",
   offline: "الاتصال غير متاح حاليًا",
+  linkError: "تعذّر فتح الرابط",
+  linkErrorBody: "تأكّد من وجود تطبيق مناسب لفتح الرابط، ثم أعد المحاولة.",
+  finishingMedia: "حتى نهاية المادة",
+  finishingReminder: "حتى نهاية التذكير",
 } as const;
 const en: Record<keyof typeof ar, string> = {
   name: "Mofied",
@@ -87,6 +94,11 @@ const en: Record<keyof typeof ar, string> = {
   supportBody:
     "Mofied is developed by the EasyBooks initiative. You can contact us through:",
   offline: "You are currently offline",
+  linkError: "Could not open the link",
+  linkErrorBody:
+    "Make sure an app is available to open this link, then try again.",
+  finishingMedia: "Finishing media",
+  finishingReminder: "Finishing reminder",
 };
 export const copy = { ar, en };
 const numberFormatters = {
@@ -110,7 +122,15 @@ export function formatTime(milliseconds: number) {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
-export function remainingLabel(ms: number, locale: Locale) {
+export function remainingLabel(
+  ms: number,
+  locale: Locale,
+  itemKind?: "media" | "reminder",
+) {
+  if (ms <= 0 && itemKind)
+    return itemKind === "media"
+      ? copy[locale].finishingMedia
+      : copy[locale].finishingReminder;
   const minutes = Math.ceil(Math.max(0, ms) / 60_000);
   if (locale === "en")
     return `${numberFormatters.en.format(minutes)} ${minutes === 1 ? "minute" : "minutes"} left`;

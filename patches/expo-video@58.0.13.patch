@@ -1,16 +1,65 @@
+diff --git a/android/src/main/java/expo/modules/video/VideoModule.kt b/android/src/main/java/expo/modules/video/VideoModule.kt
+index c2711344c58758e0ce5b71572d59c930330f0103..cd444437c3938428a9ea919ad0c1aaabf801c4e0 100644
+--- a/android/src/main/java/expo/modules/video/VideoModule.kt
++++ b/android/src/main/java/expo/modules/video/VideoModule.kt
+@@ -40,9 +40,15 @@ import kotlin.time.Duration
+ class VideoModule : Module() {
+   override fun definition() = ModuleDefinition {
+     Name("ExpoVideo")
++    Events("audioInterruption")
++
++    Function("getAudioInterruption") {
++      VideoManager.getAudioInterruption()
++    }
+ 
+     OnCreate {
+       VideoManager.onModuleCreated(appContext)
++      VideoManager.setInterruptionListener { payload -> sendEvent("audioInterruption", payload) }
+     }
+ 
+     OnDestroy {
 diff --git a/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt b/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt
-index b88932a3e5b54812c4e207a36c3440594226c898..b51ca328c9548a0288713a57da362666eca73980 100644
+index b88932a3e5b54812c4e207a36c3440594226c898..f0515845942ce5f21c50d896228e491638849739 100644
 --- a/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt
 +++ b/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt
-@@ -24,6 +24,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -24,6 +24,18 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
  
    private var players: MutableList<WeakReference<VideoPlayer>> = mutableListOf()
    private var currentFocusRequest: AudioFocusRequest? = null
 +  private var transientInterruption = false
++  @Volatile private var interruptionState = mapOf("interrupted" to false, "mayResume" to true)
++  var interruptionListener: ((Map<String, Boolean>) -> Unit)? = null
++
++  fun getAudioInterruption(): Map<String, Boolean> = interruptionState
++
++  fun releaseInterruptionObserver() {
++    interruptionListener = null
++    transientInterruption = false
++    interruptionState = mapOf("interrupted" to false, "mayResume" to true)
++    abandonAudioFocus()
++  }
    private var currentMixingMode: AudioMixingMode = AudioMixingMode.MIX_WITH_OTHERS
    private val anyPlayerRequiresFocus: Boolean
      get() = players.toList().any {
-@@ -133,7 +134,9 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -31,6 +43,9 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+     }
+ 
+   private fun requestAudioFocus() {
++    // Keep the original request while another app owns transient focus. A new
++    // player or a reminder transition must not steal focus or lose the gain event.
++    if (transientInterruption) return
+     val audioMixingMode = findAudioMixingMode()
+ 
+     // We don't request AudioFocus if we want to mix the audio with others
+@@ -78,6 +93,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+   }
+ 
+   private fun abandonAudioFocus() {
++    if (transientInterruption) return
+     currentFocusRequest?.let {
+       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+         audioManager.abandonAudioFocusRequest(it)
+@@ -133,9 +149,11 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
    override fun onAudioFocusChange(focusChange: Int) {
      when (focusChange) {
        AudioManager.AUDIOFOCUS_LOSS -> {
@@ -18,9 +67,12 @@ index b88932a3e5b54812c4e207a36c3440594226c898..b51ca328c9548a0288713a57da362666
          appContext.mainQueue.launch {
 +          emitInterruption(interrupted = false, mayResume = false)
            players.forEach {
-             pausePlayerIfUnmuted(it)
+-            pausePlayerIfUnmuted(it)
++            pausePlayerForInterruption(it)
            }
-@@ -148,7 +151,9 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+           currentFocusRequest = null
+         }
+@@ -148,21 +166,25 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
          if (audioMixingMode == AudioMixingMode.MIX_WITH_OTHERS) {
            return
          }
@@ -28,20 +80,30 @@ index b88932a3e5b54812c4e207a36c3440594226c898..b51ca328c9548a0288713a57da362666
          appContext.mainQueue.launch {
 +          emitInterruption(interrupted = true, mayResume = false)
            players.forEach {
-             pausePlayerIfUnmuted(it)
+-            pausePlayerIfUnmuted(it)
++            pausePlayerForInterruption(it)
            }
-@@ -158,8 +163,9 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+-          currentFocusRequest = null
+         }
+       }
  
        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
          val audioMixingMode = findAudioMixingMode()
 -
-+        transientInterruption = audioMixingMode == AudioMixingMode.DO_NOT_MIX
++        // Another transient loss may arrive after the first one paused every
++        // player. Do not infer a new mixing policy from that now-silent list.
++        transientInterruption = transientInterruption || audioMixingMode == AudioMixingMode.DO_NOT_MIX
          appContext.mainQueue.launch {
 +          if (transientInterruption) emitInterruption(interrupted = true, mayResume = false)
            players.forEach {
-             if (audioMixingMode == AudioMixingMode.DO_NOT_MIX) {
-               pausePlayerIfUnmuted(it)
-@@ -171,17 +177,26 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+-            if (audioMixingMode == AudioMixingMode.DO_NOT_MIX) {
+-              pausePlayerIfUnmuted(it)
++            if (transientInterruption) {
++              pausePlayerForInterruption(it)
+             } else {
+               duckPlayer(it)
+             }
+@@ -171,17 +193,26 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
        }
  
        AudioManager.AUDIOFOCUS_GAIN -> {
@@ -54,6 +116,7 @@ index b88932a3e5b54812c4e207a36c3440594226c898..b51ca328c9548a0288713a57da362666
 +          if (transientInterruption) {
 +            transientInterruption = false
 +            emitInterruption(interrupted = false, mayResume = true)
++            updateAudioFocus()
 +          }
          }
        }
@@ -62,55 +125,64 @@ index b88932a3e5b54812c4e207a36c3440594226c898..b51ca328c9548a0288713a57da362666
  
 +  // Let the client preserve manual pause and background intent when focus returns.
 +  private fun emitInterruption(interrupted: Boolean, mayResume: Boolean) {
-+    players.toList().forEach { weakPlayer ->
-+      weakPlayer.get()?.emit("audioInterruption", mapOf("interrupted" to interrupted, "mayResume" to mayResume))
-+    }
++    interruptionState = mapOf("interrupted" to interrupted, "mayResume" to mayResume)
++    interruptionListener?.invoke(interruptionState)
 +  }
 +
    // Utils
  
    private fun playerRequiresFocus(weakPlayer: WeakReference<VideoPlayer>): Boolean {
-diff --git a/build/VideoPlayerEvents.types.d.ts b/build/VideoPlayerEvents.types.d.ts
-index 9c7eaeaf9f27ef6735b2e356ec724af5d5ae58f3..151099ee3efd8bcc5ca51e7ed07d0415293fd43f 100644
---- a/build/VideoPlayerEvents.types.d.ts
-+++ b/build/VideoPlayerEvents.types.d.ts
-@@ -3,6 +3,9 @@ import type { PlayerError, SubtitleTrack, VideoPlayerStatus, VideoSource, VideoT
-  * Handlers for events which can be emitted by the player.
-  */
- export type VideoPlayerEvents = {
-+  /** Mofied patch: platform audio interruption; preserves app playback intent. */
-+  audioInterruption(payload: { interrupted: boolean; mayResume: boolean }): void;
-+
-     /**
-      * Handler for an event emitted when the status of the player changes.
-      */
-diff --git a/ios/Records/VideoEventPayloads.swift b/ios/Records/VideoEventPayloads.swift
-index eb2532cab2ed9bfb8ad4589a514c240fac72276b..7dd189527f89820cd8fa2f9c25edaf4b9226e174 100644
---- a/ios/Records/VideoEventPayloads.swift
-+++ b/ios/Records/VideoEventPayloads.swift
-@@ -79,3 +79,9 @@ internal struct IsExternalPlaybackActiveEventPayload: Record {
- }
+@@ -189,12 +220,11 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+     return (!player.muted && player.playing && player.volume > 0) || player.audioMixingMode == AudioMixingMode.DO_NOT_MIX
+   }
  
- // swiftlint:enable redundant_optional_initialization
+-  private fun pausePlayerIfUnmuted(weakPlayer: WeakReference<VideoPlayer>) {
++  private fun pausePlayerForInterruption(weakPlayer: WeakReference<VideoPlayer>) {
+     weakPlayer.get()?.let { videoPlayer ->
+-      if (!videoPlayer.muted) {
+-        appContext.mainQueue.launch {
+-          videoPlayer.player.pause()
+-        }
++      appContext.mainQueue.launch {
++        // Muted video must stop too: the session stops accounting on interruption.
++        videoPlayer.player.pause()
+       }
+     }
+   }
+diff --git a/android/src/main/java/expo/modules/video/managers/VideoManager.kt b/android/src/main/java/expo/modules/video/managers/VideoManager.kt
+index 5f9ad2a5bdf5e9e79f0d80b9d6d2cf635bd8704c..5b933e70f324b5e5d6519ac37aaf190af1b32dbb 100644
+--- a/android/src/main/java/expo/modules/video/managers/VideoManager.kt
++++ b/android/src/main/java/expo/modules/video/managers/VideoManager.kt
+@@ -50,7 +50,14 @@ object VideoManager {
+     this.appContext = WeakReference(appContext)
+   }
+ 
++  fun setInterruptionListener(listener: ((Map<String, Boolean>) -> Unit)?) {
++    audioFocusManager.interruptionListener = listener
++  }
 +
-+// Mofied: the app owns whether an interrupted session is allowed to resume.
-+internal struct AudioInterruptionEventPayload: Record {
-+  @Field var interrupted: Bool = false
-+  @Field var mayResume: Bool = false
-+}
++  fun getAudioInterruption(): Map<String, Boolean> = audioFocusManager.getAudioInterruption()
++
+   fun onModuleDestroyed(appContext: AppContext) {
++    audioFocusManager.releaseInterruptionObserver()
+     pictureInPicture.release()
+     listeners.clear()
+   }
 diff --git a/ios/VideoManager.swift b/ios/VideoManager.swift
-index f60b131f794d9fcac9bf11b9674813e55954cbf8..ea8c96647ffc1ad4a0dd8e08ccdbd8a82146dc4f 100644
+index f60b131f794d9fcac9bf11b9674813e55954cbf8..15afef72f93a456e589905c0f1591de6bd5017d7 100644
 --- a/ios/VideoManager.swift
 +++ b/ios/VideoManager.swift
-@@ -12,6 +12,7 @@ class VideoManager {
+@@ -12,6 +12,9 @@ class VideoManager {
  
    private static var managerQueue = DispatchQueue(label: "com.expo.video.manager.managerQueue")
    private var mediaServicesResetObserver: NSObjectProtocol?
 +  private var interruptionObserver: NSObjectProtocol?
++  private(set) var interruptionState = ["interrupted": false, "mayResume": true]
++  var interruptionListener: (([String: Bool]) -> Void)?
    private var videoViews = NSHashTable<VideoView>.weakObjects()
    private let videoPlayers = SynchronizedHashTable<VideoPlayer>(weakObjects: true)
  
-@@ -20,6 +21,25 @@ class VideoManager {
+@@ -20,6 +23,27 @@ class VideoManager {
    }
  
    private init() {
@@ -125,18 +197,20 @@ index f60b131f794d9fcac9bf11b9674813e55954cbf8..ea8c96647ffc1ad4a0dd8e08ccdbd8a8
 +      let options = AVAudioSession.InterruptionOptions(
 +        rawValue: notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
 +      )
-+      let payload = AudioInterruptionEventPayload(
-+        interrupted: type == .began,
-+        mayResume: type == .ended && options.contains(.shouldResume)
-+      )
-+      for player in self.videoPlayers.allObjects {
-+        player.safeEmit(event: "audioInterruption", payload: payload)
++      let interrupted = type == .began
++      self.interruptionState = [
++        "interrupted": interrupted,
++        "mayResume": type == .ended && options.contains(.shouldResume)
++      ]
++      if interrupted {
++        for player in self.videoPlayers.allObjects { player.ref.pause() }
 +      }
++      self.interruptionListener?(self.interruptionState)
 +    }
      // When the system resets media services all audio/video objects become invalid. We have to
      // re-establish the audio session and rebuild every player's item, otherwise they stay in a
      // failed state and `AVPlayerViewController` keeps showing its broken-playback placeholder.
-@@ -33,6 +53,9 @@ class VideoManager {
+@@ -33,6 +57,9 @@ class VideoManager {
    }
  
    deinit {
@@ -146,17 +220,29 @@ index f60b131f794d9fcac9bf11b9674813e55954cbf8..ea8c96647ffc1ad4a0dd8e08ccdbd8a8
      if let mediaServicesResetObserver {
        NotificationCenter.default.removeObserver(mediaServicesResetObserver)
      }
-diff --git a/src/VideoPlayerEvents.types.ts b/src/VideoPlayerEvents.types.ts
-index c53b0821c46601d52d52bab17e2b81d3a2bc22a9..dbb2c33a110f4d3af2c17ba95f7f3537f80aa21f 100644
---- a/src/VideoPlayerEvents.types.ts
-+++ b/src/VideoPlayerEvents.types.ts
-@@ -11,6 +11,9 @@ import type {
-  * Handlers for events which can be emitted by the player.
-  */
- export type VideoPlayerEvents = {
-+  /** Mofied patch: platform audio interruption; preserves app playback intent. */
-+  audioInterruption(payload: { interrupted: boolean; mayResume: boolean }): void;
+diff --git a/ios/VideoModule.swift b/ios/VideoModule.swift
+index a34afc4a755cb3a0fbe43878c89b9f1174c511a2..e0e77e5cef01e17c714f9c36ee2bff169cc5f2ae 100644
+--- a/ios/VideoModule.swift
++++ b/ios/VideoModule.swift
+@@ -6,9 +6,21 @@ import AVKit
+ public final class VideoModule: Module {
+   public func definition() -> ModuleDefinition {
+     Name("ExpoVideo")
++    Events("audioInterruption")
 +
-   /**
-    * Handler for an event emitted when the status of the player changes.
-    */
++    Function("getAudioInterruption") {
++      VideoManager.shared.interruptionState
++    }
+ 
+     OnCreate {
+       VideoAssetTransportRegistry.registerDefaultProviders()
++      VideoManager.shared.interruptionListener = { [weak self] payload in
++        self?.sendEvent("audioInterruption", payload)
++      }
++    }
++
++    OnDestroy {
++      VideoManager.shared.interruptionListener = nil
+     }
+ 
+     Function("isPictureInPictureSupported") { () -> Bool in

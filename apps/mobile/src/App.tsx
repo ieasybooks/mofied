@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   AppState,
   Image,
-  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -41,22 +40,25 @@ import {
   X,
   Shield,
   Mail,
-  BookOpen,
   Globe,
 } from "lucide-react-native";
 import { SessionController } from "@mofied/session";
+import { sessionLoadDiagnostic } from "@mofied/contracts";
 import {
+  appVersion,
   colors,
   copy,
   remainingLabel,
-  countdownLabel,
-  formatCitation,
   formatTime,
   type Locale,
 } from "@mofied/design";
 import { NativeMedia } from "./NativeMedia";
 import { loadSession } from "./provider";
 import { ContactLinks } from "./ContactLinks";
+import { useSessionLifecycle } from "./use-session-lifecycle";
+import { Reminder } from "./Reminder";
+import { Ending } from "./Ending";
+import { openLink } from "./open-link";
 
 const icon = require("../../../packages/design/assets/icons/icon-white-1024.png");
 const appIcon = require("../../../packages/design/assets/icons/app-icon-flat-dark-1024.png");
@@ -90,9 +92,6 @@ const topFadeColors = [
   "rgba(0, 0, 0, 0)",
 ] as const;
 const storageKey = `mofied.session.v1.${__DEV__ ? "development" : "production"}`;
-const open = (url: string) => {
-  void Linking.openURL(url).catch(() => {});
-};
 
 export default function App() {
   const [fonts, fontError] = useFonts({
@@ -143,8 +142,14 @@ function LoadedApp() {
         next.setBackgrounded(true);
       if (startupInfoRef.current) next.openAbout();
       if (!abort.signal.aborted) setSession(next);
-    })().catch(() => {
-      if (!abort.signal.aborted) setError(true);
+    })().catch((error: unknown) => {
+      if (!abort.signal.aborted) {
+        console.warn(
+          "[mofied] Session load failed",
+          sessionLoadDiagnostic(error),
+        );
+        setError(true);
+      }
     });
     return () => abort.abort();
   }, [attempt]);
@@ -213,43 +218,7 @@ function SessionView({
   const [attempt, setAttempt] = useState(0);
   const item = state.item;
   const t = copy[locale];
-  useEffect(() => {
-    const timer = setInterval(session.tick, 100);
-    let disposed = false;
-    let pendingWrite = Promise.resolve();
-    const persist = () => {
-      const value = session.serialize();
-      // Serialize writes so an old save cannot recreate a completed session.
-      pendingWrite = pendingWrite
-        .then(() =>
-          value
-            ? AsyncStorage.setItem(storageKey, value)
-            : AsyncStorage.removeItem(storageKey),
-        )
-        .catch(() => {});
-    };
-    const saveTimer = setInterval(persist, 1500);
-    const unsubscribe = session.subscribe(() => {
-      if (session.getSnapshot().status === "ended") persist();
-    });
-    const subscription = AppState.addEventListener("change", (next) => {
-      if (disposed) return;
-      if (Platform.OS === "web") return;
-      if (next === "background") {
-        session.setBackgrounded(true);
-        persist();
-      } else if (next === "active") session.setBackgrounded(false);
-      // Do not pause for inactive/blur alone (Control Center / notification drawer).
-    });
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-      clearInterval(saveTimer);
-      unsubscribe();
-      subscription.remove();
-      persist();
-    };
-  }, [session]);
+  useSessionLifecycle(session, storageKey);
   const gestures = useMemo(
     () =>
       PanResponder.create({
@@ -293,16 +262,21 @@ function SessionView({
           <View
             style={StyleSheet.absoluteFill}
             {...gestures.panHandlers}
+            accessible
+            testID="media-controls"
             accessibilityRole="button"
             accessibilityLabel={state.shouldPlay ? t.pause : t.play}
+            onAccessibilityTap={session.togglePlayback}
             accessibilityActions={[
               { name: "activate", label: state.shouldPlay ? t.pause : t.play },
-              { name: "increment", label: t.next },
-              { name: "decrement", label: t.previous },
+              ...(state.canNext ? [{ name: "next", label: t.next }] : []),
+              ...(state.canPrevious
+                ? [{ name: "previous", label: t.previous }]
+                : []),
             ]}
             onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === "increment") session.next();
-              else if (event.nativeEvent.actionName === "decrement")
+              if (event.nativeEvent.actionName === "next") session.next();
+              else if (event.nativeEvent.actionName === "previous")
                 session.previous();
               else session.togglePlayback();
             }}
@@ -327,7 +301,7 @@ function SessionView({
               <Pressable
                 style={styles.speaker}
                 accessibilityRole="link"
-                onPress={() => open(item.speaker.pageUrl)}
+                onPress={() => void openLink(item.speaker.pageUrl, locale)}
               >
                 {item.speaker.imageUrl && (
                   <Image
@@ -341,7 +315,7 @@ function SessionView({
               </Pressable>
               <Pressable
                 accessibilityRole="link"
-                onPress={() => open(item.pageUrl)}
+                onPress={() => void openLink(item.pageUrl, locale)}
               >
                 <Text
                   style={[styles.title, styles.overlayTextShadow]}
@@ -419,71 +393,9 @@ function SessionView({
         </>
       )}
       {item?.kind === "reminder" && (
-        <>
-          <LinearGradient
-            colors={["#181818", "#0a0a0a"]}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.reminderBody}>
-            <View style={styles.kind}>
-              <BookOpen size={18} color="#d6d6d6" />
-              <Text style={styles.ui}>
-                {item.content.kind === "quran" ? t.quran : t.reflection}
-              </Text>
-            </View>
-            <Text
-              style={
-                item.content.kind === "quran"
-                  ? styles.verses
-                  : styles.reminderText
-              }
-            >
-              {item.content.body}
-            </Text>
-            <View style={styles.rule} />
-            <Text style={styles.citation}>
-              {formatCitation(item.content.citation)}
-            </Text>
-          </View>
-          <View style={[styles.reminderBottom, { bottom: insets.bottom + 40 }]}>
-            <Text style={styles.countdown}>
-              {countdownLabel(state.reminderRemainingMs, locale)}
-            </Text>
-            <View style={styles.countTrack}>
-              <View
-                style={[
-                  styles.countFill,
-                  {
-                    width: `${(state.reminderRemainingMs / item.durationMs) * 100}%`,
-                  },
-                ]}
-              />
-            </View>
-            <Pressable
-              style={styles.readButton}
-              accessibilityRole="button"
-              onPress={session.togglePlayback}
-            >
-              {state.wantsToPlay ? (
-                <Pause color="white" size={18} />
-              ) : (
-                <Play color="white" size={18} />
-              )}
-              <Text style={styles.ui}>
-                {state.wantsToPlay ? t.pauseRead : t.resumeRead}
-              </Text>
-            </Pressable>
-          </View>
-        </>
+        <Reminder item={item} session={session} state={state} locale={locale} />
       )}
-      {!item && (
-        <View style={styles.ending}>
-          <Image source={icon} style={styles.endMark} />
-          <Text style={styles.endTitle}>{state.ending.title}</Text>
-          <View style={styles.rule} />
-          <Text style={styles.endBody}>{state.ending.body}</Text>
-        </View>
-      )}
+      {!item && <Ending ending={state.ending} locale={session.plan.locale} />}
       <View
         style={[styles.header, { top: insets.top + 18 }]}
         pointerEvents="box-none"
@@ -518,12 +430,14 @@ function SessionView({
           <View style={styles.budget}>
             <Clock3 size={15} color="#f5f5f5" />
             <Text
+              maxFontSizeMultiplier={1.3}
+              numberOfLines={1}
               style={[
                 styles.budgetText,
                 { fontFamily: locale === "ar" ? "NotoNaskhUI" : "Gilroy" },
               ]}
             >
-              {remainingLabel(state.remainingMs, locale)}
+              {remainingLabel(state.remainingMs, locale, item.kind)}
             </Text>
           </View>
         )}
@@ -650,7 +564,10 @@ function About({
                   {bodies[page]}
                 </Text>
                 {page === "support" && (
-                  <ContactLinks locale={locale} open={open} />
+                  <ContactLinks
+                    locale={locale}
+                    open={(url) => void openLink(url, locale)}
+                  />
                 )}
                 <Pressable
                   style={styles.readButton}
@@ -697,7 +614,9 @@ function About({
               </View>
             )}
           </ScrollView>
-          <Text style={[styles.version, uiStyle]}>{t.version} 0.1.0</Text>
+          <Text style={[styles.version, uiStyle]}>
+            {t.version} {appVersion}
+          </Text>
           {hasPlayback && (
             <>
               <Pressable
@@ -774,8 +693,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
   },
-  headerControls: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flexShrink: 0,
+  },
   circle: {
     width: 44,
     height: 44,
@@ -787,9 +712,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   budget: {
-    height: 40,
+    minHeight: 40,
+    flexShrink: 1,
     borderRadius: 22,
     paddingHorizontal: 14,
+    paddingVertical: 4,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -797,7 +724,12 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff26",
     backgroundColor: "#00000099",
   },
-  budgetText: { fontFamily: "NotoNaskhUI", fontSize: 14, color: colors.text },
+  budgetText: {
+    fontFamily: "NotoNaskhUI",
+    fontSize: 14,
+    color: colors.text,
+    flexShrink: 1,
+  },
   mediaBottom: {
     position: "absolute",
     left: 0,
@@ -881,69 +813,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a0a0aee",
     borderRadius: 20,
   },
-  reminderBody: {
-    position: "absolute",
-    top: "25%",
-    left: 24,
-    right: 24,
-    alignItems: "center",
-  },
-  kind: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 13,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: "#ffffff2e",
-    borderRadius: 24,
-  },
-  verses: {
-    fontFamily: "Kitab",
-    fontSize: 30,
-    lineHeight: 59,
-    color: colors.text,
-    textAlign: "center",
-    writingDirection: "rtl",
-    marginTop: 36,
-  },
-  reminderText: {
-    fontFamily: "NotoNaskhUI",
-    fontSize: 24,
-    lineHeight: 42,
-    color: colors.text,
-    textAlign: "center",
-    marginTop: 36,
-  },
-  rule: {
-    height: 1,
-    width: 32,
-    backgroundColor: "#ffffff26",
-    marginVertical: 24,
-  },
-  citation: {
-    fontFamily: "NotoNaskhUI",
-    fontSize: 16,
-    color: "#c4c4c4",
-    textAlign: "center",
-    writingDirection: "rtl",
-  },
-  reminderBottom: { position: "absolute", left: 24, right: 24 },
-  countdown: {
-    fontFamily: "NotoNaskhUI",
-    fontSize: 16,
-    color: "#d6d6d6",
-    textAlign: "center",
-  },
-  countTrack: {
-    height: 2,
-    backgroundColor: "#ffffff24",
-    marginTop: 18,
-    marginBottom: 24,
-    marginHorizontal: 8,
-    alignItems: "flex-end",
-  },
-  countFill: { height: 2, backgroundColor: "white" },
   readButton: {
     height: 48,
     borderWidth: 1,
@@ -956,27 +825,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     backgroundColor: "#ffffff05",
   },
-  ending: {
-    flex: 1,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  endMark: { width: 72, height: 72, marginBottom: 32 },
   endTitle: {
     fontFamily: "Thmanyah",
     fontSize: 26,
     lineHeight: 39,
     color: colors.text,
-    textAlign: "center",
-    writingDirection: "rtl",
-  },
-  endBody: {
-    fontFamily: "NotoNaskhUI",
-    fontSize: 18,
-    lineHeight: 34,
-    color: "#c9c9c9",
-    maxWidth: 316,
     textAlign: "center",
     writingDirection: "rtl",
   },
