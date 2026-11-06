@@ -1,5 +1,46 @@
 # Implementation verification
 
+## Second review follow-up
+
+Addressed the second review of `fe58ef7` on 2026-11-06. The architecture and server-defined ordering are retained. The API remains undeployed, so these checks use development fixture media and generated valid mock plans. Local evidence is under ignored `artifacts/round2/`.
+
+| Check                                                       | Result                                                                                         |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Frozen Bun installation                                     | Passed                                                                                         |
+| Root/mobile TypeScript, unit tests and web production build | Passed; 58 unit tests across six files                                                         |
+| Headed Chromium integration                                 | All 25 tests passed, including a genuinely hidden tab                                          |
+| Expo Android/iOS/web production exports                     | Passed; JavaScript and assets, separate from native compilation                                |
+| Android and iOS native source builds                        | Passed and installed on Android 16/API 36.1 and iPhone 18 Pro/iOS 27.0 simulators              |
+| Swift interruption-cache concurrency                        | 200,000 concurrent operations passed under Thread Sanitizer using the installed patched source |
+| Contract regeneration and production fixture exclusion      | Passed; contract files unchanged and test markers absent from production JavaScript            |
+
+### Findings and evidence
+
+| Finding                                        | Correction and validation                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R2-1: consecutive reminders retain scroll      | Both clients key the reminder by item identity. The browser regression scrolls A, opens/closes About, switches UI language and lets B start at zero. Removing just the key reproduces B at `scrollTop=2993`. Installed Android visibly resets to B's heading/opening text. Installed iOS keeps `contentOffset.y=2908.67` across About, then resets to `0` for B.                                         |
+| R2-2: ending clips on short desktop            | Web ending uses a responsive reading frame with keyboard-reachable overflow. Regressions verify the title and final body line at 1440×600 with normal and doubled text sizes. Both regressions fail against the previous layout.                                                                                                                                                                         |
+| R2-3: new Android interruption during reminder | Native focus ownership follows the foreground session, including no-player screens. Real OS transient requests freeze the countdown after normal media-to-reminder entry and on a reminder-first plan; release resumes it. The held reminder samples were respectively 18,948.63 ms and 11,936.46 ms.                                                                                                    |
+| R2-4: automatic ducking bypasses pause handler | The session request explicitly sets pause-on-duck. An actual OS `MAY_DUCK` request froze video at 51,800 ms and counted time at 51,346 ms, then allowed progress on release. A separate manual-pause case stayed stopped after release. The OS focus stack confirms the pause-on-duck flag.                                                                                                              |
+| R2-5: iOS interruption cache race              | Cache snapshot and listener access now share a small lock; delivery occurs after unlocking. The Thread Sanitizer stress check passes. An installed native notification check also freezes/resumes a reminder without a player. This fixes a source-level race; no production crash was established.                                                                                                      |
+| English web ending is RTL                      | Ending language/direction derive from plan locale. The English-plan browser regression passes while UI language remains Arabic.                                                                                                                                                                                                                                                                          |
+| Startup About/Privacy loses its page           | Both clients keep one About instance at the app root. The delayed-response browser regression retains Privacy, keyboard focus and paused playback through session acceptance. Native About also preserves the active reminder's scroll position.                                                                                                                                                         |
+| Fractional reminder progress exceeds maximum   | Both clients round seconds consistently for `now` and `max`, and expose localized countdown text. A valid 1,500 ms reminder passes the browser range regression.                                                                                                                                                                                                                                         |
+| English native media metadata is RTL           | Speaker row, name and title direction/alignment follow plan locale; content language is exposed on iOS. Installed iOS English metadata was visually checked, including punctuation and left alignment.                                                                                                                                                                                                   |
+| Initial Android focus denial/delay             | Initial playback/countdown waits for native permission. The native play entry points reject playback without focus. Actual OS denial via the app's audio-focus operation holds unmuted playback/counting at zero. Restoring permission does not autoplay; explicit retry successfully starts playback. Unit regressions cover delayed gain, pause/About intent, background/end release and stale events. |
+
+The six added browser scenarios were checked against the previous behavior before accepting their fixes. The native checks use the installed source builds; the TypeScript fakes establish controller/bridge ordering, not Android event delivery. The [native integration document](native-playback.md) includes commands for the OS requester and sanitizer checks.
+
+The checked-in Android requester was separately built, installed and verified to acquire/release real OS focus. Test helpers were removed afterward and the original audio-focus AppOp was restored. A complete unmuted telephony-lock/delayed-gain round trip was not established reliably on the emulator; delayed gain has controller/bridge regression coverage, while the OS denial, transient and ducking results above are independently verified.
+
+### Release dependencies
+
+The production endpoint is still unavailable. Deployed CORS, manifest/segment delivery, signed URL lifetime across restoration, expiry and real error responses still require the deployed service. No production API fallback or private Rails data was introduced.
+
+Hosted Actions had an account billing/spending-limit block on run `42187570241`, before any steps executed. Repository code cannot repair that account setting. Successful hosted jobs remain required for a release candidate. Physical calls, Bluetooth/headphone routes, full spoken VoiceOver/TalkBack journeys, broader Safari behavior, asset rights and final privacy/support destinations remain the release work described below.
+
+## First review follow-up
+
 Reviewed and corrected the feedback against `7496f9e` on 2026-11-06. All eight reported defects were confirmed; the client fixes and regression tests are included in this follow-up. The production session API is still unavailable, so verification uses the documented development plans, their public HLS media, and generated browser fixtures. This is not production-launch approval.
 
 ## Checks on this change

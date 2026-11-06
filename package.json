@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/mobile/tsconfig.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:native-cache": "bash scripts/test-native-interruption-cache.sh",
     "check": "bun run typecheck && bun run test && bun run build",
     "mobile:export": "bun run --cwd apps/mobile export",
     "contract:generate": "bun scripts/generate-contract.ts",

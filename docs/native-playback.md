@@ -15,16 +15,37 @@ The pinned Expo API does not expose the complete interruption lifecycle to JavaS
 }
 ```
 
-`use-session-lifecycle.ts` subscribes through `watchSessionInterruptions` for the entire session, including reminders with no VideoPlayer. It subscribes before reading cached native state, covering an interruption that began before the session was mounted. Cleanup removes the module listener. `NativeMedia` does not own this subscription.
+`use-session-lifecycle.ts` subscribes through `watchSessionInterruptions` for the entire session, including reminders with no VideoPlayer. `NativeMedia` does not own this subscription.
 
-- Android retains its focus request during transient loss so disposing the last player or pausing a muted player cannot discard the eventual gain callback. New players cannot reacquire focus while that transient interruption is held. Gain clears the interruption and reconciles focus. Permanent loss clears interruption with `mayResume:false`, requiring explicit user resumption. Module teardown clears the observer/state and abandons focus. No phone-state permission is requested.
-- iOS forwards `AVAudioSession.interruptionNotification` through the module and caches the `shouldResume` option independently of player lifetime.
+- Android exposes `setAudioSessionActive(active, generation)` on the main queue. A foreground session owns a `DO_NOT_MIX` focus request independently of its players, including a plan starting with a reminder. About and manual pause retain that request; background, ending and disposal release it. The ordinary player focus manager cannot abandon or change this session request.
+- Android requests pause-on-duck callbacks with `setWillPauseWhenDucked(true)` and accepts delayed focus gain. Initial acquisition and delayed gain block playback and reminder accounting. Denial/permanent loss require explicit retry; transient loss waits for OS gain without reacquiring. The native `play`/`replay` entry points also check focus permission before starting the player. Android 7 uses the legacy focus API; Android 8+ uses `AudioFocusRequest`.
+- Android events carry `focusGeneration`, identifying their ownership request. JavaScript ignores callbacks queued before backgrounding or reacquisition. The native owner separately ignores callbacks from abandoned AudioFocusRequests. No phone-state permission is requested.
+- iOS forwards `AVAudioSession.interruptionNotification` and caches the `shouldResume` option independently of player lifetime. The synchronous getter and listener access use `AudioInterruptionState`'s lock. State and listener are copied under the lock; callbacks run after unlocking. The JavaScript subscriber attaches before reconciling the cached snapshot.
 - Native interruption begin pauses all players, including muted video. The JavaScript adapter also aligns actual playback with `shouldPlay`.
 - Permission to resume never overrides manual pause, About or app backgrounding. Native stopped/playing callbacks cannot grant interruption permission or imply browser autoplay denial.
 
 Bun applies the patch on install. `apps/mobile/package.json` sets `expo.autolinking.buildFromSource` to `expo-video` so a prebuilt module cannot bypass it. Rebuild/install a development client after changing the patch; stock Expo Go and JavaScript exports cannot validate this extension. Review/remove the patch when upgrading to an Expo release with equivalent upstream functionality.
 
-Fresh Android and iOS source builds passed on 2026-11-06. Installed Android OS focus and iOS native-notification checks passed across media/reminder transitions, including muted playback. See [verification](verification.md) for precise evidence and the remaining physical-call/audio-route checks.
+Fresh Android and iOS source builds passed on 2026-11-06, including the second review's changes. Installed Android OS focus and iOS native-notification checks passed. See [verification](verification.md) for precise evidence and the remaining physical-call/audio-route checks.
+
+## Repeating the native boundary checks
+
+On macOS, `mise exec -- bun run test:native-cache` compiles the installed patched Swift cache with Thread Sanitizer. It runs 200,000 concurrent updates, snapshot reads and listener changes, including a callback that reads the cache again. The iOS CI job runs this check too.
+
+For Android, prebuild/compile/install the development client first. With Java and the Android SDK available, build the separate OS focus requester:
+
+```sh
+mise exec -- bash scripts/build-android-focus-probe.sh
+adb install -r artifacts/android-focus-probe/probe.apk
+adb shell am broadcast -n com.mofied.qa.focus/.FocusReceiver -a request --ei gain 2
+adb shell am broadcast -n com.mofied.qa.focus/.FocusReceiver -a release
+```
+
+The build script uses SDK platform 37.0/build-tools 37.0.0 and the generated Expo debug keystore. The helper targets API 34 so its background receiver can request focus while Mofied remains visible. It is test-only and is not included in Mofied's builds. Uninstall an older helper first if it was signed with a different development key.
+
+Use gain `2` for transient loss and `3` for `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`. Verify actual playhead and counted time stop, then resume only when user intent permits. Repeat after entering a reminder normally, with a reminder-first plan, and with manual pause/About already active. Use `adb shell dumpsys audio` to verify the OS focus stack and `PAUSES_ON_DUCKABLE_LOSS`, rather than directly emitting JavaScript events.
+
+For denial, record `adb shell cmd appops get com.mofied.app TAKE_AUDIO_FOCUS`, temporarily set that operation to `ignore`, and launch/resume the app. Playback and counting must remain stopped. Restore the recorded mode, verify playback still waits for explicit retry, then retry. Always restore the original mode in cleanup. For delayed gain, an emulator GSM call can hold the actual telephony focus lock: keep Mofied foreground while the call is active, request playback, then cancel the simulated call. These are OS checks on an emulator, not physical telephony/audio-route certification.
 
 ## Buffering and recovery
 

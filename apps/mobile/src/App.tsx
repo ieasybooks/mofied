@@ -92,6 +92,7 @@ const topFadeColors = [
   "rgba(0, 0, 0, 0)",
 ] as const;
 const storageKey = `mofied.session.v1.${__DEV__ ? "development" : "production"}`;
+const subscribeWithoutSession = () => () => {};
 
 export default function App() {
   const [fonts, fontError] = useFonts({
@@ -119,14 +120,21 @@ export default function App() {
 function LoadedApp() {
   const insets = useSafeAreaInsets();
   const [session, setSession] = useState<SessionController | null>(null);
+  const hasPlayback = useSyncExternalStore(
+    session?.subscribe ?? subscribeWithoutSession,
+    () => !!session?.getSnapshot().item,
+    () => !!session?.getSnapshot().item,
+  );
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [locale, setLocale] = useState<Locale>("ar");
-  const [startupInfo, setStartupInfo] = useState(false);
-  const startupInfoRef = useRef(false);
-  const showStartupInfo = (open: boolean) => {
-    startupInfoRef.current = open;
-    setStartupInfo(open);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutOpenRef = useRef(false);
+  const showAbout = (open: boolean) => {
+    aboutOpenRef.current = open;
+    setAboutOpen(open);
+    if (open) session?.openAbout();
+    else session?.closeAbout();
   };
   useEffect(() => {
     const abort = new AbortController();
@@ -140,7 +148,9 @@ function LoadedApp() {
       if (!restored && Platform.OS !== "web") next.toggleMuted();
       if (Platform.OS !== "web" && AppState.currentState === "background")
         next.setBackgrounded(true);
-      if (startupInfoRef.current) next.openAbout();
+      // Android grants focus asynchronously. Gate the very first render too.
+      if (Platform.OS === "android") next.setInterrupted(true);
+      if (aboutOpenRef.current) next.openAbout();
       if (!abort.signal.aborted) setSession(next);
     })().catch((error: unknown) => {
       if (!abort.signal.aborted) {
@@ -153,46 +163,52 @@ function LoadedApp() {
     });
     return () => abort.abort();
   }, [attempt]);
-  if (!session)
-    return (
-      <View style={styles.startup}>
-        <View style={[styles.header, { top: insets.top + 18 }]}>
-          <Pressable
-            style={styles.circle}
-            accessibilityRole="button"
-            accessibilityLabel={copy[locale].info}
-            onPress={() => showStartupInfo(true)}
-          >
-            <Info size={21} color="white" />
-          </Pressable>
-        </View>
-        <Image source={icon} style={styles.startupMark} />
-        {error ? (
-          <>
-            <Text style={styles.endTitle}>{copy[locale].loadError}</Text>
-            <Text style={styles.body}>{copy[locale].connection}</Text>
-            <Pressable
-              style={styles.readButton}
-              onPress={() => setAttempt((value) => value + 1)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.ui}>{copy[locale].retry}</Text>
-            </Pressable>
-          </>
-        ) : (
-          <ActivityIndicator color="white" />
-        )}
-        <About
-          visible={startupInfo}
-          hasPlayback={false}
-          locale={locale}
-          setLocale={setLocale}
-          close={() => showStartupInfo(false)}
-        />
-      </View>
-    );
   return (
-    <SessionView session={session} locale={locale} setLocale={setLocale} />
+    <View style={styles.root}>
+      {session ? (
+        <SessionView
+          session={session}
+          locale={locale}
+          openAbout={() => showAbout(true)}
+        />
+      ) : (
+        <View style={styles.startup}>
+          <View style={[styles.header, { top: insets.top + 18 }]}>
+            <Pressable
+              style={styles.circle}
+              accessibilityRole="button"
+              accessibilityLabel={copy[locale].info}
+              onPress={() => showAbout(true)}
+            >
+              <Info size={21} color="white" />
+            </Pressable>
+          </View>
+          <Image source={icon} style={styles.startupMark} />
+          {error ? (
+            <>
+              <Text style={styles.endTitle}>{copy[locale].loadError}</Text>
+              <Text style={styles.body}>{copy[locale].connection}</Text>
+              <Pressable
+                style={styles.readButton}
+                onPress={() => setAttempt((value) => value + 1)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.ui}>{copy[locale].retry}</Text>
+              </Pressable>
+            </>
+          ) : (
+            <ActivityIndicator color="white" />
+          )}
+        </View>
+      )}
+      <About
+        visible={aboutOpen}
+        hasPlayback={hasPlayback}
+        locale={locale}
+        setLocale={setLocale}
+        close={() => showAbout(false)}
+      />
+    </View>
   );
 }
 
@@ -203,11 +219,11 @@ function KeepScreenAwake() {
 function SessionView({
   session,
   locale,
-  setLocale,
+  openAbout,
 }: {
   session: SessionController;
   locale: Locale;
-  setLocale: (locale: Locale) => void;
+  openAbout: () => void;
 }) {
   const state = useSyncExternalStore(
     session.subscribe,
@@ -218,6 +234,11 @@ function SessionView({
   const [attempt, setAttempt] = useState(0);
   const item = state.item;
   const t = copy[locale];
+  const contentIsArabic = session.plan.locale === "ar";
+  const contentText: TextStyle = {
+    writingDirection: contentIsArabic ? "rtl" : "ltr",
+    textAlign: contentIsArabic ? "right" : "left",
+  };
   useSessionLifecycle(session, storageKey);
   const gestures = useMemo(
     () =>
@@ -299,7 +320,10 @@ function SessionView({
             />
             <View pointerEvents="box-none">
               <Pressable
-                style={styles.speaker}
+                style={[
+                  styles.speaker,
+                  { flexDirection: contentIsArabic ? "row-reverse" : "row" },
+                ]}
                 accessibilityRole="link"
                 onPress={() => void openLink(item.speaker.pageUrl, locale)}
               >
@@ -309,7 +333,14 @@ function SessionView({
                     style={styles.portrait}
                   />
                 )}
-                <Text style={[styles.speakerName, styles.overlayTextShadow]}>
+                <Text
+                  accessibilityLanguage={session.plan.locale}
+                  style={[
+                    styles.speakerName,
+                    styles.overlayTextShadow,
+                    contentText,
+                  ]}
+                >
                   {item.speaker.name}
                 </Text>
               </Pressable>
@@ -318,7 +349,8 @@ function SessionView({
                 onPress={() => void openLink(item.pageUrl, locale)}
               >
                 <Text
-                  style={[styles.title, styles.overlayTextShadow]}
+                  style={[styles.title, styles.overlayTextShadow, contentText]}
+                  accessibilityLanguage={session.plan.locale}
                   numberOfLines={2}
                   ellipsizeMode="tail"
                 >
@@ -393,7 +425,13 @@ function SessionView({
         </>
       )}
       {item?.kind === "reminder" && (
-        <Reminder item={item} session={session} state={state} locale={locale} />
+        <Reminder
+          key={item.id}
+          item={item}
+          session={session}
+          state={state}
+          locale={locale}
+        />
       )}
       {!item && <Ending ending={state.ending} locale={session.plan.locale} />}
       <View
@@ -403,7 +441,7 @@ function SessionView({
         <View style={styles.headerControls} pointerEvents="box-none">
           <Pressable
             style={styles.circle}
-            onPress={session.openAbout}
+            onPress={openAbout}
             accessibilityRole="button"
             accessibilityLabel={t.info}
             hitSlop={4}
@@ -442,13 +480,6 @@ function SessionView({
           </View>
         )}
       </View>
-      <About
-        visible={state.aboutOpen}
-        hasPlayback={!!item}
-        locale={locale}
-        setLocale={setLocale}
-        close={session.closeAbout}
-      />
     </View>
   );
 }

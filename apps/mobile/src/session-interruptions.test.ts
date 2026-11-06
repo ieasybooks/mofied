@@ -99,3 +99,118 @@ describe("session interruption lifetime", () => {
     expect(session.getSnapshot().interrupted).toBe(true);
   });
 });
+
+class AndroidFocusSource extends NativeModuleSource {
+  requests: { active: boolean; generation: number }[] = [];
+  setAudioSessionActive = async (active: boolean, generation: number) => {
+    this.requests.push({ active, generation });
+  };
+  focus(
+    interrupted: boolean,
+    mayResume = true,
+    generation = this.requests.at(-1)!.generation,
+  ) {
+    this.state = { interrupted, mayResume, focusGeneration: generation };
+    for (const listener of this.listeners) listener(this.state);
+  }
+}
+
+describe("foreground Android focus ownership", () => {
+  it("gates a plan starting with a reminder until focus is granted, and owns focus across items", () => {
+    let now = 0;
+    const plan = fixture();
+    plan.items.shift();
+    const session = new SessionController(plan, () => now);
+    const source = new AndroidFocusSource();
+    const stop = watchSessionInterruptions(source, session);
+    expect(source.requests.map((r) => r.active)).toEqual([true]);
+    now += 5000;
+    session.tick();
+    expect(session.getSnapshot()).toMatchObject({
+      interrupted: true,
+      activeMs: 0,
+      reminderRemainingMs: 20_000,
+    });
+    source.focus(false);
+    now += 1000;
+    session.tick();
+    expect(session.getSnapshot().reminderRemainingMs).toBe(19_000);
+    source.focus(true); // A NEW interruption starts with no player mounted.
+    now += 5000;
+    session.tick();
+    expect(session.getSnapshot().reminderRemainingMs).toBe(19_000);
+    source.focus(false);
+    now += 19_000;
+    session.tick();
+    expect(session.getSnapshot().item?.kind).toBe("media");
+    expect(source.requests).toHaveLength(1);
+    stop();
+    expect(source.requests.map((r) => r.active)).toEqual([true, false]);
+  });
+
+  it("releases on background/end and ignores callbacks from prior ownership", () => {
+    const session = new SessionController(fixture());
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    const initial = source.requests[0]!.generation;
+    source.focus(false);
+    session.setBackgrounded(true);
+    expect(source.requests.at(-1)?.active).toBe(false);
+    session.setBackgrounded(false);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false, true, initial);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+    session.next();
+    expect(source.requests).toHaveLength(3);
+    // A separate one-item session reaches the ending and releases immediately.
+    const plan = fixture();
+    plan.items = [plan.items[0]!];
+    const ending = new SessionController(plan);
+    const endSource = new AndroidFocusSource();
+    watchSessionInterruptions(endSource, ending);
+    endSource.focus(false);
+    ending.next();
+    expect(endSource.requests.map((r) => r.active)).toEqual([true, false]);
+  });
+
+  it("denied initial focus stays paused until an explicit retry receives a grant", () => {
+    const session = new SessionController(fixture());
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    source.focus(false, false);
+    expect(session.getSnapshot()).toMatchObject({
+      wantsToPlay: false,
+      shouldPlay: false,
+    });
+    session.tick();
+    expect(source.requests).toHaveLength(1);
+    session.togglePlayback();
+    expect(source.requests).toHaveLength(2);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
+  it.each(["manual", "About"])(
+    "delayed focus gain preserves %s pause intent",
+    (reason) => {
+      const session = new SessionController(fixture());
+      const source = new AndroidFocusSource();
+      watchSessionInterruptions(source, session);
+      source.focus(true);
+      if (reason === "manual") session.togglePlayback();
+      else session.openAbout();
+      source.focus(false);
+      expect(session.getSnapshot().shouldPlay).toBe(false);
+      expect(source.requests).toHaveLength(1);
+      if (reason === "manual") {
+        session.togglePlayback();
+        expect(session.getSnapshot().shouldPlay).toBe(false);
+        source.focus(false);
+      } else session.closeAbout();
+      expect(session.getSnapshot().shouldPlay).toBe(true);
+    },
+  );
+});

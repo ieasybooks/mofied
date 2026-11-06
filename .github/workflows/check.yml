@@ -70,6 +70,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
+      - run: bun run test:native-cache
       - run: bunx expo prebuild --platform ios --no-install
         working-directory: apps/mobile
       - run: pod install

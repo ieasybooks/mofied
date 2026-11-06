@@ -394,7 +394,8 @@ kbd {
   background: linear-gradient(140deg, #171717, #0d0d0d);
   text-align: center;
 }
-.reminder .text-frame {
+.reminder .text-frame,
+.ending .text-frame {
   aspect-ratio: auto;
   width: min(560px, calc(100% - 48px));
   display: flex;
@@ -402,7 +403,8 @@ kbd {
   padding: 24px;
   gap: 20px;
 }
-.reminder-body {
+.reminder-body,
+.ending-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -412,7 +414,8 @@ kbd {
   display: flex;
   flex-direction: column;
 }
-.reminder-copy {
+.reminder-copy,
+.ending-copy {
   flex: none;
   width: 100%;
   margin-block: auto;
@@ -422,10 +425,12 @@ kbd {
   flex-direction: column;
   overflow-wrap: anywhere;
 }
-.reminder-copy > * {
+.reminder-copy > *,
+.ending-copy > * {
   flex-shrink: 0;
 }
-.reminder-body:focus-visible {
+.reminder-body:focus-visible,
+.ending-body:focus-visible {
   outline-offset: -2px;
 }
 .reminder-kind {
@@ -494,13 +499,6 @@ kbd {
 .reading-button:hover {
   background: #ffffff0d;
 }
-.ending-frame {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
 .ending-frame h1 {
   font-size: 28px;
 }
@@ -508,7 +506,8 @@ kbd {
   font-size: 19px;
   line-height: 1.9;
   color: #c9c9c9;
-  max-width: 330px;
+  max-width: 480px;
+  white-space: pre-line;
 }
 .ending-mark {
   display: none;
@@ -877,7 +876,8 @@ kbd {
     position: static;
     margin-top: 10px;
   }
-  .reminder .text-frame {
+  .reminder .text-frame,
+  .ending .text-frame {
     width: 100%;
     padding: calc(env(safe-area-inset-top) + 90px) 20px
       calc(env(safe-area-inset-bottom) + 24px);

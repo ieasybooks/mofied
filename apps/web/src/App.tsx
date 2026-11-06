@@ -25,6 +25,7 @@ import { MediaPlayer } from "./MediaPlayer";
 import { About } from "./About";
 
 const storageKey = `mofied.session.v1.${import.meta.env.DEV ? "development" : "production"}`;
+const subscribeWithoutSession = () => () => {};
 function storageRead() {
   try {
     return sessionStorage.getItem(storageKey);
@@ -43,6 +44,11 @@ function storageWrite(value: string | null) {
 
 export function App() {
   const [session, setSession] = useState<SessionController | null>(null);
+  const hasPlayback = useSyncExternalStore(
+    session?.subscribe ?? subscribeWithoutSession,
+    () => !!session?.getSnapshot().item,
+    () => !!session?.getSnapshot().item,
+  );
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [locale, setLocale] = useState<Locale>("ar");
@@ -50,11 +56,13 @@ export function App() {
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
   }, [locale]);
-  const [startupInfo, setStartupInfo] = useState(false);
-  const startupInfoRef = useRef(false);
-  const showStartupInfo = (open: boolean) => {
-    startupInfoRef.current = open;
-    setStartupInfo(open);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutOpenRef = useRef(false);
+  const showAbout = (open: boolean) => {
+    aboutOpenRef.current = open;
+    setAboutOpen(open);
+    if (open) session?.openAbout();
+    else session?.closeAbout();
   };
   useEffect(() => {
     const abort = new AbortController();
@@ -72,7 +80,7 @@ export function App() {
     const restored = saved ? SessionController.restore(saved) : null;
     const accept = (next: SessionController) => {
       if (abort.signal.aborted) return;
-      if (startupInfoRef.current) next.openAbout();
+      if (aboutOpenRef.current) next.openAbout();
       setSession(next);
     };
     if (restored) {
@@ -92,16 +100,22 @@ export function App() {
       });
     return () => abort.abort();
   }, [attempt]);
-  if (!session)
-    return (
-      <>
+  return (
+    <>
+      {session ? (
+        <SessionView
+          session={session}
+          locale={locale}
+          openAbout={() => showAbout(true)}
+        />
+      ) : (
         <main className="startup" dir={locale === "ar" ? "rtl" : "ltr"}>
           <header className="session-header">
             <button
               type="button"
               className="info-button round-button"
               aria-label={copy[locale].info}
-              onClick={() => showStartupInfo(true)}
+              onClick={() => showAbout(true)}
             >
               <Info size={21} />
             </button>
@@ -126,29 +140,27 @@ export function App() {
             />
           )}
         </main>
-        {startupInfo && (
-          <About
-            locale={locale}
-            setLocale={setLocale}
-            close={() => showStartupInfo(false)}
-            hasPlayback={false}
-          />
-        )}
-      </>
-    );
-  return (
-    <SessionView session={session} locale={locale} setLocale={setLocale} />
+      )}
+      {aboutOpen && (
+        <About
+          locale={locale}
+          setLocale={setLocale}
+          close={() => showAbout(false)}
+          hasPlayback={hasPlayback}
+        />
+      )}
+    </>
   );
 }
 
 function SessionView({
   session,
   locale,
-  setLocale,
+  openAbout,
 }: {
   session: SessionController;
   locale: Locale;
-  setLocale: (locale: Locale) => void;
+  openAbout: () => void;
 }) {
   const state = useSyncExternalStore(
     session.subscribe,
@@ -241,7 +253,7 @@ function SessionView({
               type="button"
               className="info-button round-button"
               aria-label={t.info}
-              onClick={session.openAbout}
+              onClick={openAbout}
             >
               <Info size={21} />
             </button>
@@ -314,6 +326,7 @@ function SessionView({
         )}
         {item?.kind === "reminder" && (
           <section
+            key={item.id}
             className="player-frame text-frame"
             aria-label={t.reflection}
           >
@@ -364,7 +377,11 @@ function SessionView({
                 aria-label={t.reflection}
                 aria-valuenow={Math.ceil(state.reminderRemainingMs / 1000)}
                 aria-valuemin={0}
-                aria-valuemax={item.durationMs / 1000}
+                aria-valuemax={Math.ceil(item.durationMs / 1000)}
+                aria-valuetext={countdownLabel(
+                  state.reminderRemainingMs,
+                  locale,
+                )}
               >
                 <i
                   style={{
@@ -388,12 +405,22 @@ function SessionView({
             className="player-frame text-frame ending-frame"
             aria-labelledby="ending-title"
           >
-            <img className="ending-mark" src={logo} alt="" />
-            <h1 id="ending-title" dir="rtl">
-              {state.ending.title}
-            </h1>
-            <div className="text-rule" />
-            <p dir="rtl">{state.ending.body}</p>
+            <div
+              className="ending-body"
+              data-reading-region
+              tabIndex={0}
+              role="region"
+              aria-labelledby="ending-title"
+              lang={session.plan.locale}
+              dir={session.plan.locale === "ar" ? "rtl" : "ltr"}
+            >
+              <div className="ending-copy">
+                <img className="ending-mark" src={logo} alt="" />
+                <h1 id="ending-title">{state.ending.title}</h1>
+                <div className="text-rule" />
+                <p>{state.ending.body}</p>
+              </div>
+            </div>
           </section>
         )}
         {item && (
@@ -411,14 +438,6 @@ function SessionView({
           </div>
         )}
       </main>
-      {state.aboutOpen && (
-        <About
-          locale={locale}
-          setLocale={setLocale}
-          close={session.closeAbout}
-          hasPlayback={!!item}
-        />
-      )}
     </>
   );
 }

@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.mofied.qa.focus">
+  <!-- Test-only: target 34 permits focus requests from this background receiver. -->
+  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
+  <application android:label="Mofied QA audio focus" android:hasCode="true">
+    <receiver android:name=".FocusReceiver" android:exported="true" />
+  </application>
+</manifest>

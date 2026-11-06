@@ -81,8 +81,9 @@ export function Reminder({
           accessibilityLabel={t.reflection}
           accessibilityValue={{
             min: 0,
-            max: item.durationMs / 1000,
+            max: Math.ceil(item.durationMs / 1000),
             now: Math.ceil(state.reminderRemainingMs / 1000),
+            text: countdownLabel(state.reminderRemainingMs, locale),
           }}
         >
           <View
