@@ -1,5 +1,38 @@
 # Implementation verification
 
+## Physical iPhone pass — 2026-11-06
+
+Tested on an iPhone 16 Plus running iOS 26.2, with an Arabic system locale and a 430×932-point display. Built, signed and installed a native Debug app with the patched ExpoVideo compiled from source. The embedded development bundle used the repository's public mock HLS media and valid generated reminder plans. XCTest drove the physical device after UI Automation was enabled. No production API, hosted CI, physical call or audio-route result is claimed.
+
+### Defect found and corrected
+
+**Foreground return could strand playback.** Two physical reproductions stopped permanently around 24–32 seconds after Home → return, despite preserved playing intent. An app-scoped native observer recorded `AVAudioSessionInterruptionTypeKey = 1` (begin), reason `0`, while the application was backgrounded. No matching end arrived. The interruption cache therefore kept playback permission blocked.
+
+The iOS bridge now requests native reactivation when foreground activity becomes eligible again, including explicit resume, closing About and Retry. The main-queue native method requests an exclusive playback audio session and publishes permission only after activation succeeds. A fresh interruption while already foreground does not trigger reacquisition. Manual pause, startup/restored pause, About, background and terminal errors defer the request. Five new controller/bridge cases fail without the correction and pass with it; denied activation leaves reminder time stationary. These denial cases are deterministic boundary tests, not a physical telephone-call claim.
+
+The rebuilt app passed the original foreground-return assertions and the complete media journey: playback, About/Privacy, language changes, mute/unmute with manual pause, background return, process termination/restoration at the saved position, a required reminder, and backward/forward history without replaying that reminder.
+
+| Physical iPhone check | Result |
+| --- | --- |
+| Native build, installation and HLS playback | Passed with the custom Expo native code; both normal mock streams decoded |
+| Controls, About and restoration | Passed the complete media journey, including manual pause through language/mute changes, saved-position restoration, required reminder and consumed-reminder history |
+| Reminder background and pause | Background samples held at 114,605.9 ms remaining; return resumed the countdown. A later manual pause held at 108,276.7 ms through background/return and Privacy |
+| Consecutive long reminders | Current reading position survived About and language changes; the next item started at the top. Locale badge reflow shifts the bottom position by a few points, without resetting the reading position |
+| Largest system text | Passed at the device accessibility service's maximum Dynamic Type setting. The approximately 38,696-point reminder body scrolled to its citation with controls visible. The next reminder reset correctly, and the long ending's first and final lines remained reachable |
+| Ending and storage removal | Generated reading sessions reached the ending and removed the saved development session |
+| External links | Media and speaker links opened the corresponding screens in the installed Faqieh app via universal links. Mofied paused while away and resumed after returning |
+| Paused foreground and About | A paused video remained stationary across Home/return. Playing intent resumed after returning behind Privacy and closing About; manually paused intent remained paused through the same sequence |
+| Network failure and explicit recovery | Verified an active iOS 100% packet-loss profile. After forcing a fresh load by terminating/relaunching and resuming, the one supplied spare was consumed and the terminal retry screen held active time at 14,001.6 ms. Clearing the profile did not autoplay; explicit Retry decoded the spare and resumed accounting |
+| Natural full fixture | Passed without gestures or seeking: first video → 20-second reminder → second video → ending. No replacements were used and saved state was removed. Across uninterrupted sample spans of approximately 163.5 and 143.8 seconds, playhead and active-time deltas matched; reminder accounting matched the countdown |
+
+Local validation after the correction passed: frozen Bun installation, both TypeScript checks, **72 unit tests**, all **25 headed browser tests**, the web production build, Expo Android/iOS/web exports, the physical iPhone source build and the Swift cache's **200,000-operation Thread Sanitizer** check. The five new interruption cases are included in the unit-test total. Exports validate JavaScript/assets; the signed iPhone build separately compiled the modified Swift code.
+
+The embedded Debug bundle showed `Cannot create devtools websocket connections in embedded environments`; temporary logging identified this as the development warning banner and was removed before the final source build. Local XCTest results, screenshots, app-scoped logs, interruption evidence and state samples are under ignored `artifacts/physical-ios/`. The table records completed reruns; exploratory harness runs are retained there too. The network-loss result uses a maintained, verified OS profile and a fresh load; an already buffered clip also completed under that profile, so buffered playback was not treated as a failure.
+
+The original Dynamic Type setting was restored and all induced device conditions were verified inactive. Mofied was not installed before this pass, so a clean reinstall of the same verified app artifact removed all generated plans and temporary diagnostic storage/preferences. Fresh-install playback and manual-pause assertions passed. The disposable XCTest app was uninstalled, test/debugger processes stopped, and the local Xcode environment file restored. Mofied remains installed with the normal development mock paused.
+
+Physical calls, headphone/Bluetooth changes, secure lock/unlock, spoken VoiceOver, broader Safari testing, production API integration and hosted CI remain deferred. Accessibility queries and enlarged-text checks do not substitute for a spoken screen-reader journey.
+
 ## Physical Android pass — 2026-11-06
 
 Tested on a Samsung Galaxy Note20 (SM-N980F), Android 13/API 33, with an Arabic system locale, a 1080×2400 display and arm64 native code. Installed the existing debug APK containing the native patches from `b6fd655`; Metro served the current JavaScript over USB. The repository's public development fixtures and valid generated reminder plans were used. The first checks ran offline; the online checks below followed after connecting the phone to Wi-Fi. No production API or hosted CI result is claimed.
@@ -34,7 +67,7 @@ The Samsung audio service exposes live owners under `MultiFocusStack`, after a b
 
 After the final source changes, both TypeScript checks, all **67 unit tests**, all **25 headed browser tests** (including actual hidden-tab playback), the web production build and Expo Android/iOS/web exports passed. The exports validate JavaScript/assets; this pass used the previously compiled native baseline and did not recompile unchanged native sources. The five new retry-focus cases are included in the unit-test total.
 
-Actual calls, headphone/Bluetooth route changes, a spoken TalkBack journey and physical iOS checks remain pending. Android OS-focus requests and accessibility-tree checks do not replace those checks. Production API integration and hosted CI remain deferred. The original font scale and audio-focus AppOp were restored, generated saved sessions were removed, the disposable focus requester was uninstalled, test browser tabs were closed, and test servers/USB forwarding were stopped. Mofied remains installed. The phone was left connected to Wi-Fi and locked; temporary credential files were removed.
+Actual calls, headphone/Bluetooth route changes and a spoken TalkBack journey remain pending. Android OS-focus requests and accessibility-tree checks do not replace those checks. Physical iOS results are recorded above. Production API integration and hosted CI remain deferred. The original font scale and audio-focus AppOp were restored, generated saved sessions were removed, the disposable focus requester was uninstalled, test browser tabs were closed, and test servers/USB forwarding were stopped. Mofied remains installed. The phone was left connected to Wi-Fi and locked; temporary credential files were removed.
 
 ## Third review follow-up
 

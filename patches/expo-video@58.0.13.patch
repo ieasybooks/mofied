@@ -510,7 +510,7 @@ index 0000000000000000000000000000000000000000..43c71feb1537528b9160e27f5c22ad31
 +  }
 +}
 diff --git a/ios/VideoManager.swift b/ios/VideoManager.swift
-index f60b131f794d9fcac9bf11b9674813e55954cbf8..05cb1c025911b0729c66a79ff204858572b15d0c 100644
+index f60b131f794d9fcac9bf11b9674813e55954cbf8..579933254cf85ae3f064c8b717b89c346e552a9d 100644
 --- a/ios/VideoManager.swift
 +++ b/ios/VideoManager.swift
 @@ -12,6 +12,8 @@ class VideoManager {
@@ -559,11 +559,31 @@ index f60b131f794d9fcac9bf11b9674813e55954cbf8..05cb1c025911b0729c66a79ff2048585
      if let mediaServicesResetObserver {
        NotificationCenter.default.removeObserver(mediaServicesResetObserver)
      }
+@@ -60,6 +85,19 @@ class VideoManager {
+     reloadPlayers { $0.reloadIfFailed() }
+   }
+ 
++  // iOS need not send interruption-end when the app returns from background.
++  // JS calls this only when foreground user intent becomes eligible again.
++  // Run on main, alongside interruption notifications, and publish permission
++  // only after exclusive activation succeeds (e.g. an ongoing call may deny it).
++  func resumeAudioSession() throws {
++    guard UIApplication.shared.applicationState == .active,
++          audioInterruption.snapshot["interrupted"] == true else { return }
++    let audioSession = AVAudioSession.sharedInstance()
++    try audioSession.setCategory(.playback, mode: .moviePlayback, options: [])
++    try audioSession.setActive(true)
++    audioInterruption.update(interrupted: false, mayResume: true)
++  }
++
+   private func onMediaServicesWereReset() {
+     setAppropriateAudioSessionOrWarn()
+     reloadPlayers { $0.reloadCurrentSource() }
 diff --git a/ios/VideoModule.swift b/ios/VideoModule.swift
-index a34afc4a755cb3a0fbe43878c89b9f1174c511a2..04b01239493431bb3b620308f6563f1e7590c0b6 100644
+index a34afc4a755cb3a0fbe43878c89b9f1174c511a2..e7fb78883c0d2152dcaef6b23165167974bc9698 100644
 --- a/ios/VideoModule.swift
 +++ b/ios/VideoModule.swift
-@@ -6,9 +6,21 @@ import AVKit
+@@ -6,9 +6,25 @@ import AVKit
  public final class VideoModule: Module {
    public func definition() -> ModuleDefinition {
      Name("ExpoVideo")
@@ -572,6 +592,10 @@ index a34afc4a755cb3a0fbe43878c89b9f1174c511a2..04b01239493431bb3b620308f6563f1e
 +    Function("getAudioInterruption") {
 +      VideoManager.shared.audioInterruption.snapshot
 +    }
++
++    AsyncFunction("resumeAudioSession") {
++      try VideoManager.shared.resumeAudioSession()
++    }.runOnQueue(.main)
  
      OnCreate {
        VideoAssetTransportRegistry.registerDefaultProviders()

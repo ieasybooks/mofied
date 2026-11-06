@@ -100,6 +100,94 @@ describe("session interruption lifetime", () => {
   });
 });
 
+class IOSResumeSource extends NativeModuleSource {
+  requests = 0;
+  resumeAudioSession = async () => {
+    this.requests++;
+    // Only a successful native activation may emit permission to resume.
+  };
+}
+
+describe("iOS interruption recovery without an end notification", () => {
+  it("reactivates on foreground return, but not when an interruption begins in the foreground", () => {
+    const session = new SessionController(fixture());
+    const source = new IOSResumeSource();
+    watchSessionInterruptions(source, session);
+    source.emit(true);
+    session.tick();
+    expect(source.requests).toBe(0);
+    session.setBackgrounded(true);
+    session.setBackgrounded(false);
+    expect(source.requests).toBe(1);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.emit(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
+  it.each(["manual", "About", "retry"])(
+    "defers reactivation until %s allows intended activity",
+    (reason) => {
+      const plan = fixture();
+      plan.items = [plan.items[0]!];
+      plan.replacements = [];
+      const session = new SessionController(plan);
+      const source = new IOSResumeSource();
+      watchSessionInterruptions(source, session);
+      session.setBackgrounded(true);
+      source.emit(true);
+      if (reason === "manual") session.togglePlayback();
+      if (reason === "About") session.openAbout();
+      if (reason === "retry") session.mediaFailed(plan.items[0]!.id);
+      session.setBackgrounded(false);
+      expect(source.requests).toBe(0);
+      expect(session.getSnapshot().shouldPlay).toBe(false);
+      if (reason === "manual") session.togglePlayback();
+      if (reason === "About") session.closeAbout();
+      if (reason === "retry") session.retry();
+      expect(source.requests).toBe(1);
+      expect(session.getSnapshot().shouldPlay).toBe(false);
+      source.emit(false);
+      expect(session.getSnapshot().shouldPlay).toBe(true);
+    },
+  );
+
+  it("keeps a restored reminder paused until explicit resume and waits through denied activation", async () => {
+    let now = 0;
+    const original = new SessionController(fixture(), () => now);
+    original.next();
+    const session = SessionController.restore(
+      original.serialize()!,
+      () => now,
+    )!;
+    const source = new IOSResumeSource();
+    source.emit(true);
+    source.resumeAudioSession = async () => {
+      source.requests++;
+      throw new Error("Audio session activation denied");
+    };
+    const stop = watchSessionInterruptions(source, session);
+    expect(source.requests).toBe(0);
+    session.togglePlayback();
+    await Promise.resolve();
+    expect(source.requests).toBe(1);
+    now += 25_000;
+    session.tick();
+    expect(source.requests).toBe(1);
+    expect(session.getSnapshot()).toMatchObject({
+      interrupted: true,
+      activeMs: 0,
+      reminderRemainingMs: 20_000,
+    });
+    // A later grant still cannot override a pause made while waiting.
+    session.togglePlayback();
+    source.emit(false);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    stop();
+    session.togglePlayback();
+    expect(source.requests).toBe(1);
+  });
+});
+
 class AndroidFocusSource extends NativeModuleSource {
   requests: { active: boolean; generation: number }[] = [];
   setAudioSessionActive = async (active: boolean, generation: number) => {

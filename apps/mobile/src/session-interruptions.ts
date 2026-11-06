@@ -9,6 +9,8 @@ export type InterruptionSource = {
   getAudioInterruption(): AudioInterruption;
   /** Android focus follows the foreground session, including silent reminders. */
   setAudioSessionActive?(active: boolean, generation: number): Promise<void>;
+  /** iOS may omit interruption-end after backgrounding; activation must succeed first. */
+  resumeAudioSession?(): Promise<void>;
   addListener(
     event: "audioInterruption",
     listener: (event: AudioInterruption) => void,
@@ -26,6 +28,7 @@ export function watchSessionInterruptions(
   let active: boolean | undefined;
   let wants = session.getSnapshot().wantsToPlay;
   let generation = 0;
+  let resumeEligible = false;
   const update = ({
     interrupted,
     mayResume,
@@ -45,6 +48,14 @@ export function watchSessionInterruptions(
     const state = session.getSnapshot();
     const nextIntended =
       state.wantsToPlay && !state.aboutOpen && !state.retryRequired;
+    if (source.resumeAudioSession) {
+      const eligible = !!state.item && !state.backgrounded && nextIntended;
+      const recover = eligible && !resumeEligible && state.interrupted;
+      resumeEligible = eligible;
+      // A foreground return or explicit resume can retry native activation.
+      // Interruption begin itself must never cause us to take audio back.
+      if (recover) void source.resumeAudioSession().catch(() => {});
+    }
     // Retain ownership during a pause, but acquire only for intended activity.
     // shouldPlay cannot be used here: initial permission is deliberately gated.
     // A terminal media failure waits for explicit Retry even if intent survives.
