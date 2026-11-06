@@ -1,5 +1,25 @@
 # Implementation verification
 
+## Branded startup — 2026-11-07
+
+The reported top-edge loading/download text matches the Metro development bundle banner. The installed Android Release package has no `DEBUGGABLE` flag and runs with Metro stopped. I did not reproduce that banner in Release. A cold-start recording did reproduce a white native launch screen before the dark React loading surface.
+
+Added the Expo splash-screen plugin with the existing white Mofied mark on `#0A0A0A` for Android and iOS. The native splash remains through font setup, then fades into a matching mark and circular session loader without moving the mark or imposing a minimum wait. Errors replace the loader with Retry; Info remains available during session loading and errors. Web now renders the same branded loader in the initial HTML, before JavaScript, fonts or the API response, and preserves its geometry when React takes over. Its spinner respects reduced motion. The actual playback progress line is unchanged.
+
+| Local check | Result |
+| --- | --- |
+| Frozen Bun install, TypeScript, unit tests, web production build | Passed; **89 unit tests in 7 files** |
+| Headed Chromium suite | **36 passed**, including hidden-tab playback and three new startup regressions; the opt-in live integration test is skipped in this command |
+| Startup browser regressions | Development and production HTML show the mark/circular loader while JavaScript is withheld; the mark does not move when React takes over; Privacy and its pause survive API acceptance; error/retry and reduced motion pass |
+| Live browser smoke check | Production API and HLS playback loaded through the local development proxy without page errors |
+| Expo Android/iOS/web exports | All passed; JavaScript/assets checks |
+| Native Release compilation | Android and iOS source builds passed with the new splash-screen module |
+| Physical Android | Reinstalled the Release APK on the Samsung Galaxy Note20 / Android 13 without clearing its session. Cold launch has a dark splash, no white flash or download banner, and restores paused at the saved position. Playback, Info/Privacy, manual pause, warm return and another process restart passed |
+| Android emulator | Fresh launch offline replaced loading with the connection error. Info/Privacy remained usable; enabling connectivity alone did not retry. Explicit Retry showed the branded circular loader and reached real API media playback |
+| iOS simulator | iPhone 18 Pro / iOS 27.0 Release cold-start recording shows dark native artwork, matching circular loader and paused restoration. The XCTest production journey passed playback, cancelled/committed paging, bilingual Info, background return and process restoration |
+
+Local logs, recordings and UI evidence are under ignored `artifacts/startup/`. No physical iPhone run, hosted CI or new telephony/audio-route/spoken-screen-reader result is claimed for this startup change. Android emulator connectivity was restored, and the physical Android app was left installed and paused. Native launch presentation was checked in embedded Release apps rather than Expo Go or a Metro loading session.
+
 ## Paging, Info slides and production API — 2026-11-07
 
 Implemented drag-following vertical pages on web/iOS/Android, with a bounded first-page drag, cancellable short gestures, distance/flick settlement, and one silent adjacent preview. Only the settled page owns a media player. Buttons, wheel, keyboard and native accessibility actions share the same navigation coordinator. Server order, required reminders, consumed-reminder history and finite endings remain authoritative. Movement suspends playback/accounting without changing manual play intent. About, backgrounding and interruptions cancel pending manual navigation; reduced motion settles immediately.

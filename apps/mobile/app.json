@@ -27,7 +27,16 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0A0A",
+          "image": "../../packages/design/assets/icons/icon-white-1024.png",
+          "imageWidth": 80,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "web": {
       "bundler": "metro",

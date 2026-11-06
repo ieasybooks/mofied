@@ -35,6 +35,7 @@ import {
 } from "./provider";
 import { MediaPlayer } from "./MediaPlayer";
 import { About } from "./About";
+import { LaunchArtwork } from "./LaunchArtwork";
 
 const subscribeWithoutSession = () => () => {};
 function storageRead() {
@@ -112,6 +113,7 @@ export function App() {
         />
       ) : (
         <main className="startup" dir={locale === "ar" ? "rtl" : "ltr"}>
+          {!error && <LaunchArtwork locale={locale} />}
           <header className="session-header">
             <button
               type="button"
@@ -122,9 +124,9 @@ export function App() {
               <Info size={21} />
             </button>
           </header>
-          <img src={logo} alt={copy[locale].name} />
-          {error ? (
+          {error && (
             <>
+              <img src={logo} alt={copy[locale].name} />
               <h1>{copy[locale].loadError}</h1>
               <p>{copy[locale].connection}</p>
               <button
@@ -134,12 +136,6 @@ export function App() {
                 {copy[locale].retry}
               </button>
             </>
-          ) : (
-            <div
-              className="loader"
-              role="status"
-              aria-label={copy[locale].loading}
-            />
           )}
         </main>
       )}

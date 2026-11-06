@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -23,6 +18,7 @@ import {
 } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
@@ -60,6 +56,12 @@ import { useSessionLifecycle } from "./use-session-lifecycle";
 import { Reminder } from "./Reminder";
 import { Ending } from "./Ending";
 import { openLink } from "./open-link";
+import { LaunchArtwork } from "./LaunchArtwork";
+
+// Keep the OS launch image through font setup, then reveal the matching React
+// loading surface after it has laid out. No blank frame or artificial delay.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
+SplashScreen.setOptions({ fade: true, duration: 150 });
 
 const icon = require("../../../packages/design/assets/icons/icon-white-1024.png");
 const appIcon = require("../../../packages/design/assets/icons/app-icon-flat-dark-1024.png");
@@ -110,7 +112,7 @@ export default function App() {
         <LoadedApp />
       ) : (
         <View style={styles.startup}>
-          <ActivityIndicator color="white" />
+          <LaunchArtwork />
         </View>
       )}
     </SafeAreaProvider>
@@ -164,7 +166,7 @@ function LoadedApp() {
     return () => abort.abort();
   }, [attempt]);
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={() => SplashScreen.hide()}>
       {session ? (
         <SessionView
           session={session}
@@ -173,6 +175,7 @@ function LoadedApp() {
         />
       ) : (
         <View style={styles.startup}>
+          {!error && <LaunchArtwork locale={locale} />}
           <View style={[styles.header, { top: insets.top + 18 }]}>
             <Pressable
               style={styles.circle}
@@ -183,9 +186,9 @@ function LoadedApp() {
               <Info size={21} color="white" />
             </Pressable>
           </View>
-          <Image source={icon} style={styles.startupMark} />
-          {error ? (
+          {error && (
             <>
+              <Image source={icon} style={styles.startupMark} />
               <Text style={styles.endTitle}>{copy[locale].loadError}</Text>
               <Text style={styles.body}>{copy[locale].connection}</Text>
               <Pressable
@@ -196,8 +199,6 @@ function LoadedApp() {
                 <Text style={styles.ui}>{copy[locale].retry}</Text>
               </Pressable>
             </>
-          ) : (
-            <ActivityIndicator color="white" />
           )}
         </View>
       )}

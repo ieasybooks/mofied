@@ -13,9 +13,61 @@
     />
     <title>مفيد · Mofied</title>
     <link rel="icon" href="/favicon.ico" />
+    <!-- This renders before JavaScript, fonts or the session API have loaded. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #0a0a0a;
+      }
+      .launch-artwork {
+        position: absolute;
+        inset: 0;
+        min-height: 100dvh;
+        background: #0a0a0a;
+        pointer-events: none;
+      }
+      .launch-mark {
+        position: absolute;
+        width: 80px;
+        height: 80px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        object-fit: contain;
+      }
+      .launch-spinner {
+        box-sizing: border-box;
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        left: 50%;
+        top: calc(50% + 64px);
+        margin-left: -10px;
+        border: 2px solid #ffffff35;
+        border-top-color: #f5f5f5;
+        border-radius: 50%;
+        animation: launch-spin 0.9s linear infinite;
+      }
+      @keyframes launch-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .launch-spinner {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="launch-artwork" role="status" aria-label="جارٍ فتح مفيد">
+        <img class="launch-mark" src="__MOFIED_LAUNCH_MARK__" alt="" />
+        <span class="launch-spinner" aria-hidden="true"></span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
