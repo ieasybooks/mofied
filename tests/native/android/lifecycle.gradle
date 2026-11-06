@@ -1,0 +1,16 @@
+// Test-only dependencies/source set; nothing is added to the shipping client.
+allprojects {
+  afterEvaluate { project ->
+    def directory = ['expo-video': 'video', 'react-native-async-storage_async-storage': 'storage'][project.name]
+    if (directory != null) {
+      project.android.sourceSets.test.java.srcDir(project.property('mofiedNativeTests') + '/' + directory)
+      project.dependencies.add('testImplementation', 'junit:junit:4.13.2')
+      project.dependencies.add('testImplementation', 'org.robolectric:robolectric:4.14.1')
+      project.dependencies.add('testImplementation', 'org.mockito:mockito-core:5.18.0')
+      project.tasks.withType(Test).configureEach {
+        systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        testLogging { events 'passed', 'failed'; exceptionFormat 'full' }
+      }
+    }
+  }
+}

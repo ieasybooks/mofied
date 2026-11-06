@@ -116,6 +116,70 @@ class AndroidFocusSource extends NativeModuleSource {
 }
 
 describe("foreground Android focus ownership", () => {
+  it("does not acquire on paused restoration until the user resumes", () => {
+    const saved = new SessionController(fixture()).serialize()!;
+    const session = SessionController.restore(saved)!;
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    session.tick();
+    expect(source.requests.map((r) => r.active)).toEqual([false]);
+    expect(session.getSnapshot().wantsToPlay).toBe(false);
+    session.togglePlayback();
+    expect(source.requests.map((r) => r.active)).toEqual([false, true]);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
+  it("defers acquisition behind startup About until closing makes the session eligible", () => {
+    const session = new SessionController(fixture());
+    session.openAbout();
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    expect(source.requests.map((r) => r.active)).toEqual([false]);
+    session.closeAbout();
+    expect(source.requests.map((r) => r.active)).toEqual([false, true]);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
+  it("retains acquired focus while paused, but does not reacquire on a paused foreground return", () => {
+    const session = new SessionController(fixture());
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    source.focus(false);
+    session.togglePlayback();
+    session.openAbout();
+    session.closeAbout();
+    expect(source.requests.map((r) => r.active)).toEqual([true]);
+    session.setBackgrounded(true);
+    session.setBackgrounded(false);
+    expect(source.requests.map((r) => r.active)).toEqual([true, false]);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    session.togglePlayback();
+    expect(source.requests.map((r) => r.active)).toEqual([true, false, true]);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
+  it("does not acquire when resume intent changes behind About", () => {
+    const session = SessionController.restore(
+      new SessionController(fixture()).serialize()!,
+    )!;
+    session.openAbout();
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    session.togglePlayback();
+    expect(source.requests.map((r) => r.active)).toEqual([false]);
+    session.closeAbout();
+    expect(source.requests.map((r) => r.active)).toEqual([false, true]);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
   it("gates a plan starting with a reminder until focus is granted, and owns focus across items", () => {
     let now = 0;
     const plan = fixture();

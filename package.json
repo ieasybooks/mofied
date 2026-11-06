@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:native-cache": "bash scripts/test-native-interruption-cache.sh",
+    "test:android-lifecycle": "bash scripts/test-android-lifecycle.sh",
     "check": "bun run typecheck && bun run test && bun run build",
     "mobile:export": "bun run --cwd apps/mobile export",
     "contract:generate": "bun scripts/generate-contract.ts",
@@ -39,6 +40,7 @@
     "esbuild"
   ],
   "patchedDependencies": {
-    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch"
+    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch",
+    "@react-native-async-storage/async-storage@2.2.0": "patches/@react-native-async-storage%2Fasync-storage@2.2.0.patch"
   }
 }

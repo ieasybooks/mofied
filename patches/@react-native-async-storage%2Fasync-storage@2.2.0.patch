@@ -1,0 +1,43 @@
+diff --git a/android/src/main/java/com/reactnativecommunity/asyncstorage/AsyncStorageModule.java b/android/src/main/java/com/reactnativecommunity/asyncstorage/AsyncStorageModule.java
+index a66e80291b3bbf8b3fa46447afea54140dcd7bd1..48f4e9d1e3d3d9b5d6282c9c977b1c456b8ff14c 100644
+--- a/android/src/main/java/com/reactnativecommunity/asyncstorage/AsyncStorageModule.java
++++ b/android/src/main/java/com/reactnativecommunity/asyncstorage/AsyncStorageModule.java
+@@ -41,16 +41,22 @@ public final class AsyncStorageModule extends NativeAsyncStorageModuleSpec {
+   private static final int MAX_SQL_KEYS = 999;
+ 
+   private ReactDatabaseSupplier mReactDatabaseSupplier;
+-  private boolean mShuttingDown = false;
++  private volatile boolean mShuttingDown = false;
++
++  // Runtime contexts share the process-wide database. Serialize their work too,
++  // so a retiring module cannot close it during a new module's transaction.
++  private static final Executor sharedExecutor = new SerialExecutor(
++    BuildConfig.AsyncStorage_useDedicatedExecutor
++      ? Executors.newSingleThreadExecutor()
++      : AsyncTask.THREAD_POOL_EXECUTOR
++  );
+ 
+   private final SerialExecutor executor;
+ 
+   public AsyncStorageModule(ReactApplicationContext reactContext) {
+     this(
+       reactContext,
+-      BuildConfig.AsyncStorage_useDedicatedExecutor
+-        ? Executors.newSingleThreadExecutor()
+-        : AsyncTask.THREAD_POOL_EXECUTOR
++      sharedExecutor
+     );
+   }
+ 
+@@ -81,8 +87,9 @@ public final class AsyncStorageModule extends NativeAsyncStorageModuleSpec {
+   @Override
+   public void invalidate() {
+     mShuttingDown = true;
+-    // ensure we close database when activity is destroyed
+-    mReactDatabaseSupplier.closeDatabase();
++    // Finish any in-flight transaction before closing, independently of the
++    // destroyed React context. Queued work observes mShuttingDown and exits.
++    executor.execute(() -> mReactDatabaseSupplier.closeDatabase());
+   }
+ 
+   /**

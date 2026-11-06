@@ -1,5 +1,5 @@
 diff --git a/android/src/main/java/expo/modules/video/VideoModule.kt b/android/src/main/java/expo/modules/video/VideoModule.kt
-index c2711344c58758e0ce5b71572d59c930330f0103..f0678be6102cd0e328db3421de8cf0a0af3fea03 100644
+index c2711344c58758e0ce5b71572d59c930330f0103..e96bcc62c0095cea2e4a1248d8daf8963be209ba 100644
 --- a/android/src/main/java/expo/modules/video/VideoModule.kt
 +++ b/android/src/main/java/expo/modules/video/VideoModule.kt
 @@ -40,9 +40,19 @@ import kotlin.time.Duration
@@ -9,16 +9,16 @@ index c2711344c58758e0ce5b71572d59c930330f0103..f0678be6102cd0e328db3421de8cf0a0
 +    Events("audioInterruption")
 +
 +    Function("getAudioInterruption") {
-+      VideoManager.getAudioInterruption()
++      VideoManager.getAudioInterruption(appContext)
 +    }
 +
 +    AsyncFunction("setAudioSessionActive") { active: Boolean, generation: Int ->
-+      VideoManager.setAudioSessionActive(active, generation)
++      VideoManager.setAudioSessionActive(appContext, active, generation)
 +    }.runOnQueue(Queues.MAIN)
  
      OnCreate {
        VideoManager.onModuleCreated(appContext)
-+      VideoManager.setInterruptionListener { payload -> sendEvent("audioInterruption", payload) }
++      VideoManager.setInterruptionListener(appContext) { payload -> sendEvent("audioInterruption", payload) }
      }
  
      OnDestroy {
@@ -27,7 +27,7 @@ index c2711344c58758e0ce5b71572d59c930330f0103..f0678be6102cd0e328db3421de8cf0a0
        Function("play") { ref: VideoPlayer ->
          appContext.mainQueue.launch {
 -          ref.player.play()
-+          if (VideoManager.canPlay()) ref.player.play()
++          if (VideoManager.canPlay(appContext)) ref.player.play()
          }
        }
  
@@ -36,15 +36,24 @@ index c2711344c58758e0ce5b71572d59c930330f0103..f0678be6102cd0e328db3421de8cf0a0
          appContext.mainQueue.launch {
            ref.player.seekTo(0)
 -          ref.player.play()
-+          if (VideoManager.canPlay()) ref.player.play()
++          if (VideoManager.canPlay(appContext)) ref.player.play()
          }
        }
  
 diff --git a/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt b/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt
-index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82f5b820b3 100644
+index b88932a3e5b54812c4e207a36c3440594226c898..4a5e2a7248f084ed6485606a577a0544ef4e26f7 100644
 --- a/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt
 +++ b/android/src/main/java/expo/modules/video/managers/AudioFocusManager.kt
-@@ -24,6 +24,36 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -5,6 +5,8 @@ import android.media.AudioAttributes
+ import android.media.AudioFocusRequest
+ import android.media.AudioManager
+ import android.os.Build
++import android.os.Handler
++import android.os.Looper
+ import androidx.media3.common.util.UnstableApi
+ import expo.modules.kotlin.AppContext
+ import expo.modules.video.FailedToGetAudioFocusManagerException
+@@ -24,6 +26,51 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
  
    private var players: MutableList<WeakReference<VideoPlayer>> = mutableListOf()
    private var currentFocusRequest: AudioFocusRequest? = null
@@ -52,47 +61,62 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
 +  @Volatile private var interruptionState: Map<String, Any> = mapOf("interrupted" to false, "mayResume" to true)
 +  @Volatile var interruptionListener: ((Map<String, Any>) -> Unit)? = null
 +  private var sessionFocus: SessionAudioFocus? = null
++  @Volatile private var released = false
++  private val mainHandler = Handler(Looper.getMainLooper())
 +
 +  fun getAudioInterruption(): Map<String, Any> = interruptionState
 +
 +  fun setAudioSessionActive(active: Boolean, generation: Int) {
++    if (released) return
 +    if (sessionFocus == null) {
 +      transientInterruption = false
 +      abandonAudioFocus()
 +      sessionFocus = SessionAudioFocus(audioManager,
 +        pausePlayers = { players.toList().forEach { it.get()?.player?.pause() } },
 +        emit = { payload ->
-+          interruptionState = payload
-+          interruptionListener?.invoke(payload)
++          if (!released) {
++            interruptionState = payload
++            interruptionListener?.invoke(payload)
++          }
 +        })
 +    }
 +    sessionFocus?.setActive(active, generation)
 +  }
 +
-+  fun canPlay(): Boolean = sessionFocus?.canPlay ?: true
++  fun canPlay(): Boolean = !released && (sessionFocus?.canPlay ?: true)
 +
++  @Synchronized
 +  fun releaseInterruptionObserver() {
++    if (released) return
++    // Invalidate callbacks immediately, even if main-thread cleanup is queued.
++    released = true
 +    interruptionListener = null
-+    sessionFocus?.setActive(false, 0)
-+    transientInterruption = false
-+    interruptionState = mapOf("interrupted" to false, "mayResume" to true)
-+    abandonAudioFocus()
++    val cleanup = Runnable {
++      players.toList().forEach { it.get()?.removeListener(this) }
++      sessionFocus?.setActive(false, 0)
++      players.clear()
++      transientInterruption = false
++      interruptionState = mapOf("interrupted" to false, "mayResume" to true)
++      abandonAudioFocus()
++    }
++    if (Looper.myLooper() == Looper.getMainLooper()) cleanup.run()
++    else mainHandler.post(cleanup)
 +  }
    private var currentMixingMode: AudioMixingMode = AudioMixingMode.MIX_WITH_OTHERS
    private val anyPlayerRequiresFocus: Boolean
      get() = players.toList().any {
-@@ -31,6 +61,10 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -31,6 +78,10 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
      }
  
    private fun requestAudioFocus() {
-+    if (sessionFocus != null) return
++    if (released || sessionFocus != null) return
 +    // Keep the original request while another app owns transient focus. A new
 +    // player or a reminder transition must not steal focus or lose the gain event.
 +    if (transientInterruption) return
      val audioMixingMode = findAudioMixingMode()
  
      // We don't request AudioFocus if we want to mix the audio with others
-@@ -55,6 +89,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -55,6 +106,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
        }
  
        val newFocusRequest = AudioFocusRequest.Builder(audioFocusType).run {
@@ -100,7 +124,7 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
          setAudioAttributes(
            AudioAttributes.Builder().run {
              setUsage(AudioAttributes.USAGE_MEDIA)
-@@ -78,6 +113,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -78,6 +130,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
    }
  
    private fun abandonAudioFocus() {
@@ -108,19 +132,27 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
      currentFocusRequest?.let {
        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
          audioManager.abandonAudioFocusRequest(it)
-@@ -111,6 +147,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -90,6 +143,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+   }
+ 
+   fun registerPlayer(player: VideoPlayer) {
++    if (released) return
+     players.find { it.get() == player } ?: run {
+       players.add(WeakReference(player))
+     }
+@@ -111,6 +165,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
    }
  
    override fun onIsPlayingChanged(player: VideoPlayer, isPlaying: Boolean, oldIsPlaying: Boolean?) {
-+    if (sessionFocus != null) return
++    if (released || sessionFocus != null) return
      // we can't use `updateAudioFocus`, because when losing focus the videos are paused sequentially,
      // which can lead to unexpected results.
      if (!isPlaying && !anyPlayerRequiresFocus) {
-@@ -131,11 +168,14 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -131,11 +186,14 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
    // AudioManager.OnAudioFocusChangeListener
  
    override fun onAudioFocusChange(focusChange: Int) {
-+    if (sessionFocus != null) return
++    if (released || sessionFocus != null) return
      when (focusChange) {
        AudioManager.AUDIOFOCUS_LOSS -> {
 +        transientInterruption = false
@@ -132,7 +164,7 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
            }
            currentFocusRequest = null
          }
-@@ -148,21 +188,25 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -148,21 +206,25 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
          if (audioMixingMode == AudioMixingMode.MIX_WITH_OTHERS) {
            return
          }
@@ -163,7 +195,7 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
              } else {
                duckPlayer(it)
              }
-@@ -171,17 +215,26 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -171,17 +233,27 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
        }
  
        AudioManager.AUDIOFOCUS_GAIN -> {
@@ -185,6 +217,7 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
  
 +  // Let the client preserve manual pause and background intent when focus returns.
 +  private fun emitInterruption(interrupted: Boolean, mayResume: Boolean) {
++    if (released) return
 +    interruptionState = mapOf("interrupted" to interrupted, "mayResume" to mayResume)
 +    interruptionListener?.invoke(interruptionState)
 +  }
@@ -192,7 +225,7 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
    // Utils
  
    private fun playerRequiresFocus(weakPlayer: WeakReference<VideoPlayer>): Boolean {
-@@ -189,12 +242,11 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -189,12 +261,11 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
      return (!player.muted && player.playing && player.volume > 0) || player.audioMixingMode == AudioMixingMode.DO_NOT_MIX
    }
  
@@ -209,11 +242,11 @@ index b88932a3e5b54812c4e207a36c3440594226c898..2613491ed4969a5a26225cb68bb04f82
        }
      }
    }
-@@ -218,6 +270,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
+@@ -218,6 +289,7 @@ class AudioFocusManager(private val appContext: AppContext) : AudioManager.OnAud
    }
  
    private fun updateAudioFocus() {
-+    if (sessionFocus != null) return
++    if (released || sessionFocus != null) return
      if (anyPlayerRequiresFocus || findAudioMixingMode() != currentMixingMode) {
        requestAudioFocus()
      } else {
@@ -356,36 +389,91 @@ index 0000000000000000000000000000000000000000..5d7307365a9ca52ea60dc2239a14563d
 +  }
 +}
 diff --git a/android/src/main/java/expo/modules/video/managers/VideoManager.kt b/android/src/main/java/expo/modules/video/managers/VideoManager.kt
-index 5f9ad2a5bdf5e9e79f0d80b9d6d2cf635bd8704c..6101da72e66a36fa66929326c3abb96550350fda 100644
+index 5f9ad2a5bdf5e9e79f0d80b9d6d2cf635bd8704c..56fabafdf9e0fcb9e01a6e6a43ebd824ab4f18e7 100644
 --- a/android/src/main/java/expo/modules/video/managers/VideoManager.kt
 +++ b/android/src/main/java/expo/modules/video/managers/VideoManager.kt
 @@ -12,6 +12,7 @@ import expo.modules.video.listeners.VideoManagerListener
  import expo.modules.video.player.VideoPlayer
  import expo.modules.video.utils.weakMutableHashSetOf
  import java.lang.ref.WeakReference
-+import kotlinx.coroutines.launch
++import java.util.IdentityHashMap
  
  // Helper class used to keep track of all existing VideoViews and VideoPlayers
  @OptIn(UnstableApi::class)
-@@ -50,7 +51,18 @@ object VideoManager {
+@@ -29,7 +30,8 @@ object VideoManager {
+ 
+   private var playersRequestingKeepAwake = weakMutableHashSetOf<VideoPlayer>()
+ 
+-  private lateinit var audioFocusManager: AudioFocusManager
++  // A dying context must never release or deliver events to a newer owner.
++  private val audioFocusManagers = IdentityHashMap<AppContext, AudioFocusManager>()
+   lateinit var cache: VideoCache
+ 
+   private var listeners = mutableListOf<WeakReference<VideoManagerListener>>()
+@@ -38,9 +40,7 @@ object VideoManager {
+     val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+ 
+     this.pictureInPicture = PictureInPictureManager(appContext)
+-    if (!this::audioFocusManager.isInitialized) {
+-      audioFocusManager = AudioFocusManager(appContext)
+-    }
++    audioFocusManagers.getOrPut(appContext) { AudioFocusManager(appContext) }
+     if (!this::cache.isInitialized) {
+       cache = VideoCache(context)
+     } else if (this.appContext.get()?.reactContext != appContext.reactContext) {
+@@ -50,9 +50,35 @@ object VideoManager {
      this.appContext = WeakReference(appContext)
    }
  
-+  fun setInterruptionListener(listener: ((Map<String, Any>) -> Unit)?) {
-+    audioFocusManager.interruptionListener = listener
++  private fun audioFocusManager(appContext: AppContext?): AudioFocusManager? = synchronized(this) {
++    audioFocusManagers[appContext]
 +  }
 +
-+  fun getAudioInterruption(): Map<String, Any> = audioFocusManager.getAudioInterruption()
++  fun setInterruptionListener(appContext: AppContext, listener: ((Map<String, Any>) -> Unit)?) {
++    audioFocusManager(appContext)?.interruptionListener = listener
++  }
 +
-+  fun setAudioSessionActive(active: Boolean, generation: Int) = audioFocusManager.setAudioSessionActive(active, generation)
++  fun getAudioInterruption(appContext: AppContext): Map<String, Any> =
++    audioFocusManager(appContext)?.getAudioInterruption() ?: mapOf("interrupted" to true, "mayResume" to false)
 +
-+  fun canPlay(): Boolean = audioFocusManager.canPlay()
++  fun setAudioSessionActive(appContext: AppContext, active: Boolean, generation: Int) {
++    audioFocusManager(appContext)?.setAudioSessionActive(active, generation)
++  }
++
++  fun canPlay(appContext: AppContext): Boolean = audioFocusManager(appContext)?.canPlay() ?: false
 +
    fun onModuleDestroyed(appContext: AppContext) {
-+    appContext.mainQueue.launch { audioFocusManager.releaseInterruptionObserver() }
-     pictureInPicture.release()
-     listeners.clear()
+-    pictureInPicture.release()
+-    listeners.clear()
++    val owner = synchronized(this) {
++      val removed = audioFocusManagers.remove(appContext)
++      if (this.appContext.get() === appContext) {
++        pictureInPicture.release()
++        listeners.clear()
++      }
++      removed
++    }
++    // This owner dispatches through the main Looper, independently of the
++    // AppContext coroutine scope that Expo cancels immediately after OnDestroy.
++    owner?.releaseInterruptionObserver()
    }
+ 
+   fun registerListener(listener: VideoManagerListener) {
+@@ -85,12 +111,12 @@ object VideoManager {
+ 
+   fun registerVideoPlayer(videoPlayer: VideoPlayer) {
+     videoPlayersToVideoViews[videoPlayer] = videoPlayersToVideoViews[videoPlayer] ?: mutableListOf()
+-    audioFocusManager.registerPlayer(videoPlayer)
++    audioFocusManager(videoPlayer.appContext)?.registerPlayer(videoPlayer)
+   }
+ 
+   fun unregisterVideoPlayer(videoPlayer: VideoPlayer) {
+     videoPlayersToVideoViews.remove(videoPlayer)
+-    audioFocusManager.unregisterPlayer(videoPlayer)
++    audioFocusManager(videoPlayer.appContext)?.unregisterPlayer(videoPlayer)
+   }
+ 
+   fun registerFullscreenPlayerActivity(id: String, fullscreenActivity: FullscreenPlayerActivity) {
 diff --git a/ios/AudioInterruptionState.swift b/ios/AudioInterruptionState.swift
 new file mode 100644
 index 0000000000000000000000000000000000000000..43c71feb1537528b9160e27f5c22ad311c0f082e

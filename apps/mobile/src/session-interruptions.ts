@@ -43,8 +43,12 @@ export function watchSessionInterruptions(
   const subscription = source.addListener("audioInterruption", update);
   const reconcileFocus = () => {
     const state = session.getSnapshot();
-    const nextActive = !!state.item && !state.backgrounded;
-    const retry = nextActive && state.wantsToPlay && !wants;
+    const nextIntended = state.wantsToPlay && !state.aboutOpen;
+    // Retain ownership during a pause, but acquire only for intended activity.
+    // shouldPlay cannot be used here: initial permission is deliberately gated.
+    const nextActive =
+      !!state.item && !state.backgrounded && (active === true || nextIntended);
+    const retry = nextActive && nextIntended && !wants;
     wants = state.wantsToPlay;
     if (!source.setAudioSessionActive || (nextActive === active && !retry))
       return;
