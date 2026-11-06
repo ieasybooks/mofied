@@ -678,7 +678,9 @@ function About({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  // Rows and text choose their direction from the UI/plan locale below.
+  // Keep the OS RTL setting from mirroring that explicit layout a second time.
+  root: { flex: 1, backgroundColor: colors.background, direction: "ltr" },
   ui: {
     fontFamily: "NotoNaskhUI",
     fontSize: 16,
@@ -864,7 +866,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     writingDirection: "rtl",
   },
-  modal: { flex: 1, justifyContent: "flex-end", alignItems: "center" },
+  modal: {
+    flex: 1,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    direction: "ltr",
+  },
   backdrop: { backgroundColor: "#00000088" },
   sheet: {
     backgroundColor: colors.surface,

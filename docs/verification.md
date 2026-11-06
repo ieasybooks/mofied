@@ -1,5 +1,29 @@
 # Implementation verification
 
+## Physical Android pass — 2026-11-06 (partial)
+
+Tested on a Samsung Galaxy Note20 (SM-N980F), Android 13/API 33, with an Arabic system locale, a 1080×2400 display and arm64 native code. Installed the existing debug APK containing the native patches from `b6fd655`; Metro served the current JavaScript over USB. The repository's public development fixtures and valid generated reminder plans were used. No production API or hosted CI result is claimed.
+
+This phone exposed an additional layout defect: the system's RTL layout mirrored rows and alignment that the app already chooses explicitly. Arabic paragraphs and metadata aligned left, English rows were reversed, and `0:00 / 2:26` rendered as `2:26 / 0:00`. The app and modal roots now establish an LTR layout base while their children retain the explicit UI/content directions. On the same Arabic-system phone, screenshots verified right-aligned Arabic, left-aligned English, correct speaker-row order and elapsed/total time. No native dependency changes were needed.
+
+| Physical check | Result |
+| --- | --- |
+| Installation and startup | Passed with the current patched native APK and USB-served development bundle |
+| Offline media failure | Public HLS requests reported `UnknownHostException (no network)`; the supplied replacement was consumed once, the ordered reminder ran, and the app reached its retry screen without crashing |
+| Reminder-first audio focus | A separate QA package made real transient and MAY_DUCK requests while Mofied remained foreground with no VideoPlayer; countdown/accounting stopped and resumed after permitted focus gain |
+| Intent and acquisition | Manual pause survived interruption completion and About. During paused restoration and paused foreground return, the QA AudioTrack kept advancing; explicit Resume acquired focus and paused that track |
+| Initial focus denial | Temporarily denying Mofied's `TAKE_AUDIO_FOCUS` AppOp kept the countdown at 120,000 ms with zero active time. Restoring the original mode and explicitly resuming allowed progress. This is an OS-denial check, not a telephony-locked/delayed-gain test |
+| In-process context teardown | Granted and transient reminder focus were released while the replacement bundle was held. The PID stayed unchanged, native context destruction was logged, restoration preserved the paused reminder, and explicit Resume acquired a new request. No database transaction failures occurred |
+| Background and screen-off | A running reminder stopped counting and released focus in the background, then resumed on foreground return. Screen-off with Samsung's always-on display (`Dozing`) and the keyguard showing also kept accounting stationary and released focus; secure-unlock return was not exercised |
+| Reading continuity | A long reminder retained its scrolled position through About and UI-language changes; the next consecutive reminder began at the top |
+| Enlarged text and ending | At system font scale 2.0, the reminder citation was reachable while countdown/Resume remained visible. Both the ending title and final line were reachable. Completing the generated reminder-only plan removed saved state and released focus |
+
+The Samsung audio service exposes live owners under `MultiFocusStack`, after a blank line beneath the usual focus-stack heading. The final ownership checks read that section and exclude historical focus events. App-scoped logs contained no fatal exceptions or SQLite transaction failures. Local screenshots, state samples and test scripts are under ignored `artifacts/physical-android/`.
+
+Both TypeScript checks, all 62 unit tests, all 25 headed browser tests, the web production build and Expo Android/iOS/web exports passed after the layout change. The exports validate JavaScript/assets; this pass installed the previously compiled native baseline and did not recompile unchanged native sources.
+
+The phone had no active internet network throughout this pass. **Successful physical video playback, online recovery and a complete media → reminder → media journey remain unverified.** Actual calls, headphone/Bluetooth route changes and a spoken TalkBack journey also remain pending. Android OS-focus requests and accessibility-tree checks do not replace those checks. The original font scale and audio-focus AppOp were restored, generated saved sessions were removed, the disposable focus requester was uninstalled, and the test servers were stopped. Mofied remains installed.
+
 ## Third review follow-up
 
 Addressed the two Android findings against `730d0f2` on 2026-11-06. This pass uses the documented development fixtures and valid generated mock plans. Physical devices, hosted CI and production API integration are deferred; no hosted result is claimed. Local evidence is under ignored `artifacts/round3/`.
