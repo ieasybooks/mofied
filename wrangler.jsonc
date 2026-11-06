@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "mofied-web",
+  "account_id": "aaed7434338705aa46de5e4e3575e02b",
+  "compatibility_date": "2026-11-04",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Terraform in ieasybooks/infrastructure owns the mofied.com custom domain.
+  // Omit routes: Wrangler must not manage that association on app releases.
+  "assets": {
+    "directory": "./apps/web/dist",
+    // All app screens use /. Unknown paths and stale asset URLs must be 404s,
+    // not HTML responses cached as immutable JavaScript.
+    "not_found_handling": "none",
+  },
+}

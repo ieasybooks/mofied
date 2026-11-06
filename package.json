@@ -12,6 +12,11 @@
     "dev": "bun run --cwd apps/web dev",
     "dev:mobile": "bun run --cwd apps/mobile start",
     "build": "bun run --cwd apps/web build",
+    "build:web:release": "VITE_SESSION_API_URL=https://faqieh.com/api/v1/mofied/session?locale=ar bun run build && bun scripts/write-asset-headers.ts",
+    "preview:cloudflare": "bun run build:web:release && wrangler dev --local --ip 127.0.0.1 --port 8787 --inspector-port 0",
+    "deploy:web:check": "bun run build:web:release && wrangler deploy --dry-run",
+    "deploy:web": "bun run build:web:release && wrangler deploy",
+    "test:cloudflare": "playwright test --config playwright.cloudflare.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/mobile/tsconfig.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -30,6 +35,7 @@
     "vitest": "^5.0.5",
     "@playwright/test": "^1.60.0",
     "prettier": "^3.6.0",
+    "wrangler": "4.158.0",
     "zod": "^4.0.0",
     "@mofied/contracts": "workspace:*",
     "@mofied/session": "workspace:*",
@@ -37,7 +43,8 @@
     "@mofied/design": "workspace:*"
   },
   "trustedDependencies": [
-    "esbuild"
+    "esbuild",
+    "workerd"
   ],
   "patchedDependencies": {
     "expo-video@58.0.13": "patches/expo-video@58.0.13.patch",

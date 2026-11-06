@@ -28,6 +28,11 @@ jobs:
       - run: xvfb-run -a bun run test:e2e
         env:
           HEADED: "1"
+      - name: Check Cloudflare asset deployment
+        run: bun run deploy:web:check && xvfb-run -a bun run test:cloudflare
+        env:
+          HEADED: "1"
+          WRANGLER_SEND_METRICS: "false"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
