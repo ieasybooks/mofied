@@ -23,6 +23,10 @@ Open `http://localhost:5173` for the live API. Vite proxies the session request 
 
 The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Returning to `/` can restore a saved production session, paused. A fixture query deliberately starts fresh. Mock and production storage are isolated.
 
+## Web deployment
+
+The web build is configured for Cloudflare Workers Static Assets at `mofied.com`. See [web deployment](docs/web-deployment.md) for local hosting checks, the first-release order with `ieasybooks/infrastructure`, analytics, and rollback. Publishing is an explicit command after review; CI only validates the configuration.
+
 ## Native development
 
 ```sh

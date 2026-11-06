@@ -1,0 +1,6 @@
+# The release build appends exact fingerprinted asset paths for immutable caching.
+# A wildcard /assets/* rule would also cache 404s for missing files for a year.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
