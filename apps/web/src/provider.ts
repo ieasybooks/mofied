@@ -3,10 +3,25 @@ import {
   SessionLoadError,
   parseSession,
   type SessionPlan,
+  DEFAULT_SESSION_API_URL,
 } from "@mofied/contracts";
 
+const configuredEndpoint = import.meta.env.VITE_SESSION_API_URL;
+const query =
+  import.meta.env.DEV && !configuredEndpoint
+    ? new URLSearchParams(location.search)
+    : null;
+export const usesFixture =
+  import.meta.env.DEV &&
+  !!query &&
+  (query.has("test-session") ||
+    ["normal", "long-title", "missing-portrait", "unavailable"].includes(
+      query.get("fixture") ?? "",
+    ));
+export const sessionStorageKey = `mofied.session.v1.${usesFixture ? "development" : "production"}`;
+
 export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
-  if (import.meta.env.DEV && !import.meta.env.VITE_SESSION_API_URL) {
+  if (import.meta.env.DEV && usesFixture) {
     // A same-origin development endpoint lets E2E tests exercise the real transport.
     // Production builds contain neither the fixture import nor this branch.
     const { fixture } = await import("@mofied/fixtures");
@@ -30,11 +45,11 @@ export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
     signal?.throwIfAborted();
     return fixture(selected);
   }
-  const endpoint = import.meta.env.VITE_SESSION_API_URL;
-  if (!endpoint)
-    throw new SessionLoadError(
-      "configuration",
-      "Session API is not configured",
-    );
+  const endpoint = configuredEndpoint || DEFAULT_SESSION_API_URL;
+  if (import.meta.env.DEV && !configuredEndpoint) {
+    return createHttpProvider(endpoint, (_url, init) =>
+      fetch("/__mofied/session?locale=ar", init),
+    ).load(signal);
+  }
   return createHttpProvider(endpoint).load(signal);
 }

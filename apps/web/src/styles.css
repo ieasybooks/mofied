@@ -125,6 +125,37 @@ img[hidden] {
   direction: ltr;
   pointer-events: none;
 }
+.session-pages,
+.page-track,
+.session-page {
+  position: absolute;
+  inset: 0;
+}
+.session-pages {
+  overflow: hidden;
+}
+.session-page {
+  background: radial-gradient(ellipse at 30% 0%, #141414, #0a0a0a 65%);
+  height: 100%;
+}
+.page-track[data-moving="true"] {
+  will-change: transform;
+}
+.session-page[data-page="preview"] {
+  pointer-events: none;
+}
+.media-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.preview-placeholder {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #ffffff60;
+  background: radial-gradient(ellipse at 50% 35%, #292929, #101010);
+}
 .session-header > * {
   pointer-events: auto;
 }
@@ -599,6 +630,40 @@ kbd {
 }
 .about-dialog::backdrop {
   background: #0008;
+}
+.about-pages {
+  position: relative;
+  overflow: hidden;
+  margin-top: 20px;
+  transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.about-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flow-root;
+  visibility: visible;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+.about-page[aria-hidden="true"] {
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s 280ms;
+}
+.about-page .about-rows {
+  margin-top: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-pages,
+  .about-page,
+  .about-page[aria-hidden="true"] {
+    transition: none;
+  }
 }
 .about-heading {
   display: flex;

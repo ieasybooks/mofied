@@ -11,6 +11,10 @@ export function watchNativePlaybackHealth(
   player: NativePlaybackPlayer,
   session: SessionController,
   itemId: string,
+  restoration: { initialPositionMs: number; onPositionReady: () => void } = {
+    initialPositionMs: 0,
+    onPositionReady: () => {},
+  },
 ) {
   let disposed = false;
   let failed = false;
@@ -18,6 +22,9 @@ export function watchNativePlaybackHealth(
   let lastAdvance = performance.now();
   let shouldPlay = session.getSnapshot().shouldPlay;
   let resumeRequested = false;
+  const initialPosition = restoration.initialPositionMs / 1000;
+  let seekingInitialPosition = initialPosition > 0;
+  let seekRequested = false;
   const isCurrent = () =>
     !disposed && session.getSnapshot().item?.id === itemId;
   const reset = () => {
@@ -48,8 +55,29 @@ export function watchNativePlaybackHealth(
     if (status === "loading" || status === "playing")
       session.mediaBuffering(itemId);
   };
+  const restorePosition = () => {
+    if (!seekingInitialPosition) return true;
+    // Loading/early timeUpdate callbacks commonly report zero. Keep the saved
+    // position intact until the asynchronous native seek is acknowledged.
+    if (!seekRequested && player.status === "readyToPlay") {
+      seekRequested = true;
+      player.currentTime = initialPosition;
+    }
+    const next = player.currentTime;
+    if (seekRequested && next > 0 && Math.abs(next - initialPosition) < 0.5) {
+      seekingInitialPosition = false;
+      position = next;
+      lastAdvance = performance.now();
+      resumeRequested = false;
+      restoration.onPositionReady();
+      return true;
+    }
+    if (player.playing) player.pause();
+    return false;
+  };
   const progress = () => {
     if (!isCurrent() || failed) return false;
+    if (!restorePosition()) return false;
     // Read the current playhead, not a possibly queued timeUpdate payload.
     const next = player.currentTime;
     if (!Number.isFinite(next)) return false;
@@ -68,6 +96,7 @@ export function watchNativePlaybackHealth(
     if (
       isCurrent() &&
       !failed &&
+      !seekingInitialPosition &&
       session.getSnapshot().shouldPlay &&
       player.status === "readyToPlay" &&
       !player.playing &&
@@ -81,6 +110,7 @@ export function watchNativePlaybackHealth(
   const reconcile = () => {
     if (!isCurrent() || failed) return;
     const advanced = progress();
+    if (seekingInitialPosition) return;
     const state = session.getSnapshot();
     if (!state.shouldPlay) {
       if (player.playing) player.pause();
@@ -92,6 +122,10 @@ export function watchNativePlaybackHealth(
     // through buffering; explicit audioInterruption events own OS permission.
   };
   const subscriptions = [
+    player.addListener("sourceLoad", () => {
+      reconcile();
+      resume();
+    }),
     player.addListener("timeUpdate", progress),
     player.addListener("playingChange", reconcile),
     player.addListener("statusChange", ({ status }) => {
@@ -113,6 +147,7 @@ export function watchNativePlaybackHealth(
     }
   }, 1000);
   if (player.status === "error") fail();
+  else if (seekingInitialPosition) reconcile();
   return () => {
     disposed = true;
     clearInterval(timer);

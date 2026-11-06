@@ -7,6 +7,7 @@ This is the behavior baseline for the initial implementation. The approved desig
 - Desktop Info is icon-only. No “من مكتبة فقيه” line beneath titles. Keep media and speaker links to their actual Faqieh pages.
 - Clamp titles to three lines on desktop and two on narrow web/native. Keep the full title in the contract and link directly to Faqieh; no extra details sheet.
 - Desktop has a slim previous/next/sound rail, small pause control and keyboard navigation. Native has swipe navigation, tap-to-pause, one sound button, time/progress and Info.
+- Media pages follow vertical dragging and settle into the next/previous server item. A short drag returns to the same player and position. Only the active page owns playback; adjacent previews are silent. Timing is suspended during movement without changing play intent. Buttons, keyboard, wheel and accessibility navigation use the same page transition. Reduced-motion settings remove the settling animation.
 - Narrow web keeps semantic previous/next controls available to assistive technology and reveals them on keyboard focus. Native exposes activation and localized next/previous accessibility actions. Web arrow navigation works after focusing media controls, while dialogs, editing fields and reminder reading regions keep their own keys. Modified wheel gestures do not navigate.
 - On native/narrow web, sound sits beside Info (44px targets, 12px gap) during media only. Remove the visible swipe hint while keeping gestures and accessibility navigation. Place speaker/title, time and progress in one bottom stack with 20px side margins and safe-area clearance. Its fade follows the content height. Desktop retains its labelled sound rail and uses a 128px bottom fade without an in-player top fade. See [the accepted overlay spec](design/player-overlay.md).
 - Rails orders all media and reminders, including text and duration. The client does not choose a cadence, shuffle the catalog, or download the catalog.
@@ -15,6 +16,7 @@ This is the behavior baseline for the initial implementation. The approved desig
 - Reminder text scrolls independently of the always-reachable countdown and pause-to-read controls. Reading screens adapt independently of the video's portrait frame, including long content and enlarged text.
 - The language row places the selected language before the trailing arrow in the current UI reading direction.
 - About contains app information, privacy, Contact, language and version. There is no Sources & Licenses screen. Contact credits the EasyBooks initiative and uses the public Telegram, YouTube, X, Facebook, GitHub organization and email destinations from Faqieh’s footer; it does not link to the private Mofied repository.
+- Info subpages slide forward/back according to the UI reading direction. The outgoing page remains visible during the transition, and inactive controls are excluded from interaction/accessibility. Android Back returns from a detail page before dismissing Info.
 - Finite ending with reflection and Info. No restart, new-session or replay action. About at the ending has no “continue watching” button.
 
 ## Playback and timing
@@ -53,4 +55,4 @@ The failure streak resets only after accepted positive playback time, not a read
 
 Contact uses the initiative’s public social channels and easybooksdev@gmail.com. The in-app privacy copy describes the implemented local persistence and external media requests; publish a canonical privacy URL reflecting the actual API/CDN logging and any future analytics. No authentication is needed for Info or privacy.
 
-Language switching changes UI labels locally. The sample media, reminder and ending text remain the language supplied by the plan. Server-localized plans and persistent language preference can be connected with the API integration.
+Language switching changes UI labels locally. Media, reminder and ending text remain in the language supplied by the plan. The default production plan is Arabic; the API also supports English via the endpoint locale. Changing UI language does not replace or reorder a running session. A persistent language preference remains separate future work.

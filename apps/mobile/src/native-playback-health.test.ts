@@ -321,3 +321,86 @@ describe("native playback health", () => {
     },
   );
 });
+
+describe("native restored position", () => {
+  function restore() {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const source = new SessionController(fixture());
+    const id = source.getSnapshot().item!.id;
+    source.mediaProgress(id, 9551);
+    const session = SessionController.restore(source.serialize()!)!;
+    const player = new NativePlayer();
+    player.status = "loading";
+    player.playing = false;
+    let actual = 0;
+    const seek = vi.fn();
+    Object.defineProperty(player, "currentTime", {
+      get: () => actual,
+      set: seek,
+    });
+    const ready = vi.fn();
+    const stop = watchNativePlaybackHealth(player, session, id, {
+      initialPositionMs: session.getSnapshot().positionMs,
+      onPositionReady: ready,
+    });
+    const update = (value: number) => {
+      actual = value;
+      player.emit("timeUpdate", {
+        currentTime: 0, // A queued payload may predate the completed native seek.
+        currentLiveTimestamp: null,
+        currentOffsetFromLive: null,
+        bufferedPosition: 0,
+      });
+    };
+    return { session, player, ready, seek, stop, update };
+  }
+  it("preserves persisted progress through slow loading and asynchronous seek completion", () => {
+    const { session, player, ready, seek, update } = restore();
+    vi.advanceTimersByTime(6000);
+    expect(JSON.parse(session.serialize()!).positionMs).toBe(9551);
+    expect(seek).not.toHaveBeenCalled();
+    player.status = "readyToPlay";
+    player.emit("statusChange", { status: "readyToPlay" });
+    expect(seek).toHaveBeenCalledExactlyOnceWith(9.551);
+    vi.advanceTimersByTime(3000);
+    expect(JSON.parse(session.serialize()!).positionMs).toBe(9551);
+    expect(ready).not.toHaveBeenCalled();
+    update(9.551);
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(player.play).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({
+      positionMs: 9551,
+      activeMs: 0,
+      wantsToPlay: false,
+    });
+  });
+  it("defers resume until the initial seek is confirmed without counting the seek as playback", () => {
+    const { session, player, ready, update } = restore();
+    session.togglePlayback();
+    player.status = "readyToPlay";
+    player.emit("statusChange", { status: "readyToPlay" });
+    player.playing = true; // Late native acknowledgement before our pause applies.
+    player.emit("playingChange", { isPlaying: true });
+    vi.advanceTimersByTime(2000);
+    expect(player.pause).toHaveBeenCalled();
+    expect(player.play).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({
+      positionMs: 9551,
+      activeMs: 0,
+    });
+    player.playing = false;
+    update(9.551);
+    player.emit("statusChange", { status: "readyToPlay" });
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(player.play).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot().activeMs).toBe(0);
+  });
+  it("does not deliver a late seek acknowledgement after disposal", () => {
+    const { player, ready, stop, update } = restore();
+    const queued = [...player.listeners.get("timeUpdate")!][0]!;
+    stop();
+    update(9.551);
+    queued({ currentTime: 9.551 });
+    expect(ready).not.toHaveBeenCalled();
+  });
+});

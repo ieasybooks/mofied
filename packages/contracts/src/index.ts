@@ -75,6 +75,10 @@ export type SessionProvider = {
   load(signal?: AbortSignal): Promise<SessionPlan>;
 };
 
+/** Public, anonymous Faqieh session endpoint. UI language never replaces a live plan. */
+export const DEFAULT_SESSION_API_URL =
+  "https://faqieh.com/api/v1/mofied/session?locale=ar";
+
 export type SessionLoadErrorCode =
   | "configuration"
   | "network"
@@ -116,7 +120,10 @@ export function parseSession(value: unknown): SessionPlan {
   return plan;
 }
 
-export function createHttpProvider(endpoint: string): SessionProvider {
+export function createHttpProvider(
+  endpoint: string,
+  requestFetch?: typeof fetch,
+): SessionProvider {
   if (!httpsUrl.safeParse(endpoint).success)
     throw new SessionLoadError(
       "configuration",
@@ -135,7 +142,7 @@ export function createHttpProvider(endpoint: string): SessionProvider {
         abort();
       }, 15_000);
       try {
-        const response = await fetch(endpoint, {
+        const response = await (requestFetch ?? fetch)(endpoint, {
           signal: request.signal,
           credentials: "omit",
           headers: { Accept: "application/json" },

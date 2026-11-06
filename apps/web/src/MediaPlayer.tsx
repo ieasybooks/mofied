@@ -11,21 +11,23 @@ export function MediaPlayer({
   session,
   state,
   locale,
+  preview = false,
 }: {
   item: MediaItem;
   session: SessionController;
   state: SessionSnapshot;
   locale: Locale;
+  preview?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const startPosition = useRef(state.positionMs / 1000);
   const [attempt, setAttempt] = useState(0);
   const [duration, setDuration] = useState(item.durationMs);
-  const pointer = useRef<{ x: number; y: number } | null>(null);
   const t = copy[locale];
 
   useEffect(() => {
+    if (preview) return;
     const video = ref.current!;
     let cancelled = false;
     let recoveries = 0;
@@ -144,9 +146,17 @@ export function MediaPlayer({
       video.removeAttribute("src");
       video.load();
     };
-  }, [item.id, item.playback.url, item.playback.mimeType, session, attempt]);
+  }, [
+    item.id,
+    item.playback.url,
+    item.playback.mimeType,
+    session,
+    attempt,
+    preview,
+  ]);
 
   useEffect(() => {
+    if (preview) return;
     const video = ref.current!;
     video.muted = state.muted;
     if (state.shouldPlay) {
@@ -159,7 +169,7 @@ export function MediaPlayer({
           session.autoplayBlocked(item.id);
       });
     } else video.pause();
-  }, [state.shouldPlay, state.muted, item.id, session, attempt]);
+  }, [state.shouldPlay, state.muted, item.id, session, attempt, preview]);
 
   const retry = () => {
     startPosition.current = state.positionMs / 1000;
@@ -169,57 +179,49 @@ export function MediaPlayer({
   return (
     <>
       <div className="player-frame" data-testid="media-player">
-        <video
-          ref={ref}
-          muted={state.muted}
-          poster={item.posterUrl ?? undefined}
-          playsInline
-          preload="auto"
-          disablePictureInPicture
-          disableRemotePlayback
-          controlsList="nodownload noplaybackrate noremoteplayback"
-          aria-label={item.title}
-        />
+        {preview ? (
+          item.posterUrl ? (
+            <img className="media-poster" src={item.posterUrl} alt="" />
+          ) : (
+            <div className="preview-placeholder">
+              <Play size={42} />
+            </div>
+          )
+        ) : (
+          <video
+            ref={ref}
+            muted={state.muted}
+            poster={item.posterUrl ?? undefined}
+            playsInline
+            preload="auto"
+            disablePictureInPicture
+            disableRemotePlayback
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            aria-label={item.title}
+          />
+        )}
         <div className="scrim-top" />
         <div className="scrim-bottom" />
         <button
           type="button"
           className="media-tap"
-          aria-label={state.shouldPlay ? t.pause : t.play}
-          onPointerDown={(event) => {
-            pointer.current = { x: event.clientX, y: event.clientY };
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerUp={(event) => {
-            const start = pointer.current;
-            pointer.current = null;
-            if (!start) return;
-            const dy = event.clientY - start.y;
-            const dx = event.clientX - start.x;
-            if (Math.abs(dy) > 65 && Math.abs(dy) > Math.abs(dx) * 1.3) {
-              if (dy < 0) session.next();
-              else session.previous();
-            } else if (Math.abs(dy) < 15 && Math.abs(dx) < 15)
-              session.togglePlayback();
-          }}
-          onPointerCancel={() => {
-            pointer.current = null;
-          }}
+          aria-label={state.wantsToPlay ? t.pause : t.play}
           onClick={(event) => {
             if (event.detail === 0) session.togglePlayback();
           }}
         />
-        {state.status === "paused" && !state.aboutOpen && (
+        {state.status === "paused" && !state.aboutOpen && !state.navigating && (
           <div className="paused-glyph" aria-hidden="true">
             <Play size={28} />
           </div>
         )}
-        {(state.status === "loading" || state.status === "buffering") && (
-          <div className="player-status" role="status">
-            <span className="loader" />
-            {state.status === "loading" ? t.loading : t.buffering}
-          </div>
-        )}
+        {!preview &&
+          (state.status === "loading" || state.status === "buffering") && (
+            <div className="player-status" role="status">
+              <span className="loader" />
+              {state.status === "loading" ? t.loading : t.buffering}
+            </div>
+          )}
         {state.status === "autoplay-blocked" && (
           <button className="player-message" onClick={session.togglePlayback}>
             <Play size={28} />
@@ -237,7 +239,7 @@ export function MediaPlayer({
         <button
           type="button"
           className="small-pause"
-          aria-label={state.shouldPlay ? t.pause : t.play}
+          aria-label={state.wantsToPlay ? t.pause : t.play}
           onClick={session.togglePlayback}
         >
           {state.shouldPlay ? <Pause size={18} /> : <Play size={18} />}

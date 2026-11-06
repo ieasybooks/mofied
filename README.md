@@ -2,7 +2,7 @@
 
 The standalone web, iOS and Android clients for **mofied.com**. Open directly into a finite session of curated media and reminders, with no account or home screen.
 
-This first implementation runs against development session fixtures containing public Faqieh metadata and real R2 streams. The Rails session endpoint is the next integration step; it is not implemented here. Production builds require an explicitly configured HTTPS endpoint and never fall back to fixtures.
+All three clients use the deployed Faqieh session API by default: `https://faqieh.com/api/v1/mofied/session?locale=ar`. Rails supplies the ordered plan and R2 serves the media. Development fixtures are an explicit opt-in; API failures never fall back to them.
 
 ## Development
 
@@ -14,19 +14,21 @@ mise exec -- bun install --frozen-lockfile
 mise exec -- bun run dev
 ```
 
-Open `http://localhost:5173`. Development scenarios:
+Open `http://localhost:5173` for the live API. Vite proxies the session request locally so production CORS does not need to allow localhost. Explicit development scenarios:
 
 - `/?fixture=normal`: real media → Quran reminder → real media → ending.
 - `/?fixture=long-title`: long title and speaker portrait.
 - `/?fixture=missing-portrait`: name without a portrait.
 - `/?fixture=unavailable`: failed stream replaced by a supplied spare.
 
-The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Returning to `/` can restore a saved session, paused. A fixture query deliberately starts fresh.
+The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Returning to `/` can restore a saved production session, paused. A fixture query deliberately starts fresh. Mock and production storage are isolated.
 
 ## Native development
 
 ```sh
 mise exec -- bun run dev:mobile
+# Explicit mock mode for deterministic local QA:
+EXPO_PUBLIC_FIXTURE=normal mise exec -- bun run dev:mobile
 ```
 
 Build an installed development app with Android Studio/SDK or Xcode available:
@@ -57,9 +59,9 @@ Use a **development build**, not Expo Go, to test interruptions. A small, versio
 
 The workspace follows the apps/packages organization discussed with the t3code reference. It does not copy t3code's desktop agent architecture or add a JavaScript backend. Keep this checkout beside the private Faqieh Rails checkout; neither repository is nested in the other.
 
-## Connect the future API
+## API configuration
 
-Copy the relevant `.env.example` to `.env.local` in `apps/web` or `.env` in `apps/mobile`. Set `VITE_SESSION_API_URL` / `EXPO_PUBLIC_SESSION_API_URL` to the real HTTPS session endpoint. These are public client configuration values, never secrets.
+No environment file is needed for production. To test another HTTPS endpoint, copy the relevant `.env.example` to `.env.local` in `apps/web` or `.env` in `apps/mobile` and set `VITE_SESSION_API_URL` / `EXPO_PUBLIC_SESSION_API_URL`. These are public configuration values, never secrets. An explicit endpoint takes precedence over mock selection. UI-language changes preserve the current server plan; an English plan can be requested with a `?locale=en` endpoint override.
 
 [Contract documentation](docs/session-contract.md), [JSON Schema](docs/session.schema.json) and [example response](docs/session.example.json) describe the integration. Rails keeps publishing, curation and session planning; R2 serves the media directly.
 
@@ -80,4 +82,11 @@ HEADED=1 xvfb-run -a mise exec -- bun run test:e2e
 
 Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` if using an existing Chrome binary. Tests use a generated local MP4, not private media. [Verification notes](docs/verification.md) distinguish automated tests, build checks and device checks.
 
-Before launch: connect the Rails endpoint, publish the final privacy/support URLs, complete device checks and store packaging, and confirm independent-app font licensing. The supplied design and local privacy copy are implemented; public hosting and store submission are separate work.
+The optional live integration check serves the production bundle under the deployed origin and verifies real API CORS, decoded HLS and paused restoration (one public session request):
+
+```sh
+mise exec -- bun run build
+LIVE_API=1 HEADED=1 mise exec -- bunx playwright test tests/live-api.spec.ts
+```
+
+Before launch: publish the final privacy/support URLs, complete device checks and store packaging, and confirm independent-app font licensing. The supplied design and local privacy copy are implemented; public hosting and store submission are separate work.

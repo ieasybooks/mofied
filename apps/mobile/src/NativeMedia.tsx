@@ -12,7 +12,9 @@ export type MediaProps = {
 };
 export function NativeMedia({ item, session, state }: MediaProps) {
   const [hasFrame, setHasFrame] = useState(false);
-  const start = useRef(state.positionMs / 1000);
+  const start = useRef(state.positionMs);
+  const positionReadyRef = useRef(start.current === 0);
+  const [positionReady, setPositionReady] = useState(positionReadyRef.current);
   const source = {
     uri: item.playback.url,
     contentType:
@@ -31,23 +33,28 @@ export function NativeMedia({ item, session, state }: MediaProps) {
   });
   useEffect(() => {
     let disposed = false;
-    const stopHealth = watchNativePlaybackHealth(player, session, item.id);
+    const stopHealth = watchNativePlaybackHealth(player, session, item.id, {
+      initialPositionMs: start.current,
+      onPositionReady: () => {
+        positionReadyRef.current = true;
+        setPositionReady(true);
+      },
+    });
     const subscriptions = [
-      player.addListener("sourceLoad", () => {
-        if (start.current > 0) {
-          player.currentTime = start.current;
-          start.current = 0;
-        }
+      player.addListener("playToEnd", () => {
+        if (positionReadyRef.current)
+          session.mediaEnded(item.id, player.currentTime * 1000);
       }),
-      player.addListener("playToEnd", () =>
-        session.mediaEnded(item.id, player.currentTime * 1000),
-      ),
       AppState.addEventListener("change", (next) => {
         // Inactive alone includes Control Center. It must not trigger our own pause.
         if (next === "active") {
           queueMicrotask(() => {
             if (disposed) return;
-            if (session.getSnapshot().shouldPlay && !player.playing)
+            if (
+              positionReadyRef.current &&
+              session.getSnapshot().shouldPlay &&
+              !player.playing
+            )
               player.play();
           });
         }
@@ -62,17 +69,18 @@ export function NativeMedia({ item, session, state }: MediaProps) {
   }, [item.id, player, session]);
   useEffect(() => {
     player.muted = state.muted;
-    if (state.shouldPlay) player.play();
+    if (positionReady && state.shouldPlay) player.play();
     else player.pause();
     // Session-level native events restore permission. Keep actual playback,
     // including muted playback, aligned with accounting during interruptions.
-  }, [player, state.shouldPlay, state.muted]);
+  }, [player, positionReady, state.shouldPlay, state.muted]);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <VideoView
         style={StyleSheet.absoluteFill}
         player={player}
         nativeControls={false}
+        surfaceType="textureView"
         contentFit="cover"
         fullscreenOptions={{ enable: false }}
         allowsPictureInPicture={false}
@@ -80,7 +88,7 @@ export function NativeMedia({ item, session, state }: MediaProps) {
         allowsVideoFrameAnalysis={false}
         onFirstFrameRender={() => setHasFrame(true)}
       />
-      {!hasFrame && item.posterUrl && (
+      {(!hasFrame || !positionReady) && item.posterUrl && (
         <Image
           source={{ uri: item.posterUrl }}
           style={StyleSheet.absoluteFill}

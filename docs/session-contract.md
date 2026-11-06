@@ -1,6 +1,6 @@
 # Session API contract · version 1
 
-The client requests one small, complete session plan over HTTPS. The URL is configured at build time; no Rails route is assumed or added by this repository. The initial provider uses `GET`, `Accept: application/json`, no cookies, and a 15-second timeout.
+The client requests one small, complete session plan over HTTPS. The default endpoint is `https://faqieh.com/api/v1/mofied/session?locale=ar`; build-time overrides remain available for staging or English plans (`locale=en`). The initial provider uses `GET`, `Accept: application/json`, no cookies, and a 15-second timeout.
 
 The authoritative runtime validator is `packages/contracts/src/index.ts`. Run `bun run contract:generate` to regenerate `session.schema.json` and `session.example.json`.
 
@@ -27,7 +27,13 @@ Reminder items contain positive `durationMs` (up to five minutes) and `content.k
 
 The client rejects unsafe schemes, non-Faqieh media/speaker destination pages, duplicate item IDs, invalid versions and expired plans. URL schemes and cross-field/expiry checks are runtime refinements; JSON Schema alone does not express all of them.
 
-## Server responsibilities for the next phase
+## Deployed integration
+
+The endpoint returns the v1 plan directly, without an envelope or authentication. Production web CORS allows `https://mofied.com` and `https://www.mofied.com`; native clients call it directly. The local Vite server proxies `/__mofied/session` to that same HTTPS endpoint with certificate verification enabled.
+
+The deployed service applies a 10-session-request/IP/minute limit, returns `Cache-Control: no-store`, and uses HTTP 429/503 with `Retry-After: 60` for throttling/unavailability. The current server policy supplies a 20-minute budget and a 24-hour plan lifetime, with signed images valid for 25 hours and durable public HLS URLs. These are server policy values, not client assumptions. Keep live tests opt-in to avoid consuming rate limits.
+
+## Server responsibilities
 
 - Select the session from the large catalog with indexed server-side queries and caching. Never send the full catalog to a client.
 - Return complete, stable, HTTPS media, poster and portrait URLs. Signed URLs, if used, must stay usable for the plan's remaining lifetime and intended local restore window.

@@ -1,5 +1,45 @@
 # Implementation verification
 
+## Paging, Info slides and production API — 2026-11-07
+
+Implemented drag-following vertical pages on web/iOS/Android, with a bounded first-page drag, cancellable short gestures, distance/flick settlement, and one silent adjacent preview. Only the settled page owns a media player. Buttons, wheel, keyboard and native accessibility actions share the same navigation coordinator. Server order, required reminders, consumed-reminder history and finite endings remain authoritative. Movement suspends playback/accounting without changing manual play intent. About, backgrounding and interruptions cancel pending manual navigation; reduced motion settles immediately.
+
+Info detail pages now slide in/out in the UI reading direction. Outgoing content survives the transition, inactive content cannot receive input or accessibility focus, and web focus returns to the selected menu row. Native details scroll within the sheet; Android Back returns to the menu first. A browser regression caught the hidden detail page crossing the menu on an Arabic/English switch; its offscreen position now changes without an animation.
+
+All clients now default to `https://faqieh.com/api/v1/mofied/session?locale=ar`. The Vite development proxy reaches the same HTTPS service without adding localhost to production CORS. Explicit development mocks remain available; mock and production restoration use different storage keys. Configured API errors still do not become fixture playback. No private Rails code/data or live response payloads were added to this repository.
+
+### Additional defect found during live native verification
+
+A restored iOS HLS player reported zero during loading before its asynchronous seek reached the saved position. The UI briefly changed from the saved 9-second position to zero, and the health sampler could persist that premature value. It eventually sought correctly, so this was an initialization race rather than a permanently failed seek. The adapter now preserves the saved position and blocks early playback until the native playhead confirms the initial seek. It also covers a source already ready when listeners attach. Three regressions cover delayed loading/seek completion, early resume intent and disposal; the old sampler fails the first two. The rebuilt iOS and Android production journeys pass restoration afterward.
+
+### Executed local checks
+
+| Check                               | Result                                                                                                                                                                                                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mise exec -- bun run check`        | Both TypeScript checks, **89 unit tests in 7 files**, production web build passed                                                                                                                                                                                     |
+| Headed Chromium browser suite       | **33 passed**; the separate opt-in live test is skipped in this command. Includes the genuinely hidden-tab journey, HLS decoding/recovery, original review regressions and 8 new motion cases                                                                         |
+| Live production browser integration | Passed with local production app assets under `https://mofied.com`; real API request/CORS, HLS manifests/segments and decoded video, followed by paused restoration with exactly one session request. The hosted Mofied frontend itself was not deployed by this task |
+| Live API language/origin checks     | Arabic and English responses validated; HTTP 200, exact allowed-origin CORS and `Cache-Control: no-store`                                                                                                                                                             |
+| Generated schema/example            | Unchanged after regeneration                                                                                                                                                                                                                                          |
+| Production fixture exclusion        | Development endpoint/fixture markers absent from web JavaScript; default production endpoint present                                                                                                                                                                  |
+| Expo Android/iOS/web exports        | All passed; these are JavaScript/assets checks                                                                                                                                                                                                                        |
+| Android native compilation          | Debug and Release source builds passed, including patched native dependencies. Release APK installed on Samsung Galaxy Note20, Android 13/API 33, arm64. Local APK uses the development signing key, not store signing                                                |
+| iOS native compilation              | Debug and Release source builds passed on iPhone 18 Pro simulator, iOS 27.0. Release embeds the bundle; no physical iPhone result is claimed for this revision                                                                                                        |
+| Android lifecycle command           | Passed: seven focus-owner tests and the storage scheduling test, through the installed patched dependencies                                                                                                                                                           |
+| Swift interruption cache stress     | Passed under Thread Sanitizer: 200,000 concurrent operations                                                                                                                                                                                                          |
+
+The web bundle is approximately 362 kB / 111 kB gzip plus the existing conditional 578 kB / 180 kB gzip hls.js chunk. The known chunk-size warning and upstream native deprecation warnings remain nonblocking.
+
+### Native journeys and recordings
+
+Both platforms passed the deterministic fixture journey: actual HLS playback, manual pause, partial-drag cancellation with preserved position, forward paging into a required reminder, attempted skip rejection, pause-to-read through Info, countdown completion, previous/next history without replaying a consumed reminder, ending and saved-state removal. XCTest drove the simulator; Android UI automation drove the physical phone.
+
+Both final embedded Release apps then passed the live production journey with Metro stopped: playback, cancelled/committed paging, Arabic/English Privacy slides, manual pause through Info, background return, and process termination/restoration at the saved position while paused. No mock plan was seeded into production storage. All three Info subpages also passed navigation checks on web, Android and the iOS simulator; Android hardware Back returned to the menu before dismissing the sheet and preserved manual pause. The first iOS live probe crossed a naturally ending short; the probe was corrected to allow server-selected item lengths. The restoration failure above was investigated separately and fixed rather than waived.
+
+Local evidence and videos are under ignored `artifacts/paging/`: `web-experience.mp4`, `android-experience.mp4`, `ios-experience.mp4`, browser/native logs, XCTest result bundles and fixture-journey evidence. Recordings show the actual client surfaces with production content. Native source builds are distinguished from exports above. Test-generated mock state was removed; the installed Android app is left self-contained and paused.
+
+Remaining release checks are still explicit: hosted CI execution, physical calls/audio routes, spoken VoiceOver/TalkBack journeys, Safari, long-duration URL/expiry soak, store packaging and final asset/privacy publication. Those are not implied by these local passes. This revision does not claim an exhaustive test of every server item, network condition or device.
+
 ## Physical iPhone pass — 2026-11-06
 
 Tested on an iPhone 16 Plus running iOS 26.2, with an Arabic system locale and a 430×932-point display. Built, signed and installed a native Debug app with the patched ExpoVideo compiled from source. The embedded development bundle used the repository's public mock HLS media and valid generated reminder plans. XCTest drove the physical device after UI Automation was enabled. No production API, hosted CI, physical call or audio-route result is claimed.

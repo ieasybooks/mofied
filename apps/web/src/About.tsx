@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { appVersion, copy, type Locale } from "@mofied/design";
 import appIcon from "@mofied/design/assets/icons/app-icon-flat-dark-1024.png";
+import { SlidePages } from "./SlidePages";
 import { ContactLinks } from "./ContactLinks";
 
 type Page = "info" | "privacy" | "support";
@@ -27,6 +28,31 @@ export function About({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [page, setPage] = useState<Page | null>(null);
+  const [detailPage, setDetailPage] = useState<Page>("info");
+  const changedPage = useRef(false);
+  const content = useRef<HTMLDivElement>(null);
+  const navigate = (next: Page | null) => {
+    changedPage.current = true;
+    if (next) setDetailPage(next);
+    setPage(next);
+  };
+  useEffect(() => {
+    if (!changedPage.current) return;
+    const timer = window.setTimeout(
+      () => {
+        const target = page
+          ? content.current?.querySelector<HTMLButtonElement>(
+              ".about-content button",
+            )
+          : content.current?.querySelector<HTMLButtonElement>(
+              `[data-about-page="${detailPage}"]`,
+            );
+        target?.focus({ preventScroll: true });
+      },
+      matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 290,
+    );
+    return () => clearTimeout(timer);
+  }, [page, detailPage]);
   const t = copy[locale];
   useEffect(() => {
     dialog.current?.showModal();
@@ -80,58 +106,65 @@ export function About({
           {hasPlayback && <p>{t.pausedAbout}</p>}
         </div>
       </div>
-      {page ? (
-        <div className="about-content">
-          <p>{bodies[page]}</p>
-          {page === "support" && <ContactLinks locale={locale} />}
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => setPage(null)}
-          >
-            {t.back}
-          </button>
-        </div>
-      ) : (
-        <div className="about-rows">
-          {rows.map(([Icon, key]) => (
+      <div ref={content}>
+        <SlidePages
+          detail={!!page}
+          rtl={locale === "ar"}
+          main={
+            <div className="about-rows">
+              {rows.map(([Icon, key]) => (
+                <button
+                  type="button"
+                  className="about-row"
+                  key={key}
+                  data-about-page={key}
+                  onClick={() => navigate(key)}
+                >
+                  <span className="row-lead">
+                    <Icon size={20} />
+                    <span>{t[key]}</span>
+                  </span>
+                  {locale === "ar" ? (
+                    <ChevronLeft size={18} />
+                  ) : (
+                    <ChevronRight size={18} />
+                  )}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="about-row"
+                onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
+              >
+                <span className="row-lead">
+                  <Globe size={20} />
+                  <span>{t.language}</span>
+                </span>
+                <span className="row-trail">
+                  <bdi>{locale === "ar" ? "العربية" : "English"}</bdi>
+                  {locale === "ar" ? (
+                    <ChevronLeft size={18} />
+                  ) : (
+                    <ChevronRight size={18} />
+                  )}
+                </span>
+              </button>
+            </div>
+          }
+        >
+          <div className="about-content">
+            <p>{bodies[detailPage]}</p>
+            {detailPage === "support" && <ContactLinks locale={locale} />}
             <button
               type="button"
-              className="about-row"
-              key={key}
-              onClick={() => setPage(key)}
+              className="text-button"
+              onClick={() => navigate(null)}
             >
-              <span className="row-lead">
-                <Icon size={20} />
-                <span>{t[key]}</span>
-              </span>
-              {locale === "ar" ? (
-                <ChevronLeft size={18} />
-              ) : (
-                <ChevronRight size={18} />
-              )}
+              {t.back}
             </button>
-          ))}
-          <button
-            type="button"
-            className="about-row"
-            onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
-          >
-            <span className="row-lead">
-              <Globe size={20} />
-              <span>{t.language}</span>
-            </span>
-            <span className="row-trail">
-              <bdi>{locale === "ar" ? "العربية" : "English"}</bdi>
-              {locale === "ar" ? (
-                <ChevronLeft size={18} />
-              ) : (
-                <ChevronRight size={18} />
-              )}
-            </span>
-          </button>
-        </div>
-      )}
+          </div>
+        </SlidePages>
+      </div>
       <p className="version">
         {t.version} <bdi>{appVersion}</bdi>
       </p>

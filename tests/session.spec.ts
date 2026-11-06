@@ -296,7 +296,7 @@ test("mobile overlay keeps sound, tap and swipe navigation accessible without ex
   await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
   await page.mouse.move(180, gestureY);
   await page.mouse.down();
-  await page.mouse.move(180, 240, { steps: 8 });
+  await page.mouse.move(180, Math.max(50, gestureY - 260), { steps: 8 });
   await page.mouse.up();
   await expect(page.locator("main")).toHaveAttribute(
     "data-item-id",

@@ -4,6 +4,12 @@ import {
   type SessionItem,
   type SessionPlan,
 } from "@mofied/contracts";
+export {
+  SessionPager,
+  commitsPage,
+  PAGE_SETTLE_MS,
+  type Direction,
+} from "./paging";
 
 export type Status =
   | "loading"
@@ -27,6 +33,7 @@ export type SessionSnapshot = Readonly<{
   aboutOpen: boolean;
   backgrounded: boolean;
   interrupted: boolean;
+  navigating: boolean;
   positionMs: number;
   activeMs: number;
   remainingMs: number;
@@ -60,6 +67,7 @@ export class SessionController {
   private about = false;
   private background = false;
   private interrupted = false;
+  private navigating = false;
   private ended = false;
   private position = 0;
   private active = 0;
@@ -98,6 +106,7 @@ export class SessionController {
       !this.about &&
       !this.background &&
       !this.interrupted &&
+      !this.navigating &&
       !this.ended
     );
   }
@@ -133,6 +142,7 @@ export class SessionController {
       aboutOpen: this.about,
       backgrounded: this.background,
       interrupted: this.interrupted,
+      navigating: this.navigating,
       positionMs: this.position,
       activeMs: this.active,
       remainingMs: Math.max(0, this.plan.policy.maxActiveMs - this.active),
@@ -302,6 +312,33 @@ export class SessionController {
   next = () => {
     if (this.item?.kind === "media" && !this.about) this.advance();
   };
+  /** A UI transition suspends permission without changing the user's intent. */
+  setNavigating = (value: boolean) => {
+    if (value === this.navigating) return;
+    this.tick();
+    this.navigating = value;
+    this.lastTick = this.clock();
+    this.progressSample = null;
+    this.publish();
+  };
+  /** Read-only preview of exactly the destination next/previous would choose. */
+  navigationTarget(
+    direction: -1 | 1,
+  ): { item: SessionItem | null; index: number } | undefined {
+    if (this.item?.kind !== "media" || this.about) return;
+    if (this.active >= this.plan.policy.maxActiveMs)
+      return { item: null, index: this.items.length };
+    let index = direction === -1 ? this.previousIndex() : this.index + 1;
+    if (index < 0) return;
+    if (direction === 1) {
+      while (
+        this.items[index]?.kind === "reminder" &&
+        this.completed.has(this.items[index]!.id)
+      )
+        index++;
+    }
+    return { item: this.items[index] ?? null, index };
+  }
   previous = () => {
     if (this.item?.kind !== "media" || this.about) return;
     if (this.active >= this.plan.policy.maxActiveMs) return this.finish();

@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -10,14 +9,13 @@ import {
   AppState,
   Image,
   Modal,
-  PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
   type TextStyle,
+  type GestureResponderHandlers,
 } from "react-native";
 import {
   SafeAreaProvider,
@@ -42,7 +40,7 @@ import {
   Mail,
   Globe,
 } from "lucide-react-native";
-import { SessionController } from "@mofied/session";
+import { SessionController, type SessionSnapshot } from "@mofied/session";
 import { sessionLoadDiagnostic } from "@mofied/contracts";
 import {
   appVersion,
@@ -52,8 +50,11 @@ import {
   formatTime,
   type Locale,
 } from "@mofied/design";
+import { SlidePages } from "./SlidePages";
+import { PagedSession } from "./SessionPager";
+import type { Direction } from "@mofied/session";
 import { NativeMedia } from "./NativeMedia";
-import { loadSession } from "./provider";
+import { loadSession, sessionStorageKey as storageKey } from "./provider";
 import { ContactLinks } from "./ContactLinks";
 import { useSessionLifecycle } from "./use-session-lifecycle";
 import { Reminder } from "./Reminder";
@@ -91,7 +92,6 @@ const topFadeColors = [
   "rgba(0, 0, 0, 0.013)",
   "rgba(0, 0, 0, 0)",
 ] as const;
-const storageKey = `mofied.session.v1.${__DEV__ ? "development" : "production"}`;
 const subscribeWithoutSession = () => () => {};
 
 export default function App() {
@@ -231,6 +231,91 @@ function SessionView({
     session.getSnapshot,
   );
   const insets = useSafeAreaInsets();
+  const item = state.item;
+  const t = copy[locale];
+  useSessionLifecycle(session, storageKey);
+  return (
+    <View style={styles.root}>
+      {state.shouldPlay && state.status !== "error" && <KeepScreenAwake />}
+      <PagedSession
+        session={session}
+        renderPage={(page, preview, gestures, navigate) => (
+          <SessionPage
+            session={session}
+            state={page}
+            preview={preview}
+            locale={locale}
+            gestures={gestures}
+            navigate={navigate}
+          />
+        )}
+      />
+      <View
+        style={[styles.header, { top: insets.top + 18 }]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.headerControls} pointerEvents="box-none">
+          <Pressable
+            style={styles.circle}
+            onPress={openAbout}
+            accessibilityRole="button"
+            accessibilityLabel={t.info}
+            hitSlop={4}
+          >
+            <Info size={21} color="white" />
+          </Pressable>
+          {item?.kind === "media" && (
+            <Pressable
+              style={styles.circle}
+              accessibilityRole="button"
+              accessibilityLabel={state.muted ? t.soundOn : t.soundOff}
+              onPress={session.toggleMuted}
+              hitSlop={4}
+            >
+              {state.muted ? (
+                <VolumeX color="white" size={21} />
+              ) : (
+                <Volume2 color="white" size={21} />
+              )}
+            </Pressable>
+          )}
+        </View>
+        {item && (
+          <View style={styles.budget}>
+            <Clock3 size={15} color="#f5f5f5" />
+            <Text
+              maxFontSizeMultiplier={1.3}
+              numberOfLines={1}
+              style={[
+                styles.budgetText,
+                { fontFamily: locale === "ar" ? "NotoNaskhUI" : "Gilroy" },
+              ]}
+            >
+              {remainingLabel(state.remainingMs, locale, item.kind)}
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function SessionPage({
+  session,
+  state,
+  locale,
+  preview,
+  gestures,
+  navigate,
+}: {
+  session: SessionController;
+  state: SessionSnapshot;
+  locale: Locale;
+  preview: boolean;
+  gestures: GestureResponderHandlers;
+  navigate: (direction: Direction) => void;
+}) {
+  const insets = useSafeAreaInsets();
   const [attempt, setAttempt] = useState(0);
   const item = state.item;
   const t = copy[locale];
@@ -239,41 +324,34 @@ function SessionView({
     writingDirection: contentIsArabic ? "rtl" : "ltr",
     textAlign: contentIsArabic ? "right" : "left",
   };
-  useSessionLifecycle(session, storageKey);
-  const gestures = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          Math.abs(gesture.dy) > 8,
-        onPanResponderRelease: (_event, gesture) => {
-          if (
-            Math.abs(gesture.dy) > 65 &&
-            Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.3
-          ) {
-            if (gesture.dy < 0) session.next();
-            else session.previous();
-          } else if (Math.abs(gesture.dy) < 12 && Math.abs(gesture.dx) < 12)
-            session.togglePlayback();
-        },
-      }),
-    [session],
-  );
   const retry = () => {
     session.retry();
     setAttempt((value) => value + 1);
   };
   return (
     <View style={styles.root}>
-      {state.shouldPlay && state.status !== "error" && <KeepScreenAwake />}
       {item?.kind === "media" && (
         <>
-          <NativeMedia
-            key={`${item.id}:${attempt}`}
-            item={item}
-            session={session}
-            state={state}
-          />
+          {preview ? (
+            item.posterUrl ? (
+              <Image
+                source={{ uri: item.posterUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.center}>
+                <Play size={42} color="#777" />
+              </View>
+            )
+          ) : (
+            <NativeMedia
+              key={`${item.id}:${attempt}`}
+              item={item}
+              session={session}
+              state={state}
+            />
+          )}
           <LinearGradient
             colors={topFadeColors}
             locations={overlayFadeStops}
@@ -282,7 +360,7 @@ function SessionView({
           />
           <View
             style={StyleSheet.absoluteFill}
-            {...gestures.panHandlers}
+            {...gestures}
             accessible
             testID="media-controls"
             accessibilityRole="button"
@@ -296,9 +374,9 @@ function SessionView({
                 : []),
             ]}
             onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === "next") session.next();
+              if (event.nativeEvent.actionName === "next") navigate(1);
               else if (event.nativeEvent.actionName === "previous")
-                session.previous();
+                navigate(-1);
               else session.togglePlayback();
             }}
           />
@@ -390,6 +468,7 @@ function SessionView({
           </View>
           {state.status === "paused" &&
             !state.aboutOpen &&
+            !state.navigating &&
             !state.retryRequired && (
               <View pointerEvents="none" style={styles.center}>
                 <View style={styles.paused}>
@@ -401,12 +480,13 @@ function SessionView({
                 </View>
               </View>
             )}
-          {(state.status === "loading" || state.status === "buffering") && (
-            <View style={styles.center} pointerEvents="none">
-              <ActivityIndicator color="white" />
-              <Text style={styles.ui}>{t.buffering}</Text>
-            </View>
-          )}
+          {!preview &&
+            (state.status === "loading" || state.status === "buffering") && (
+              <View style={styles.center} pointerEvents="none">
+                <ActivityIndicator color="white" />
+                <Text style={styles.ui}>{t.buffering}</Text>
+              </View>
+            )}
           {(state.retryRequired || state.status === "autoplay-blocked") && (
             <View style={styles.center}>
               <View style={styles.errorBox}>
@@ -437,52 +517,6 @@ function SessionView({
         />
       )}
       {!item && <Ending ending={state.ending} locale={session.plan.locale} />}
-      <View
-        style={[styles.header, { top: insets.top + 18 }]}
-        pointerEvents="box-none"
-      >
-        <View style={styles.headerControls} pointerEvents="box-none">
-          <Pressable
-            style={styles.circle}
-            onPress={openAbout}
-            accessibilityRole="button"
-            accessibilityLabel={t.info}
-            hitSlop={4}
-          >
-            <Info size={21} color="white" />
-          </Pressable>
-          {item?.kind === "media" && (
-            <Pressable
-              style={styles.circle}
-              accessibilityRole="button"
-              accessibilityLabel={state.muted ? t.soundOn : t.soundOff}
-              onPress={session.toggleMuted}
-              hitSlop={4}
-            >
-              {state.muted ? (
-                <VolumeX color="white" size={21} />
-              ) : (
-                <Volume2 color="white" size={21} />
-              )}
-            </Pressable>
-          )}
-        </View>
-        {item && (
-          <View style={styles.budget}>
-            <Clock3 size={15} color="#f5f5f5" />
-            <Text
-              maxFontSizeMultiplier={1.3}
-              numberOfLines={1}
-              style={[
-                styles.budgetText,
-                { fontFamily: locale === "ar" ? "NotoNaskhUI" : "Gilroy" },
-              ]}
-            >
-              {remainingLabel(state.remainingMs, locale, item.kind)}
-            </Text>
-          </View>
-        )}
-      </View>
     </View>
   );
 }
@@ -503,6 +537,11 @@ function About({
 }) {
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState<AboutPage | null>(null);
+  const [detailPage, setDetailPage] = useState<AboutPage>("info");
+  const navigate = (next: AboutPage | null) => {
+    if (next) setDetailPage(next);
+    setPage(next);
+  };
   const t = copy[locale];
   useEffect(() => {
     if (!visible) setPage(null);
@@ -536,7 +575,7 @@ function About({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={close}
+      onRequestClose={() => (page ? navigate(null) : close())}
       statusBarTranslucent
     >
       <View style={styles.modal}>
@@ -588,36 +627,17 @@ function About({
           >
             <X size={20} color="white" />
           </Pressable>
-          <ScrollView
-            style={styles.aboutScroll}
-            contentContainerStyle={styles.aboutScrollContent}
-          >
-            {page ? (
-              <View style={styles.aboutCopy}>
-                <Text style={[styles.body, uiStyle, textAlignment]}>
-                  {bodies[page]}
-                </Text>
-                {page === "support" && (
-                  <ContactLinks
-                    locale={locale}
-                    open={(url) => void openLink(url, locale)}
-                  />
-                )}
-                <Pressable
-                  style={styles.readButton}
-                  onPress={() => setPage(null)}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.ui, uiStyle]}>{t.back}</Text>
-                </Pressable>
-              </View>
-            ) : (
+          <SlidePages
+            detail={!!page}
+            rtl={isArabic}
+            detailKey={detailPage}
+            main={
               <View>
                 {rows.map(([Icon, key]) => (
                   <Pressable
                     key={key}
                     style={[styles.aboutRow, rowDirection]}
-                    onPress={() => setPage(key)}
+                    onPress={() => navigate(key)}
                     accessibilityRole="button"
                   >
                     <View style={[styles.rowLead, rowDirection]}>
@@ -646,8 +666,27 @@ function About({
                   </View>
                 </Pressable>
               </View>
-            )}
-          </ScrollView>
+            }
+          >
+            <View style={styles.aboutCopy}>
+              <Text style={[styles.body, uiStyle, textAlignment]}>
+                {bodies[detailPage]}
+              </Text>
+              {detailPage === "support" && (
+                <ContactLinks
+                  locale={locale}
+                  open={(url) => void openLink(url, locale)}
+                />
+              )}
+              <Pressable
+                style={styles.readButton}
+                onPress={() => navigate(null)}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.ui, uiStyle]}>{t.back}</Text>
+              </Pressable>
+            </View>
+          </SlidePages>
           <Text style={[styles.version, uiStyle]}>
             {t.version} {appVersion}
           </Text>
