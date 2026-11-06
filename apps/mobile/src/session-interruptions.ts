@@ -43,9 +43,11 @@ export function watchSessionInterruptions(
   const subscription = source.addListener("audioInterruption", update);
   const reconcileFocus = () => {
     const state = session.getSnapshot();
-    const nextIntended = state.wantsToPlay && !state.aboutOpen;
+    const nextIntended =
+      state.wantsToPlay && !state.aboutOpen && !state.retryRequired;
     // Retain ownership during a pause, but acquire only for intended activity.
     // shouldPlay cannot be used here: initial permission is deliberately gated.
+    // A terminal media failure waits for explicit Retry even if intent survives.
     const nextActive =
       !!state.item && !state.backgrounded && (active === true || nextIntended);
     const retry = nextActive && nextIntended && !wants;

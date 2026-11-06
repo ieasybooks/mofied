@@ -19,6 +19,8 @@ export type SessionSnapshot = Readonly<{
   item: SessionItem | null;
   index: number;
   status: Status;
+  /** Remains true when pause/background/interruption masks the error status. */
+  retryRequired: boolean;
   wantsToPlay: boolean;
   shouldPlay: boolean;
   muted: boolean;
@@ -121,6 +123,7 @@ export class SessionController {
       item,
       index: this.index,
       status,
+      retryRequired: item?.kind === "media" && this.ready === "error",
       wantsToPlay: this.wants,
       shouldPlay:
         this.permitted &&

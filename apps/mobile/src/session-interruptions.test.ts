@@ -116,6 +116,80 @@ class AndroidFocusSource extends NativeModuleSource {
 }
 
 describe("foreground Android focus ownership", () => {
+  it.each(["foreground", "background", "About"])(
+    "does not reacquire while waiting for Retry after a media failure in %s",
+    (when) => {
+      const plan = fixture();
+      plan.items = [plan.items[0]!];
+      plan.replacements = [];
+      const session = new SessionController(plan);
+      const source = new AndroidFocusSource();
+      watchSessionInterruptions(source, session);
+      source.focus(false);
+      if (when === "background") session.setBackgrounded(true);
+      if (when === "About") session.openAbout();
+      session.mediaFailed(plan.items[0]!.id);
+      session.setBackgrounded(true);
+      session.setBackgrounded(false);
+      session.closeAbout();
+      session.tick();
+      expect(source.requests.map((r) => r.active)).toEqual([true, false]);
+      expect(session.getSnapshot()).toMatchObject({
+        status: "error",
+        wantsToPlay: true,
+        shouldPlay: false,
+      });
+      session.retry();
+      expect(source.requests.map((r) => r.active)).toEqual([true, false, true]);
+      expect(session.getSnapshot().shouldPlay).toBe(false);
+      source.focus(false);
+      expect(session.getSnapshot().shouldPlay).toBe(true);
+    },
+  );
+
+  it("does not acquire when attached to a session already waiting for Retry", () => {
+    const plan = fixture();
+    plan.items = [plan.items[0]!];
+    plan.replacements = [];
+    const session = new SessionController(plan);
+    session.mediaFailed(plan.items[0]!.id);
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    expect(source.requests.map((r) => r.active)).toEqual([false]);
+    session.retry();
+    expect(source.requests.map((r) => r.active)).toEqual([false, true]);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
+  it("keeps Retry available after an interrupted failure releases its focus owner", () => {
+    const plan = fixture();
+    plan.items = [plan.items[0]!];
+    plan.replacements = [];
+    const session = new SessionController(plan);
+    const source = new AndroidFocusSource();
+    watchSessionInterruptions(source, session);
+    source.focus(false);
+    source.focus(true);
+    session.mediaFailed(plan.items[0]!.id);
+    session.setBackgrounded(true);
+    session.setBackgrounded(false);
+    expect(source.requests.map((r) => r.active)).toEqual([true, false]);
+    expect(session.getSnapshot()).toMatchObject({
+      status: "paused",
+      interrupted: true,
+      retryRequired: true,
+      shouldPlay: false,
+    });
+    session.retry();
+    expect(source.requests.map((r) => r.active)).toEqual([true, false, true]);
+    expect(session.getSnapshot().retryRequired).toBe(false);
+    expect(session.getSnapshot().shouldPlay).toBe(false);
+    source.focus(false);
+    expect(session.getSnapshot().shouldPlay).toBe(true);
+  });
+
   it("does not acquire on paused restoration until the user resumes", () => {
     const saved = new SessionController(fixture()).serialize()!;
     const session = SessionController.restore(saved)!;

@@ -286,10 +286,10 @@ function SessionView({
             accessible
             testID="media-controls"
             accessibilityRole="button"
-            accessibilityLabel={state.shouldPlay ? t.pause : t.play}
+            accessibilityLabel={state.wantsToPlay ? t.pause : t.play}
             onAccessibilityTap={session.togglePlayback}
             accessibilityActions={[
-              { name: "activate", label: state.shouldPlay ? t.pause : t.play },
+              { name: "activate", label: state.wantsToPlay ? t.pause : t.play },
               ...(state.canNext ? [{ name: "next", label: t.next }] : []),
               ...(state.canPrevious
                 ? [{ name: "previous", label: t.previous }]
@@ -388,35 +388,38 @@ function SessionView({
               />
             </View>
           </View>
-          {state.status === "paused" && !state.aboutOpen && (
-            <View pointerEvents="none" style={styles.center}>
-              <View style={styles.paused}>
-                <Play color="white" size={28} />
+          {state.status === "paused" &&
+            !state.aboutOpen &&
+            !state.retryRequired && (
+              <View pointerEvents="none" style={styles.center}>
+                <View style={styles.paused}>
+                  {state.wantsToPlay ? (
+                    <Pause color="white" size={28} />
+                  ) : (
+                    <Play color="white" size={28} />
+                  )}
+                </View>
               </View>
-            </View>
-          )}
+            )}
           {(state.status === "loading" || state.status === "buffering") && (
             <View style={styles.center} pointerEvents="none">
               <ActivityIndicator color="white" />
               <Text style={styles.ui}>{t.buffering}</Text>
             </View>
           )}
-          {(state.status === "error" ||
-            state.status === "autoplay-blocked") && (
+          {(state.retryRequired || state.status === "autoplay-blocked") && (
             <View style={styles.center}>
               <View style={styles.errorBox}>
                 <Text style={styles.body}>
-                  {state.status === "error" ? t.mediaError : t.autoplay}
+                  {state.retryRequired ? t.mediaError : t.autoplay}
                 </Text>
                 <Pressable
                   style={styles.readButton}
                   accessibilityRole="button"
-                  onPress={
-                    state.status === "error" ? retry : session.togglePlayback
-                  }
+                  onPress={state.retryRequired ? retry : session.togglePlayback}
                 >
                   <Text style={styles.ui}>
-                    {state.status === "error" ? t.retry : t.play}
+                    {state.retryRequired ? t.retry : t.play}
                   </Text>
                 </Pressable>
               </View>
