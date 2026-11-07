@@ -51,6 +51,31 @@ afterEach(() => {
 });
 
 describe("HTML media playback health", () => {
+  it("preserves a saved playhead while the persistent element resets and loads metadata", () => {
+    const original = new SessionController(fixture());
+    original.mediaProgress(original.getSnapshot().item!.id, 9000);
+    const session = SessionController.restore(original.serialize()!)!;
+    const video = new Media();
+    let ready = false;
+    const stop = watchPlaybackHealth(
+      video,
+      session,
+      session.getSnapshot().item!.id,
+      () => ready,
+    );
+    video.emit("timeupdate");
+    video.emit("playing");
+    expect(session.getSnapshot()).toMatchObject({
+      positionMs: 9000,
+      activeMs: 0,
+      status: "paused",
+    });
+    video.currentTime = 9;
+    ready = true;
+    video.emit("timeupdate");
+    expect(session.getSnapshot().positionMs).toBe(9000);
+    stop();
+  });
   it("ignores buffered network stalls and counts uninterrupted playback past 20s", () => {
     const { video, session, plan, play } = setup();
     play(3500);

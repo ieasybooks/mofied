@@ -19,9 +19,10 @@ export const PagedSession = forwardRef<
   PagerHandle,
   {
     pager: SessionPager;
+    togglePlayback: () => void;
     renderPage: (state: SessionSnapshot, preview: boolean) => ReactNode;
   }
->(function PagedSession({ pager, renderPage }, ref) {
+>(function PagedSession({ pager, togglePlayback, renderPage }, ref) {
   const state = useSyncExternalStore(pager.subscribe, pager.getSnapshot);
   const viewport = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
@@ -187,7 +188,7 @@ export const PagedSession = forwardRef<
             ),
           );
         else if (!p.rejected && Math.abs(dy) < 12 && Math.abs(dx) < 12)
-          pager.session.togglePlayback();
+          togglePlayback();
       }}
       onPointerCancel={() => {
         pointer.current = null;
@@ -205,7 +206,6 @@ export const PagedSession = forwardRef<
       >
         <div
           className={`session-page ${state.page.item?.kind ?? "ending"}`}
-          key={state.page.item?.id ?? "ending"}
           data-page="current"
         >
           {renderPage(state.page, false)}

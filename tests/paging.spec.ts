@@ -66,7 +66,8 @@ test("a committed drag settles before entering the required reminder, whose read
     "data-item-id",
     "reminder",
   );
-  await expect(page.locator("video")).toHaveCount(0);
+  await expect(page.locator("video")).toBeHidden();
+  await expect(page.locator("video")).toHaveJSProperty("paused", true);
   await page
     .getByRole("button", { name: "أوقف العدّ لمواصلة القراءة" })
     .click();

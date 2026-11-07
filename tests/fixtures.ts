@@ -86,6 +86,7 @@ export async function serveMp4(page: Page) {
       contentType: "video/mp4",
       headers: {
         "access-control-allow-origin": "*",
+        "access-control-expose-headers": "content-range",
         "accept-ranges": "bytes",
         ...(range
           ? { "content-range": `bytes ${start}-${end}/${bytes.length}` }

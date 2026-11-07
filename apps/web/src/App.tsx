@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -33,7 +34,7 @@ import {
   sessionStorageKey as storageKey,
   usesFixture,
 } from "./provider";
-import { MediaPlayer } from "./MediaPlayer";
+import { MediaPlayer, type MediaHandle } from "./MediaPlayer";
 import { About } from "./About";
 import { LaunchArtwork } from "./LaunchArtwork";
 
@@ -164,6 +165,16 @@ function SessionView({
   const paging = useSyncExternalStore(pager.subscribe, pager.getSnapshot);
   const state = paging.page;
   const pagerRef = useRef<PagerHandle>(null);
+  const mediaRef = useRef<MediaHandle>(null);
+  const togglePlayback = useCallback(() => {
+    session.togglePlayback();
+    // Keep audible play inside the actual click/touch/keyboard handler on iOS.
+    mediaRef.current?.synchronize();
+  }, [session]);
+  const toggleMuted = () => {
+    session.toggleMuted();
+    mediaRef.current?.synchronize();
+  };
   const t = copy[locale];
   const item = state.item;
   useEffect(() => {
@@ -203,7 +214,7 @@ function SessionView({
         )
           return;
         event.preventDefault();
-        session.togglePlayback();
+        togglePlayback();
       }
       if (item?.kind === "media" && event.code === "ArrowDown") {
         event.preventDefault();
@@ -216,7 +227,7 @@ function SessionView({
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [session, pager, state.aboutOpen, item?.kind]);
+  }, [session, pager, state.aboutOpen, item?.kind, togglePlayback]);
   useEffect(() => {
     if (state.status === "ended") storageWrite(null);
   }, [state.status]);
@@ -243,7 +254,7 @@ function SessionView({
                 type="button"
                 className="mobile-sound round-button"
                 aria-label={state.muted ? t.soundOn : t.soundOff}
-                onClick={session.toggleMuted}
+                onClick={toggleMuted}
               >
                 {state.muted ? <VolumeX size={21} /> : <Volume2 size={21} />}
               </button>
@@ -271,12 +282,15 @@ function SessionView({
         <PagedSession
           ref={pagerRef}
           pager={pager}
+          togglePlayback={togglePlayback}
           renderPage={(page, preview) => (
             <SessionPage
               session={session}
               state={page}
               locale={locale}
               preview={preview}
+              mediaRef={preview ? undefined : mediaRef}
+              togglePlayback={togglePlayback}
             />
           )}
         />
@@ -301,7 +315,7 @@ function SessionView({
             <button
               className="round-button"
               aria-label={state.muted ? t.soundOn : t.soundOff}
-              onClick={session.toggleMuted}
+              onClick={toggleMuted}
             >
               {state.muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
@@ -332,28 +346,31 @@ function SessionPage({
   state,
   locale,
   preview,
+  mediaRef,
+  togglePlayback,
 }: {
   session: SessionController;
   state: SessionSnapshot;
   locale: Locale;
   preview: boolean;
+  mediaRef?: React.Ref<MediaHandle>;
+  togglePlayback: () => void;
 }) {
   const item = state.item;
   const t = copy[locale];
   return (
     <>
-      {item?.kind === "media" && (
-        <>
-          <MediaPlayer
-            key={item.id}
-            item={item}
-            session={session}
-            state={state}
-            locale={locale}
-            preview={preview}
-          />
-        </>
-      )}
+      {/* The current video stays mounted through media, reminders and ending.
+          Reading regions still reset by item identity below. */}
+      <MediaPlayer
+        ref={mediaRef}
+        item={item?.kind === "media" ? item : null}
+        session={session}
+        state={state}
+        locale={locale}
+        preview={preview}
+        togglePlayback={togglePlayback}
+      />
       {item?.kind === "reminder" && (
         <section
           key={item.id}

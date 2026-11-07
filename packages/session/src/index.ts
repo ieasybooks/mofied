@@ -312,6 +312,15 @@ export class SessionController {
   next = () => {
     if (this.item?.kind === "media" && !this.about) this.advance();
   };
+  /** Speculative fetching only; does not navigate past or complete reminders. */
+  upcomingMedia(): MediaItem | null {
+    if (!this.item || this.active >= this.plan.policy.maxActiveMs) return null;
+    return (
+      this.items
+        .slice(this.index + 1)
+        .find((item): item is MediaItem => item.kind === "media") ?? null
+    );
+  }
   /** A UI transition suspends permission without changing the user's intent. */
   setNavigating = (value: boolean) => {
     if (value === this.navigating) return;

@@ -1,5 +1,21 @@
 # Implementation verification
 
+## Audible web paging and next-media loading — 2026-11-07
+
+The web player now keeps one video element through media changes, reminders and the ending. Sound and resume controls synchronize the element directly inside the user gesture. Source listeners and HLS engines are still cleaned up at item boundaries; queued old-source events and rejected play promises cannot advance or block the new item. Metadata and portraits reset independently of the video. Reading regions retain their existing identity-based reset behavior.
+
+Next-media loading follows a read-only controller lookup, including replacements already made in session history. It never plays a second element, completes a reminder or changes accounting. It warms one next item: up to three playlists, an initialization segment and two opening HLS segments, within a 2 MiB response-body budget and eight-second deadline. MP4 uses a range of at most 1 MiB. Large/unsupported responses, offline failures and cancellation are nonfatal. Pausing, About and buffering cancel in-flight speculation; reduced-data connections and expired/ended sessions do not start it. hls.js consumes warmed bytes directly. Native HLS uses the browser cache; its revalidation and adaptive-quality decisions can still require requests. Complete small MP4 files are reused as blobs; partial files are never treated as complete media.
+
+Executed local checks:
+
+- Both TypeScript checks and **100 unit tests in eight files** passed. New cases cover bounds, cancellation, rendition selection, speculative failures, read-only session lookup and saved-position reconciliation.
+- The full headed Chromium suite passed **45 tests**, including real hidden-tab playback. Its separate opt-in live test was subsequently run in all three engines below.
+- **39 headed checks passed across Chromium, Firefox and WebKit**: nine playback regressions, three real HLS decoding/recovery cases and the real Faqieh API/CORS/playback/restoration integration in each engine. The audible regressions model per-element gesture permission while retaining real media decoding; they are not presented as physical iOS evidence.
+- All **four Cloudflare local-hosting checks** passed, along with the production build and Wrangler deployment dry run. Initial JavaScript remains separate from the lazy hls.js fallback.
+- XCTest drove Safari on the **iPhone 18 Pro / iOS 27.0 simulator** with different public HLS sources, six audible swipes and a required reminder. The verified per-page trace records seven played item identities, one video identity and zero `NotAllowedError` rejections. A separate controlled media relay preserved production cache headers and observed conditional 304 responses for warmed resources. Native HLS cache behavior remains browser-controlled.
+
+Evidence is under ignored `artifacts/web-playback/`, including browser logs, XCTest results and `ios-verified-trace.json`. The final simulator run used a unique URL and checked each destination title; earlier exploratory runs included Safari's speculative page loads and are not the final evidence. This change does not claim new native Android/iOS app builds or physical interruption/accessibility checks. Hosted CI remains deferred as previously agreed.
+
 ## Branded startup — 2026-11-07
 
 The reported top-edge loading/download text matches the Metro development bundle banner. The installed Android Release package has no `DEBUGGABLE` flag and runs with Metro stopped. I did not reproduce that banner in Release. A cold-start recording did reproduce a white native launch screen before the dark React loading surface.

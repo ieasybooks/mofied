@@ -59,6 +59,23 @@ function setup(overrides: Partial<SessionPlan> = {}) {
 }
 
 describe("session execution", () => {
+  it("previews only the next media without consuming reminders, replacements or time", () => {
+    const { session, step } = setup({ replacements: [media("spare")] });
+    const initial = session.serialize();
+    expect(session.upcomingMedia()?.id).toBe("b");
+    expect(session.serialize()).toBe(initial);
+    session.next();
+    expect(session.getSnapshot().item?.id).toBe("reminder");
+    expect(session.upcomingMedia()?.id).toBe("b");
+    step(5000);
+    session.tick();
+    session.mediaFailed("b");
+    session.previous();
+    expect(session.upcomingMedia()?.id).toBe("spare");
+    session.next();
+    session.next();
+    expect(session.upcomingMedia()).toBeNull();
+  });
   it("reconciles sampling jitter over continuous playback without losing elapsed time", () => {
     const { session, step } = setup();
     session.mediaPlaying("a", 0);

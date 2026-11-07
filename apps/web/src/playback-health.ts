@@ -11,6 +11,7 @@ export function watchPlaybackHealth(
   video: PlaybackMedia,
   session: SessionController,
   itemId: string,
+  isReady: () => boolean = () => true,
 ) {
   let position = video.currentTime;
   let lastAdvance = performance.now();
@@ -31,6 +32,7 @@ export function watchPlaybackHealth(
   });
 
   const progress = () => {
+    if (!isReady()) return;
     const advanced = video.currentTime > position;
     position = video.currentTime;
     if (
@@ -50,6 +52,7 @@ export function watchPlaybackHealth(
     session.mediaProgress(itemId, position * 1000);
   };
   const playing = () => {
+    if (!isReady()) return;
     reset();
     session.mediaPlaying(itemId, position * 1000);
   };

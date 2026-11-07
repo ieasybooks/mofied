@@ -133,7 +133,8 @@ test("media ends into the ordered reminder, which cannot be skipped; ends quietl
     page.getByRole("heading", { name: "حان وقت التوقّف" }),
   ).toBeVisible();
   await expect(page.getByRole("button")).toHaveCount(1);
-  await expect(page.locator("video")).toHaveCount(0);
+  await expect(page.locator("video")).toBeHidden();
+  await expect(page.locator("video")).not.toHaveAttribute("src");
   await page.getByRole("button", { name: "عن التطبيق", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "متابعة المشاهدة", exact: true }),
