@@ -1,24 +1,26 @@
 # Store submission record — 7 November 2026
 
 Version 0.1.0, build/version code 1, bundle/package `com.mofied.app`.
-The owner authorized review submission to Apple, Google Play, and Huawei, with
-public release controlled manually. Store review approval is not a public launch.
+The owner authorized review submission to Apple, Google Play, and Huawei, initially
+with public release controlled manually. On 7 November, the owner subsequently
+authorized AppGallery production submission with public release scheduled for
+1 January 2027. Apple and Google retain their manual release controls.
 The owner also confirmed distribution rights for the app's fonts, media, and store
 artwork. The installed app name remains مفيد.
 
-Final console verification: 7 November 2026, approximately 20:07 Asia/Amman.
+Apple and Google console verification: 7 November 2026, approximately 20:07
+Asia/Amman. AppGallery production submission verified at approximately 20:29.
 
 | Store | Verified status | Public release control |
 | --- | --- | --- |
 | Apple | Waiting for Review | Manually release this version |
 | Google Play | Approved; 17 changes ready to publish | Managed Publishing enabled; nothing published |
-| Huawei AppGallery | Reviewing (open testing) | Owner-only test; public production remains a draft |
+| Huawei AppGallery | Production Submitted / Reviewing | Scheduled for 1 January 2027, 00:00 Asia/Amman, subject to approval |
 
-Huawei's test review is **not a production review submission**. Its production
-form offered immediate or scheduled release, without a manual-release option.
-The restricted, human-reviewed test avoids an automatic public launch. A public
-AppGallery release still requires a separate production submission and an
-owner-approved release arrangement.
+AppGallery's production form offers immediate or scheduled release. The owner
+explicitly chose the scheduled option after the initial restricted test submission.
+The saved production timestamp is **2027-01-01 00:00 Asia/Amman**, displayed by
+Huawei alongside **2026-12-31 21:00 UTC**. Production approval is still pending.
 
 ## Apple App Store
 
@@ -80,6 +82,19 @@ it does not imply a native analytics SDK, advertising, or a user account.
 
 - Android app record created: **مفيد**, app ID `119708951`, Arabic default
   language, APK package type, phone and tablet compatibility.
+- [Production review version](https://developer.huawei.com/consumer/en/service/josp/agc/index.html#/myApp/119708951/v2078592166849957440):
+  **Submitted / Reviewing**, verified on 7 November 2026 at approximately 20:29
+  Asia/Amman. Version ID: `2078592166849957440`; app version 0.1.0 (1).
+- Production **Use testing version: No**. Release time: **Specified time,
+  2027-01-01 00:00 Asia/Amman (2026-12-31 21:00 UTC)**. The read-only submitted
+  form confirms both settings. This is the owner's authorized scheduled public
+  release, subject to Huawei approval.
+- Production availability: **199 countries/regions**, excluding mainland China.
+  Automatic addition of new countries/regions is disabled.
+- The production draft reused the accepted signed APK and saved listing assets.
+  Its separate privacy fields, reviewer notes, and age-rating questionnaire were
+  completed and saved before submission. The calculated rating remains 16+,
+  with Brazil A16.
 - [Restricted review version](https://developer.huawei.com/consumer/en/service/josp/agc/index.html#/myApp/119708951/v2078660010698624576):
   **Submitted / Reviewing (open testing)**, verified on 7 November 2026.
   Version ID: `2078660010698624576`; app version 0.1.0 (1).
@@ -93,17 +108,15 @@ it does not imply a native analytics SDK, advertising, or a user account.
   cross-border transfer. Generative AI service: not involved.
 - The content questionnaire calculated **16+** (Brazil A16). The calculated
   rating was retained; educational spoken references were disclosed.
-- Testing version enabled; **Skip manual review for internal testing is off**.
-  Only Jordan is selected, with automatic addition of new countries disabled.
-  Huawei explicitly states this test is available only to invited users.
+- The separate restricted test has testing enabled and **Skip manual review for
+  internal testing off**. Only Jordan is selected, with automatic addition of
+  new countries disabled. Huawei states this test is available only to invited users.
 - Tester list **Mofied owner review** contains one valid owner account and zero
   invalid accounts. **Automatic invitations are off**; no invitation was sent.
 - Test period: 8 November 2026 at 00:00 through 8 December 2026 at 23:59,
   as displayed in the browser's Asia/Amman timezone. Invitation expiry: 7 days.
 - The test version becomes eligible for restricted distribution after approval
-  within that period. It cannot publish the separate production draft.
-- Production version ID `2078592166849957440` remains **Draft / unsubmitted**.
-  No public release or scheduled public launch was configured.
+  within that period. Its settings do not control the separate production schedule.
 
 Chrome was restarted with the owner's explicit approval to recover stale
 accessibility state and a disabled file picker. Saved store data survived;
@@ -150,4 +163,5 @@ limited until matching symbols are supplied.
   JavaScript disabled, responsive layouts, and absence of session requests.
 - Android native release AAB/APK compilation and iOS archive/export passed.
 
-These checks do not replace store review or the owner's manual public release.
+These checks do not replace store review. Public distribution follows the release
+controls recorded above.
