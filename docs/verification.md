@@ -16,6 +16,12 @@ Executed verification:
 
 The gesture tests cover phone/desktop geometry, drag-following motion, one-item advancement, backwards/boundary behavior, cancelled/horizontal gestures, two-finger cancellation, taps after cancellation, keyboard/modified link activation, control activation and required reminders. The new-window test uses an unmocked local destination: Firefox's automation can strand a Shift-click window's first request when request interception is enabled, which also reproduced with a plain anchor outside Mofied.
 
+Post-deployment verification for code commit `0bd7516` (Cloudflare version `1a672322-b671-4702-b72f-f405c75719fa`, asset `/assets/index-Bs9P5RF1.js`):
+
+- Live Chromium and WebKit each traversed **13 server items including a required reminder**. All 12 media swipes began on the title, speaker name or portrait (four from each), advanced once and opened no accidental tabs. Playback retained sound and the same video element; upcoming media requests were observed.
+- Each journey cancelled a partial title drag while manually paused, then opened the correct title and speaker destinations with normal taps. Both retained pause/playhead through Info/Privacy and reload, restored without a second session API request, and resumed with sound. No uncaught page errors occurred.
+- The deployed JavaScript matches the local release byte-for-byte by SHA-256. Asset caching, missing-file 404, real API CORS and analytics 204 responses passed.
+
 Evidence is under ignored `artifacts/link-swipes/`; the repeatable browser suite is `tests/link-swipes.spec.ts` and the Safari touch regression is in `tests/native/web/`. This is a web-client correction. The iPhone run tests the browser on a simulator; no new physical-device, Expo native-app build or hosted-CI result is claimed.
 
 ## Reusable web preloads and quiet transitions — 2026-11-07
