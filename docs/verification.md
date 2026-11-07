@@ -44,6 +44,23 @@ Executed verification:
   launch and the complete journey passed. Its precise upstream/network cause was
   not established, so this is not a claim that the production service never fails.
 
+Deployed implementation commit `d11bc87` as Cloudflare version
+`9412e65e-03f1-4063-8ba7-688ffc748b17`. The production JavaScript and both updated
+legal/support pages match the local release byte-for-byte. Live Chromium and an
+iPhone-configured WebKit context each decoded real media, preserved manual pause
+through Info, and received different session IDs from two API calls across a
+refresh. Both browsers also removed valid legacy session keys seeded before
+loading the app. No uncaught page errors occurred in those completed journeys.
+
+Some live WebKit attempts timed out waiting for the session API; the app displayed
+its load error instead of restoring old content. Separate default-cache and
+`no-store` request probes both succeeded, and a subsequent full journey passed.
+The machine's IPv6 connection to Faqieh also failed while IPv4 succeeded. These
+observations do not establish the precise cause of the intermittent timeouts.
+Wrangler's first authentication refresh failed on the network; the normal deploy
+succeeded on retry with Node's IPv4-first DNS order. No TLS verification or other
+security protection was disabled.
+
 Evidence is under ignored `artifacts/fresh-sessions/`; repeatable cases are in
 `fresh-sessions.test.ts`, `tests/fresh-sessions.spec.ts` and
 `tests/native/session/`. These are local builds, browser tests and emulator/simulator

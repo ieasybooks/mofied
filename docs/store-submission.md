@@ -1,3 +1,32 @@
+# Fresh-session update — 8 November 2026
+
+Version **0.1.1 (2)** removes saved-session restoration. Native app openings,
+including returns from the background, request a fresh Faqieh plan. The updated
+Arabic/English listing descriptions, release notes and reviewer instructions are
+prepared under ignored `artifacts/fresh-sessions/listing/`.
+
+Current update status:
+
+| Store             | 0.1.1 update status                                                                                                  | Release control to retain                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Apple             | Signed build uploaded successfully at 00:36 Asia/Amman; processing/review selection still needs console verification | Manual release                                                 |
+| Google Play       | Signed AAB prepared; not uploaded or submitted yet                                                                   | Managed Publishing enabled                                     |
+| Huawei AppGallery | Signed APK prepared; not uploaded or submitted yet                                                                   | 1 January 2027, 00:00 Asia/Amman / 31 December 2026, 21:00 UTC |
+
+Chrome automation could list the reopened store tabs but failed to read or operate
+the pages, including after reconnecting the automation session. The browser tool
+rejected automated Chrome restart and prohibited alternate restart mechanisms.
+A manual full quit/reopen is pending. No new review submission or public native
+release is claimed. The previous submissions below have not been withdrawn or
+replaced yet; Apple 0.1.0 was most recently observed In Review.
+
+Apple accepted the 0.1.1 upload with nonblocking missing-dSYM warnings for the
+precompiled React, ReactNativeDependencies and Hermes frameworks. The upload
+itself succeeded. Release build evidence, UI checks and SHA-256 hashes are under
+`artifacts/fresh-sessions/`; see the current verification addendum.
+
+---
+
 # Store submission record — 7 November 2026
 
 Version 0.1.0, build/version code 1, bundle/package `com.mofied.app`.
@@ -11,11 +40,11 @@ artwork. The installed app name remains مفيد.
 Apple and Google console verification: 7 November 2026, approximately 20:07
 Asia/Amman. AppGallery production submission verified at approximately 20:29.
 
-| Store | Verified status | Public release control |
-| --- | --- | --- |
-| Apple | Waiting for Review | Manually release this version |
-| Google Play | Approved; 17 changes ready to publish | Managed Publishing enabled; nothing published |
-| Huawei AppGallery | Production Submitted / Reviewing | Scheduled for 1 January 2027, 00:00 Asia/Amman, subject to approval |
+| Store             | Verified status                       | Public release control                                              |
+| ----------------- | ------------------------------------- | ------------------------------------------------------------------- |
+| Apple             | Waiting for Review                    | Manually release this version                                       |
+| Google Play       | Approved; 17 changes ready to publish | Managed Publishing enabled; nothing published                       |
+| Huawei AppGallery | Production Submitted / Reviewing      | Scheduled for 1 January 2027, 00:00 Asia/Amman, subject to approval |
 
 AppGallery's production form offers immediate or scheduled release. The owner
 explicitly chose the scheduled option after the initial restricted test submission.
@@ -128,11 +157,11 @@ Local artifacts are under `artifacts/store-submission/` and are not committed.
 The Android signing key is stored outside the repository; never commit its
 private key or password. Retain the key for future updates.
 
-| Artifact | SHA-256 |
-| --- | --- |
+| Artifact          | SHA-256                                                            |
+| ----------------- | ------------------------------------------------------------------ |
 | iOS App Store IPA | `bb7c62b4f04eea098e4d26ea98c4fd68c0e1089c758ae6179bb5b4f0cb8dee25` |
-| Android AAB | `45e989ccd2c57f343fdd3de8a06f1d8911294a86f596ed4b03531731dd01857a` |
-| Android APK | `3153238f59ad5e6dd47fb5d42fb1bf1bad24b9197fa6fc52833dfd8cba706a53` |
+| Android AAB       | `45e989ccd2c57f343fdd3de8a06f1d8911294a86f596ed4b03531731dd01857a` |
+| Android APK       | `3153238f59ad5e6dd47fb5d42fb1bf1bad24b9197fa6fc52833dfd8cba706a53` |
 
 Android signing certificate SHA-256:
 `2cf5f229e935c4ba6ad9d43854a18bbb4a41238eabaacd40d1ea491ad2e9ab37`.
