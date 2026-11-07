@@ -145,6 +145,7 @@ export function createHttpProvider(
         const response = await (requestFetch ?? fetch)(endpoint, {
           signal: request.signal,
           credentials: "omit",
+          cache: "no-store",
           headers: { Accept: "application/json" },
         });
         if (!response.ok)

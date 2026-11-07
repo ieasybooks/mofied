@@ -1,23 +1,23 @@
 # Session API contract · version 1
 
-The client requests one small, complete session plan over HTTPS. The default endpoint is `https://faqieh.com/api/v1/mofied/session?locale=ar`; build-time overrides remain available for staging or English plans (`locale=en`). The initial provider uses `GET`, `Accept: application/json`, no cookies, and a 15-second timeout.
+The client requests one small, complete session plan over HTTPS. The default endpoint is `https://faqieh.com/api/v1/mofied/session?locale=ar`; build-time overrides remain available for staging or English plans (`locale=en`). The initial provider uses `GET`, `Accept: application/json`, no cookies, `cache: no-store`, and a 15-second timeout.
 
 The authoritative runtime validator is `packages/contracts/src/index.ts`. Run `bun run contract:generate` to regenerate `session.schema.json` and `session.example.json`.
 
 ## Response
 
-| Field                           | Meaning                                                       |
-| ------------------------------- | ------------------------------------------------------------- |
-| `schemaVersion`                 | Exactly `1`                                                   |
-| `id`                            | Opaque session identifier; not a user identity                |
-| `locale`                        | Language of plan content, `ar` or `en`                        |
-| `expiresAt`                     | ISO UTC expiry, or `null`; expired plans cannot start/restore |
-| `policy.maxActiveMs`            | Active playback + running reminder budget in milliseconds     |
-| `policy.limitBehavior`          | `finish-current-item`                                         |
-| `policy.maxConsecutiveFailures` | Maximum consecutive media failures, 1–10                      |
-| `items`                         | Ordered `media` / `reminder` union; 1–250 items               |
-| `replacements`                  | 0–25 reserve media, consumed in supplied order on failures    |
-| `ending`                        | Final title and reflection body supplied by Rails             |
+| Field                           | Meaning                                                    |
+| ------------------------------- | ---------------------------------------------------------- |
+| `schemaVersion`                 | Exactly `1`                                                |
+| `id`                            | Opaque session identifier; not a user identity             |
+| `locale`                        | Language of plan content, `ar` or `en`                     |
+| `expiresAt`                     | ISO UTC expiry, or `null`; expired plans cannot start      |
+| `policy.maxActiveMs`            | Active playback + running reminder budget in milliseconds  |
+| `policy.limitBehavior`          | `finish-current-item`                                      |
+| `policy.maxConsecutiveFailures` | Maximum consecutive media failures, 1–10                   |
+| `items`                         | Ordered `media` / `reminder` union; 1–250 items            |
+| `replacements`                  | 0–25 reserve media, consumed in supplied order on failures |
+| `ending`                        | Final title and reflection body supplied by Rails          |
 
 Each item's `id` is unique across the plan and reserve list. Repeated catalog media can use distinct item IDs; `mediaId` identifies the source catalog record. IDs and speaker IDs are strings. Use milliseconds consistently.
 
@@ -36,7 +36,7 @@ The deployed service applies a 10-session-request/IP/minute limit, returns `Cach
 ## Server responsibilities
 
 - Select the session from the large catalog with indexed server-side queries and caching. Never send the full catalog to a client.
-- Return complete, stable, HTTPS media, poster and portrait URLs. Signed URLs, if used, must stay usable for the plan's remaining lifetime and intended local restore window.
+- Return complete, stable, HTTPS media, poster and portrait URLs. Signed URLs, if used, must stay usable for the plan's remaining lifetime.
 - Select ordered reminder text/durations and reserve media. An empty catalog is an API error, not an empty successful plan under v1.
 - Allow the deployed web origin via CORS. R2 manifests, segments and images must be reachable independently of Rails cookies.
 - Return an error response for unavailable/rate-limited service. No secret API key can be hidden in these public clients; apply rate limits and abuse protection at the server/edge.
@@ -46,4 +46,4 @@ The deployed service applies a 10-session-request/IP/minute limit, returns `Cach
 
 The budget is a maximum, not a requirement to fill time: consuming all items ends the session. Replacements are used at the failed media's slot and do not move the reminder that follows it. Budget exhaustion prevents starting a previous, replacement or next item, but does not cut the current item off mid-playback.
 
-The clients store only the current small plan for local continuity. No account, user profile, analytics transport, media uploads, private Rails source or database fixtures are required.
+The clients hold the current plan only in memory. Each page load/refresh or native app opening requests a new plan. Nothing is restored from device storage. No account, user profile, analytics transport, media uploads, private Rails source or database fixtures are required.

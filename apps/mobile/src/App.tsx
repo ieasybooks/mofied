@@ -50,7 +50,8 @@ import { SlidePages } from "./SlidePages";
 import { PagedSession } from "./SessionPager";
 import type { Direction } from "@mofied/session";
 import { NativeMedia } from "./NativeMedia";
-import { loadSession, sessionStorageKey as storageKey } from "./provider";
+import { loadSession } from "./provider";
+import { watchFreshSessions } from "./fresh-sessions";
 import { ContactLinks } from "./ContactLinks";
 import { useSessionLifecycle } from "./use-session-lifecycle";
 import { Reminder } from "./Reminder";
@@ -139,32 +140,40 @@ function LoadedApp() {
     else session?.closeAbout();
   };
   useEffect(() => {
-    const abort = new AbortController();
-    setError(false);
-    void (async () => {
-      const saved = await AsyncStorage.getItem(storageKey).catch(() => null);
-      const restored = saved ? SessionController.restore(saved) : null;
-      const next =
-        restored ?? new SessionController(await loadSession(abort.signal));
-      // Browser layout preview keeps autoplay muted; real native playback starts with sound.
-      if (!restored && Platform.OS !== "web") next.toggleMuted();
-      if (Platform.OS !== "web" && AppState.currentState === "background")
-        next.setBackgrounded(true);
-      // Android grants focus asynchronously. Gate the very first render too.
-      if (Platform.OS === "android") next.setInterrupted(true);
-      if (aboutOpenRef.current) next.openAbout();
-      if (!abort.signal.aborted) setSession(next);
-    })().catch((error: unknown) => {
-      if (!abort.signal.aborted) {
-        console.warn(
-          "[mofied] Session load failed",
-          sessionLoadDiagnostic(error),
-        );
-        setError(true);
-      }
-    });
-    return () => abort.abort();
-  }, [attempt]);
+    // Migration only: never read or save session progress again.
+    for (const key of [
+      "mofied.session.v1.production",
+      "mofied.session.v1.development",
+    ])
+      void AsyncStorage.removeItem(key).catch(() => {});
+  }, []);
+  useEffect(
+    () =>
+      watchFreshSessions({
+        appState: Platform.OS === "web" ? undefined : AppState,
+        load: loadSession,
+        loading: () => {
+          setSession(null);
+          setError(false);
+        },
+        accept: (next) => {
+          // Browser layout preview keeps autoplay muted; real native playback starts with sound.
+          if (Platform.OS !== "web") next.toggleMuted();
+          // Android grants focus asynchronously. Gate the very first render too.
+          if (Platform.OS === "android") next.setInterrupted(true);
+          if (aboutOpenRef.current) next.openAbout();
+          setSession(next);
+        },
+        fail: (error) => {
+          console.warn(
+            "[mofied] Session load failed",
+            sessionLoadDiagnostic(error),
+          );
+          setError(true);
+        },
+      }),
+    [attempt],
+  );
   return (
     <View style={styles.root} onLayout={() => SplashScreen.hide()}>
       {session ? (
@@ -234,9 +243,9 @@ function SessionView({
   const insets = useSafeAreaInsets();
   const item = state.item;
   const t = copy[locale];
-  useSessionLifecycle(session, storageKey);
+  useSessionLifecycle(session);
   return (
-    <View style={styles.root}>
+    <View style={styles.root} testID={`session-${state.sessionId}`}>
       {state.shouldPlay && state.status !== "error" && <KeepScreenAwake />}
       <PagedSession
         session={session}

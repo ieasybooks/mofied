@@ -61,9 +61,9 @@ function setup(overrides: Partial<SessionPlan> = {}) {
 describe("session execution", () => {
   it("previews only the next media without consuming reminders, replacements or time", () => {
     const { session, step } = setup({ replacements: [media("spare")] });
-    const initial = session.serialize();
+    const initial = session.getSnapshot();
     expect(session.upcomingMedia()?.id).toBe("b");
-    expect(session.serialize()).toBe(initial);
+    expect(session.getSnapshot()).toBe(initial);
     session.next();
     expect(session.getSnapshot().item?.id).toBe("reminder");
     expect(session.upcomingMedia()?.id).toBe("b");
@@ -265,37 +265,41 @@ describe("session execution", () => {
     s.retry();
     expect(s.getSnapshot().status).toBe("loading");
   });
-  it("has a finite natural end and does not persist an ended session", () => {
+  it("has a finite natural end", () => {
     const { session: s, step } = setup();
     s.next();
     step(5000);
     s.tick();
     s.next();
     expect(s.getSnapshot().status).toBe("ended");
-    expect(s.serialize()).toBeNull();
     s.openAbout();
     expect(s.getSnapshot().aboutOpen).toBe(true);
     s.closeAbout();
     expect(s.getSnapshot().status).toBe("ended");
   });
-  it("restores valid progress paused, including used replacement state and reminders", () => {
-    const {
-      session: s,
-      clock,
-      step,
-    } = setup({ replacements: [media("spare")] });
-    s.mediaFailed("a");
-    s.mediaPlaying("spare", 0);
+  it("a new session starts from zero without the previous session's progress or replacements", () => {
+    const { session, plan, step, clock } = setup({
+      replacements: [media("spare")],
+    });
+    session.mediaFailed("a");
+    session.mediaPlaying("spare", 0);
     step(1000);
-    s.mediaProgress("spare", 1000);
-    const restored = SessionController.restore(s.serialize()!, clock)!;
-    expect(restored.getSnapshot().item?.id).toBe("spare");
-    expect(restored.getSnapshot().positionMs).toBe(1000);
-    expect(restored.getSnapshot().activeMs).toBe(1000);
-    expect(restored.getSnapshot().shouldPlay).toBe(false);
-    expect(SessionController.restore("not json")).toBeNull();
-    expect(
-      SessionController.restore(JSON.stringify({ version: 1, index: 99 })),
-    ).toBeNull();
+    session.mediaProgress("spare", 1000);
+    session.togglePlayback();
+    const fresh = new SessionController(plan, clock);
+    expect(fresh.getSnapshot()).toMatchObject({
+      item: { id: "a" },
+      positionMs: 0,
+      activeMs: 0,
+      wantsToPlay: true,
+    });
+    fresh.mediaFailed("a");
+    expect(fresh.getSnapshot().item?.id).toBe("spare");
+    expect(session.getSnapshot()).toMatchObject({
+      item: { id: "spare" },
+      positionMs: 1000,
+      activeMs: 1000,
+      wantsToPlay: false,
+    });
   });
 });

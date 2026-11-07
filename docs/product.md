@@ -38,13 +38,16 @@ This is the behavior baseline for the initial implementation. The approved desig
 
 Browser autoplay is subject to browser policy. Web starts muted and offers the approved sound control. Chrome can suspend untouched muted autoplay after tab hiding; the UI reflects an externally blocked player and attempts to resume on return. The continuous hidden-tab test enables sound with a user gesture first. A frozen/discarded tab or sleeping device cannot be made to run on schedule by JavaScript. Delayed reminder callbacks consume only that reminder's remaining duration, never time for media that has not played.
 
-Web title/speaker links open a separate tab. Native links open the system browser; the resulting native background transition pauses playback.
+Web title/speaker links open a separate tab. Native links open the system browser; the resulting native background transition ends the current local session, and returning fetches a fresh plan.
 Native link-opening failures show localized feedback. The time badge describes the current item as finishing after the budget is exhausted.
 
-## Persistence and failure handling
+## Session lifetime and failure handling
 
-Web uses tab-scoped `sessionStorage`; native uses local AsyncStorage. Both save the plan, position, counted time, completed reminders and replacement consumption. Development and production state are separate. A restored in-progress session opens paused. Invalid/expired state is discarded; ended sessions are removed. This is local continuity, not cross-device identity or a server-enforced daily limit.
-Tracking and other query parameters do not bypass restoration. Only recognized development fixture/test parameters start a fresh fixture when no API is configured.
+Each web page load or refresh requests a new session from Faqieh with HTTP caching disabled. Returning through browser back/forward cache also requests a fresh plan. Merely hiding a tab does not reset or pause its session.
+
+Native cold launches and returns after an actual `background` transition request a new session, including after manual pause or the ending. Backgrounding immediately stops the old session and cancels its pending request. Stale responses cannot replace the new session. `inactive`/blur alone (Control Center, notification drawer) does not start a new session. Info and language changes retain the current in-memory session.
+
+Neither client saves plans, playheads, counted time, reminders, replacements or sound preferences. Upgrades remove the legacy session keys; AsyncStorage remains only for that deletion. The shared controller has no serialization/restoration API. Normal media/image caching and next-item preloading still operate within the current session.
 
 An API error remains an error and offers retry; it never silently substitutes a fixture. Info/privacy stay accessible before a session loads. Requests time out after 15 seconds.
 
@@ -53,6 +56,6 @@ The failure streak resets only after accepted positive playback time, not a read
 
 ## Before public launch
 
-Contact uses the initiative’s public social channels and easybooksdev@gmail.com. The in-app privacy copy describes the implemented local persistence and external media requests; publish a canonical privacy URL reflecting the actual API/CDN logging and any future analytics. No authentication is needed for Info or privacy.
+Contact uses the initiative’s public social channels and easybooksdev@gmail.com. The in-app privacy copy describes the fresh-session behavior and external media requests; publish a canonical privacy URL reflecting the actual API/CDN logging and any future analytics. No authentication is needed for Info or privacy.
 
 Language switching changes UI labels locally. Media, reminder and ending text remain in the language supplied by the plan. The default production plan is Arabic; the API also supports English via the endpoint locale. Changing UI language does not replace or reorder a running session. A persistent language preference remains separate future work.

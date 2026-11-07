@@ -317,18 +317,18 @@ describe("native playback health", () => {
         muted,
       });
       expect(session.getSnapshot().activeMs).toBeGreaterThan(24_000);
-      expect(JSON.parse(session.serialize()!).usedReplacements).toEqual([]);
+      expect(session.getSnapshot().item?.id).toBe(plan.items[0]!.id);
     },
   );
 });
 
-describe("native restored position", () => {
-  function restore() {
+describe("native player remount position", () => {
+  function remount() {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    const source = new SessionController(fixture());
-    const id = source.getSnapshot().item!.id;
-    source.mediaProgress(id, 9551);
-    const session = SessionController.restore(source.serialize()!)!;
+    const session = new SessionController(fixture());
+    const id = session.getSnapshot().item!.id;
+    session.mediaProgress(id, 9551);
+    session.togglePlayback();
     const player = new NativePlayer();
     player.status = "loading";
     player.playing = false;
@@ -354,16 +354,16 @@ describe("native restored position", () => {
     };
     return { session, player, ready, seek, stop, update };
   }
-  it("preserves persisted progress through slow loading and asynchronous seek completion", () => {
-    const { session, player, ready, seek, update } = restore();
+  it("preserves in-memory progress through slow loading and asynchronous seek completion", () => {
+    const { session, player, ready, seek, update } = remount();
     vi.advanceTimersByTime(6000);
-    expect(JSON.parse(session.serialize()!).positionMs).toBe(9551);
+    expect(session.getSnapshot().positionMs).toBe(9551);
     expect(seek).not.toHaveBeenCalled();
     player.status = "readyToPlay";
     player.emit("statusChange", { status: "readyToPlay" });
     expect(seek).toHaveBeenCalledExactlyOnceWith(9.551);
     vi.advanceTimersByTime(3000);
-    expect(JSON.parse(session.serialize()!).positionMs).toBe(9551);
+    expect(session.getSnapshot().positionMs).toBe(9551);
     expect(ready).not.toHaveBeenCalled();
     update(9.551);
     expect(ready).toHaveBeenCalledTimes(1);
@@ -375,7 +375,7 @@ describe("native restored position", () => {
     });
   });
   it("defers resume until the initial seek is confirmed without counting the seek as playback", () => {
-    const { session, player, ready, update } = restore();
+    const { session, player, ready, update } = remount();
     session.togglePlayback();
     player.status = "readyToPlay";
     player.emit("statusChange", { status: "readyToPlay" });
@@ -396,7 +396,7 @@ describe("native restored position", () => {
     expect(session.getSnapshot().activeMs).toBe(0);
   });
   it("does not deliver a late seek acknowledgement after disposal", () => {
-    const { player, ready, stop, update } = restore();
+    const { player, ready, stop, update } = remount();
     const queued = [...player.listeners.get("timeUpdate")!][0]!;
     stop();
     update(9.551);

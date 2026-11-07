@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { SessionController } from "@mofied/session";
 import {
+  legacySession,
   finishMedia,
   media,
   plan,
@@ -249,35 +249,37 @@ test("reduced-data mode suppresses speculative downloads but navigation still wo
   expect(nextRequests).toBeGreaterThan(0);
 });
 
-test("an audible restored session waits for a direct resume gesture and keeps its saved position", async ({
+test("a legacy audible session is discarded and a fresh session starts muted from zero", async ({
   page,
 }) => {
   await audiblePolicy(page);
-  const sessionPlan = plan();
-  sessionPlan.items = [media("first"), media("second")];
-  const controller = new SessionController(sessionPlan);
-  controller.toggleMuted();
-  controller.mediaProgress("first", 2500);
   await page.addInitScript(
     (saved) => sessionStorage.setItem("mofied.session.v1.production", saved),
-    controller.serialize()!,
+    legacySession(),
   );
-  let upcoming = 0,
-    api = 0;
-  page.on("request", (request) => {
-    if (request.url().endsWith("second.mp4")) upcoming++;
-    if (request.url().includes("api.example.test")) api++;
+  const fresh = plan();
+  fresh.items = [media("new-first"), media("second")];
+  let api = 0;
+  await page.route("https://api.example.test/session", (route) => {
+    api++;
+    return route.fulfill({ json: fresh });
   });
   await serveMp4(page);
   await page.goto("http://127.0.0.1:4173/");
-  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-  await expect.poll(() => position(page)).toBeCloseTo(2.5, 1);
-  await expect(page.locator("video")).toHaveJSProperty("paused", true);
-  expect(upcoming).toBe(0);
-  expect(api).toBe(0);
-  await page.locator(".small-pause").click();
-  await expect.poll(() => position(page)).toBeGreaterThan(2.8);
-  await expect.poll(() => upcoming).toBe(1);
+  await expect(page.locator("main")).toHaveAttribute(
+    "data-item-id",
+    "new-first",
+  );
+  await expect.poll(() => position(page)).toBeGreaterThan(0.2);
+  expect(await position(page)).toBeLessThan(3);
+  await expect(page.locator("video")).toHaveJSProperty("muted", true);
+  expect(api).toBe(1);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("mofied.session.v1.production"),
+    ),
+  ).toBeNull();
+  await page.getByRole("button", { name: "تشغيل الصوت", exact: true }).click();
   await next(page, "second");
   await expect.poll(() => position(page)).toBeGreaterThan(0.3);
   await expect(page.locator("video")).toHaveJSProperty("muted", false);

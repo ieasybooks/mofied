@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { SessionController } from "@mofied/session";
 import { bytes, media, plan, position, serveMp4 } from "./fixtures";
 
 const current = (page: Page) => page.locator('[data-page="current"]');
@@ -371,21 +370,29 @@ test("reduced-data mode loads the current poster without warming future posters"
   expect(requests).not.toContain(poster("third"));
 });
 
-test("restoration reveals the saved video frame while keeping the session paused", async ({
+test("a fresh video frame is visible while startup About keeps playback paused", async ({
   page,
 }) => {
   const session = await setup(page);
-  const controller = new SessionController(session);
-  controller.mediaProgress("first", 2500);
-  await page.addInitScript(
-    (saved) => sessionStorage.setItem("mofied.session.v1.production", saved),
-    controller.serialize()!,
-  );
-  await page.goto("http://127.0.0.1:4173/");
-  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-  await expect.poll(() => position(page)).toBeCloseTo(2.5, 1);
-  await expect(cover(page)).toHaveCount(0);
-  await expect(page.locator("video")).toHaveJSProperty("paused", true);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/__test/session", async (route) => {
+    await pending;
+    await route.fulfill({ json: session });
+  });
+  try {
+    await page.goto("/?test-session=1");
+    await page.getByRole("button", { name: "عن التطبيق", exact: true }).click();
+    release();
+    await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+    await expect.poll(() => position(page)).toBe(0);
+    await expect(cover(page)).toHaveCount(0);
+    await expect(page.locator("video")).toHaveJSProperty("paused", true);
+  } finally {
+    release();
+  }
 });
 
 test("HLS holds its poster through initial loading and retains the video frame during later buffering", async ({
@@ -460,37 +467,44 @@ test("HLS holds its poster through initial loading and retains the video frame d
   }
 });
 
-test("a restored frame delivered before seek completion is revealed without requiring playback", async ({
+test("an initial frame delivered before seek completion is revealed without playback", async ({
   page,
 }) => {
   const session = await setup(page);
-  const controller = new SessionController(session);
-  controller.mediaProgress("first", 2500);
-  await page.addInitScript((saved) => {
-    sessionStorage.setItem("mofied.session.v1.production", saved);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/__test/session", async (route) => {
+    await pending;
+    await route.fulfill({ json: session });
+  });
+  await page.addInitScript(() => {
     const original = HTMLVideoElement.prototype.requestVideoFrameCallback;
     HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) {
       return original.call(this, (at, metadata) => {
-        if (Math.abs(metadata.mediaTime - 2.5) < 0.1) {
-          (window as any).__earlyRestoredFrame = true;
-          // Chromium can present the sought frame before updating seeking and
-          // readyState. No second frame is forthcoming while restoration is paused.
-          Object.defineProperty(this, "seeking", {
-            configurable: true,
-            value: true,
-          });
-          callback(at, metadata);
-          delete (this as any).seeking;
-          this.dispatchEvent(new Event("seeked"));
-        } else callback(at, metadata);
+        (window as any).__earlyInitialFrame = true;
+        Object.defineProperty(this, "seeking", {
+          configurable: true,
+          value: true,
+        });
+        callback(at, metadata);
+        delete (this as any).seeking;
+        this.dispatchEvent(new Event("seeked"));
       });
     };
-  }, controller.serialize()!);
-  await page.goto("http://127.0.0.1:4173/");
-  await expect
-    .poll(() => page.evaluate(() => (window as any).__earlyRestoredFrame))
-    .toBe(true);
-  await expect(cover(page)).toHaveCount(0);
-  await expect(page.locator("video")).toHaveJSProperty("paused", true);
-  await expect.poll(() => position(page)).toBeCloseTo(2.5, 1);
+  });
+  try {
+    await page.goto("/?test-session=1");
+    await page.getByRole("button", { name: "عن التطبيق", exact: true }).click();
+    release();
+    await expect
+      .poll(() => page.evaluate(() => (window as any).__earlyInitialFrame))
+      .toBe(true);
+    await expect(cover(page)).toHaveCount(0);
+    await expect(page.locator("video")).toHaveJSProperty("paused", true);
+    await expect.poll(() => position(page)).toBe(0);
+  } finally {
+    release();
+  }
 });

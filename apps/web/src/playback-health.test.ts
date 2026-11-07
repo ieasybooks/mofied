@@ -51,10 +51,10 @@ afterEach(() => {
 });
 
 describe("HTML media playback health", () => {
-  it("preserves a saved playhead while the persistent element resets and loads metadata", () => {
-    const original = new SessionController(fixture());
-    original.mediaProgress(original.getSnapshot().item!.id, 9000);
-    const session = SessionController.restore(original.serialize()!)!;
+  it("preserves the current playhead while the persistent element resets and loads metadata", () => {
+    const session = new SessionController(fixture());
+    session.mediaProgress(session.getSnapshot().item!.id, 9000);
+    session.togglePlayback();
     const video = new Media();
     let ready = false;
     const stop = watchPlaybackHealth(

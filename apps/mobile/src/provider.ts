@@ -12,7 +12,6 @@ const usesFixture =
   ["normal", "long-title", "missing-portrait", "unavailable"].includes(
     fixtureName ?? "",
   );
-export const sessionStorageKey = `mofied.session.v1.${usesFixture ? "development" : "production"}`;
 
 export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
   if (__DEV__ && usesFixture) {

@@ -18,7 +18,6 @@ export const usesFixture =
     ["normal", "long-title", "missing-portrait", "unavailable"].includes(
       query.get("fixture") ?? "",
     ));
-export const sessionStorageKey = `mofied.session.v1.${usesFixture ? "development" : "production"}`;
 
 export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
   if (import.meta.env.DEV && usesFixture) {

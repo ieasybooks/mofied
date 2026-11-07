@@ -21,7 +21,7 @@ Open `http://localhost:5173` for the live API. Vite proxies the session request 
 - `/?fixture=missing-portrait`: name without a portrait.
 - `/?fixture=unavailable`: failed stream replaced by a supplied spare.
 
-The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Returning to `/` can restore a saved production session, paused. A fixture query deliberately starts fresh. Mock and production storage are isolated.
+The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Every page load/refresh and native app opening requests a fresh session. Progress is never saved or restored. Fixtures remain development-only.
 
 ## Web deployment
 
@@ -88,7 +88,7 @@ HEADED=1 xvfb-run -a mise exec -- bun run test:e2e
 
 Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` if using an existing Chrome binary. Tests use a generated local MP4, not private media. [Verification notes](docs/verification.md) distinguish automated tests, build checks and device checks.
 
-The optional live integration check serves the production bundle under the deployed origin and verifies real API CORS, decoded HLS and paused restoration (one public session request):
+The optional live integration check serves the production bundle under the deployed origin and verifies real API CORS, decoded HLS and a fresh session after refresh (two public session requests):
 
 ```sh
 mise exec -- bun run build

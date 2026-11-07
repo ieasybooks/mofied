@@ -117,7 +117,7 @@ describe("page settlement and session ownership", () => {
     finish();
     expect(session.getSnapshot().index).toBe(2);
   });
-  it("previews the ending after the final item and removes saved state on settlement", () => {
+  it("previews the ending after the final item and ends on settlement", () => {
     const { session, pager, advance, finish } = setup();
     pager.navigate(1);
     finish();
@@ -126,10 +126,10 @@ describe("page settlement and session ownership", () => {
     pager.begin();
     pager.preview(1);
     expect(pager.getSnapshot().neighbor?.item).toBeNull();
-    expect(session.serialize()).not.toBeNull();
+    expect(session.getSnapshot().item).not.toBeNull();
     pager.release(true);
     finish();
-    expect(session.serialize()).toBeNull();
+    expect(session.getSnapshot().status).toBe("ended");
   });
   it("previews actual replacement content and ignores stale animation completions", () => {
     const { session, pager, finish } = setup();
@@ -189,7 +189,7 @@ describe("page settlement and session ownership", () => {
     finish();
     expect(session.getSnapshot().index).toBe(1);
   });
-  it("cleanup never persists a transition pause or leaves permission blocked", () => {
+  it("cleanup never leaves a transition pause or permission blocked", () => {
     const { session, pager, stop } = setup();
     pager.navigate(1);
     stop();
@@ -198,9 +198,6 @@ describe("page settlement and session ownership", () => {
       navigating: false,
       shouldPlay: true,
     });
-    expect(
-      SessionController.restore(session.serialize()!)?.getSnapshot(),
-    ).toMatchObject({ navigating: false, wantsToPlay: false });
   });
   it("uses distance or a deliberate flick, with no tiny/horizontal drift commitment", () => {
     expect(commitsPage(160, 0, 900)).toBe(true);

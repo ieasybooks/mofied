@@ -1,5 +1,55 @@
 # Implementation verification
 
+## Fresh sessions on every opening — 2026-11-08
+
+Removed saved-session serialization/restoration and all progress reads/writes.
+Each web page load/refresh and native cold launch or background return requests a
+new Faqieh plan with HTTP caching disabled. A bfcache return also starts fresh;
+ordinary browser tab hiding and native inactive-only events keep the current
+session. Backgrounding cancels pending native requests and immediately stops the
+old controller. Info, language changes and manual pause retain the foreground
+session. Legacy production/development storage keys are deleted on upgrade;
+normal media/image caches and next-short preloads are unchanged. Privacy/support
+copy and the product/contract documentation now describe this behavior.
+
+Executed verification:
+
+- Both TypeScript checks, **125 unit tests in ten files**, a frozen Bun install,
+  the production web build and all three Expo JavaScript/assets exports passed.
+- **92 headed Chromium regressions** passed, with the opt-in live API case run
+  separately and passing. The five new fresh-session cases also passed in WebKit
+  and Firefox. **Eight Cloudflare checks** passed. Coverage includes
+  legacy-key deletion without progress reads/writes, new API calls on refresh,
+  fresh sessions after endings, failed-request Retry without old-session fallback,
+  unavailable browser storage, Info continuity and cached-page return.
+- The live API check decoded real HLS and verified two successful API requests,
+  different server session IDs on refresh, production CORS and `no-store` headers.
+- Signed Android APK/AAB 0.1.1 (2) and an iOS distribution archive/IPA compiled.
+  Android signing matches the existing release key, the four ABI variants are
+  present, and 16 KB alignment passes. The existing **eight Android native
+  lifecycle tests** also passed.
+- On the Android API 36.1 emulator, 0.1.0 first reproduced paused restoration of
+  the same media at 0:09. Installing the signed 0.1.1 APK over it loaded different
+  content and played. Paused foreground return, playing foreground return and
+  process relaunch each loaded fresh content from the beginning with a new
+  20-minute budget. Info/Privacy retained the paused playhead. These were actual
+  Release-app interactions against production. Direct app-storage inspection was
+  unavailable on this non-rootable emulator; no disk-level deletion assertion is
+  claimed.
+- An opt-in XCUITest on iPhone 18 Pro / iOS 27.0 simulator exercised four openings
+  against the production API: cold start, paused background return, playing
+  background return and terminated relaunch. It verified different plan identities
+  and playing intent on reopening, plus the same identity and pause through Info.
+  The first attempt encountered the app's session-load error; a subsequent cold
+  launch and the complete journey passed. Its precise upstream/network cause was
+  not established, so this is not a claim that the production service never fails.
+
+Evidence is under ignored `artifacts/fresh-sessions/`; repeatable cases are in
+`fresh-sessions.test.ts`, `tests/fresh-sessions.spec.ts` and
+`tests/native/session/`. These are local builds, browser tests and emulator/simulator
+checks, not new physical-device or hosted-CI results. Earlier restoration results
+below describe historical releases and are superseded by this change.
+
 ## Manual web installation and social previews — 2026-11-07
 
 Added a web app manifest with the Arabic name مفيد, stable app identity, standalone

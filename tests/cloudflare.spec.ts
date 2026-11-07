@@ -217,7 +217,7 @@ test("unknown paths and missing assets return 404 without caching HTML as JavaSc
   }
 });
 
-test("production API loading, playback and paused restoration work under Cloudflare", async ({
+test("production API loading and fresh sessions on refresh work under Cloudflare", async ({
   page,
 }) => {
   let calls = 0;
@@ -240,19 +240,15 @@ test("production API loading, playback and paused restoration work under Cloudfl
     .toBeGreaterThan(1);
   await page.locator(".media-tap").click();
   await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-  const paused = await page
-    .locator("video")
-    .evaluate((video: HTMLVideoElement) => video.currentTime);
   await page.reload();
-  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-  await expect
-    .poll(() =>
-      page
-        .locator("video")
-        .evaluate((video: HTMLVideoElement) => video.currentTime),
-    )
-    .toBeCloseTo(paused, 0);
-  expect(calls).toBe(1);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  await expect(page.locator("video")).toHaveJSProperty("paused", false);
+  expect(calls).toBe(2);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("mofied.session.v1.production"),
+    ),
+  ).toBeNull();
   expect(errors).toEqual([]);
 });
 

@@ -8,6 +8,24 @@ import {
 import { fixture } from "@mofied/fixtures";
 
 describe("session contract", () => {
+  it("requests a fresh plan with HTTP caching disabled on every load", async () => {
+    let calls = 0;
+    const fetcher = vi.fn(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        expect(init?.cache).toBe("no-store");
+        return new Response(
+          JSON.stringify({ ...fixture(), id: `fresh-${++calls}` }),
+        );
+      },
+    );
+    const provider = createHttpProvider(
+      "https://api.example.test/session",
+      fetcher as typeof fetch,
+    );
+    expect((await provider.load()).id).toBe("fresh-1");
+    expect((await provider.load()).id).toBe("fresh-2");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it("validates every fixture and rejects invalid item identity, schemes and versions", () => {
     for (const name of [
       "normal",

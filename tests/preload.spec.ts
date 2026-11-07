@@ -290,7 +290,7 @@ for (const paused of [false, true]) {
   });
 }
 
-test("leaving and returning to a cached page releases HLS work and preserves manual pause", async ({
+test("leaving and returning through bfcache releases old HLS work and starts a fresh session", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -302,7 +302,6 @@ test("leaving and returning to a cached page releases HLS work and preserves man
   await next(page);
   await expect.poll(() => position(page)).toBeGreaterThan(0.5);
   await page.locator(".small-pause").click();
-  const paused = await position(page);
   // Deterministic Page Transition Events exercise the bfcache path; hidden-tab
   // behavior is covered separately and must not release the playing element.
   await page.evaluate(() =>
@@ -317,11 +316,9 @@ test("leaving and returning to a cached page releases HLS work and preserves man
       new PageTransitionEvent("pageshow", { persisted: true }),
     ),
   );
-  await expect(page.locator("video")).toHaveAttribute("src", /^blob:/);
-  await expect.poll(() => position(page)).toBeCloseTo(paused, 0);
-  await expect(page.locator("video")).toHaveJSProperty("paused", true);
-  await page.locator(".small-pause").click();
-  await expect.poll(() => position(page)).toBeGreaterThan(paused + 0.3);
+  await expect(page.locator("main")).toHaveAttribute("data-item-id", "first");
+  await expect.poll(() => position(page)).toBeGreaterThan(0.3);
+  await expect(page.locator("video")).toHaveJSProperty("paused", false);
   expect(errors).toEqual([]);
 });
 

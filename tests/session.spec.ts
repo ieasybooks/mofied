@@ -207,11 +207,14 @@ test("a buffered stalled event keeps playing and counting beyond the recovery ti
   await expect(page.locator("main")).toHaveAttribute("data-item-id", "first");
   await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
   await expect(page.locator(".player-status")).toHaveCount(0);
-  const saved = await page.evaluate(() =>
-    JSON.parse(sessionStorage.getItem("mofied.session.v1.development")!),
-  );
-  expect(saved.activeMs).toBeGreaterThan(19_000);
-  expect(saved.usedReplacements).toEqual([]);
+  expect(
+    Number(await page.locator("main").getAttribute("data-active-ms")),
+  ).toBeGreaterThan(19_000);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("mofied.session.v1.development"),
+    ),
+  ).toBeNull();
 });
 
 test("unavailable media uses the supplied spare once, without changing the following reminder", async ({

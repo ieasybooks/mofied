@@ -1,5 +1,4 @@
 import {
-  parseSession,
   type MediaItem,
   type SessionItem,
   type SessionPlan,
@@ -42,18 +41,6 @@ export type SessionSnapshot = Readonly<{
   canNext: boolean;
   ending: SessionPlan["ending"];
 }>;
-
-type SavedSession = {
-  version: 1;
-  plan: SessionPlan;
-  index: number;
-  positionMs: number;
-  activeMs: number;
-  reminderRemainingMs: number;
-  completed: string[];
-  usedReplacements: string[];
-  muted: boolean;
-};
 
 /** Platform-independent executor. It never chooses content or reminder positions. */
 export class SessionController {
@@ -384,75 +371,6 @@ export class SessionController {
     this.ended = true;
     this.progressSample = null;
     this.publish();
-  }
-
-  serialize(): string | null {
-    if (this.ended) return null;
-    const saved: SavedSession = {
-      version: 1,
-      plan: {
-        ...this.plan,
-        items: this.items,
-        replacements: this.plan.replacements.filter(
-          (item) => !this.usedReplacements.has(item.id),
-        ),
-      },
-      index: this.index,
-      positionMs: this.position,
-      activeMs: this.active,
-      reminderRemainingMs: this.reminderRemaining,
-      completed: [...this.completed],
-      usedReplacements: [...this.usedReplacements],
-      muted: this.muted,
-    };
-    return JSON.stringify(saved);
-  }
-
-  static restore(
-    value: string,
-    clock?: () => number,
-  ): SessionController | null {
-    try {
-      const saved = JSON.parse(value) as SavedSession;
-      if (saved.version !== 1 || !Number.isInteger(saved.index)) return null;
-      const plan = parseSession(saved.plan);
-      if (saved.index < 0 || saved.index >= plan.items.length) return null;
-      if (
-        ![saved.positionMs, saved.activeMs, saved.reminderRemainingMs].every(
-          (n) => Number.isFinite(n) && n >= 0,
-        )
-      )
-        return null;
-      if (
-        !Array.isArray(saved.completed) ||
-        !saved.completed.every((id) => typeof id === "string")
-      )
-        return null;
-      if (
-        !Array.isArray(saved.usedReplacements) ||
-        !saved.usedReplacements.every((id) => typeof id === "string")
-      )
-        return null;
-      const controller = new SessionController(plan, clock);
-      controller.index = saved.index;
-      controller.position = Math.min(
-        saved.positionMs,
-        plan.items[saved.index]!.durationMs,
-      );
-      controller.active = saved.activeMs;
-      controller.reminderRemaining = Math.min(
-        saved.reminderRemainingMs,
-        plan.items[saved.index]!.durationMs,
-      );
-      controller.completed = new Set(saved.completed);
-      controller.usedReplacements = new Set(saved.usedReplacements);
-      controller.muted = saved.muted !== false;
-      controller.wants = false; // Relaunching never starts audible playback by itself.
-      controller.publish();
-      return controller;
-    } catch {
-      return null;
-    }
   }
 }
 

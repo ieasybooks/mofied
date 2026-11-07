@@ -29,31 +29,12 @@ import {
   type Locale,
 } from "@mofied/design";
 import logo from "@mofied/design/assets/icons/icon-white.svg";
-import {
-  loadSession,
-  sessionStorageKey as storageKey,
-  usesFixture,
-} from "./provider";
+import { loadSession } from "./provider";
 import { MediaPlayer, type MediaHandle } from "./MediaPlayer";
 import { About } from "./About";
 import { LaunchArtwork } from "./LaunchArtwork";
 
 const subscribeWithoutSession = () => () => {};
-function storageRead() {
-  try {
-    return sessionStorage.getItem(storageKey);
-  } catch {
-    return null;
-  }
-}
-function storageWrite(value: string | null) {
-  try {
-    if (value) sessionStorage.setItem(storageKey, value);
-    else sessionStorage.removeItem(storageKey);
-  } catch {
-    /* Storage can be disabled. Playback remains available. */
-  }
-}
 
 export function App() {
   const [session, setSession] = useState<SessionController | null>(null);
@@ -78,19 +59,28 @@ export function App() {
     else session?.closeAbout();
   };
   useEffect(() => {
+    // Remove legacy progress after upgrading. Sessions now live only in memory.
+    try {
+      sessionStorage.removeItem("mofied.session.v1.production");
+      sessionStorage.removeItem("mofied.session.v1.development");
+    } catch {
+      /* Storage can be disabled. Loading a fresh session does not need it. */
+    }
+    const reopen = (event: PageTransitionEvent) => {
+      if (event.persisted) setAttempt((value) => value + 1);
+    };
+    window.addEventListener("pageshow", reopen);
+    return () => window.removeEventListener("pageshow", reopen);
+  }, []);
+  useEffect(() => {
     const abort = new AbortController();
     setError(false);
-    const saved = usesFixture ? null : storageRead();
-    const restored = saved ? SessionController.restore(saved) : null;
+    setSession(null);
     const accept = (next: SessionController) => {
       if (abort.signal.aborted) return;
       if (aboutOpenRef.current) next.openAbout();
       setSession(next);
     };
-    if (restored) {
-      accept(restored);
-      return () => abort.abort();
-    }
     void loadSession(abort.signal)
       .then((plan) => accept(new SessionController(plan)))
       .catch((error: unknown) => {
@@ -179,15 +169,9 @@ function SessionView({
   const item = state.item;
   useEffect(() => {
     const interval = setInterval(session.tick, 100);
-    const save = () => storageWrite(session.serialize());
-    const persistence = setInterval(save, 1500);
-    window.addEventListener("pagehide", save);
     // Deliberately no visibilitychange / blur pause listener: hidden tabs continue.
     return () => {
       clearInterval(interval);
-      clearInterval(persistence);
-      window.removeEventListener("pagehide", save);
-      save();
     };
   }, [session]);
   useEffect(() => {
@@ -228,14 +212,13 @@ function SessionView({
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [session, pager, state.aboutOpen, item?.kind, togglePlayback]);
-  useEffect(() => {
-    if (state.status === "ended") storageWrite(null);
-  }, [state.status]);
   return (
     <>
       <main
         className={`session-view ${item?.kind ?? "ending"}`}
         data-status={state.status}
+        data-session-id={state.sessionId}
+        data-active-ms={state.activeMs}
         data-item-id={item?.id ?? "ended"}
         onWheel={(event) => pagerRef.current?.wheel(event)}
       >

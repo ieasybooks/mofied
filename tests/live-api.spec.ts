@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { resolve } from "node:path";
 import { parseSession } from "@mofied/contracts";
 
-// Opt-in: one anonymous production session request, then restore without another.
+// Opt-in: two anonymous production session requests, one on each load.
 // Build apps/web/dist with the default endpoint first. Only the app assets are
 // served locally; API, CORS, images, HLS manifests and segments are all real.
-test("deployed-origin API, HLS playback and paused restoration", async ({
+test("deployed-origin API, HLS playback and fresh sessions on reload", async ({
   page,
 }) => {
   test.skip(process.env.LIVE_API !== "1", "Uses the deployed public API");
@@ -59,29 +59,24 @@ test("deployed-origin API, HLS playback and paused restoration", async ({
       .evaluate((video: HTMLVideoElement) => video.videoWidth),
   ).toBeGreaterThan(0);
   await page.locator(".media-tap").click();
-  const paused = await page
-    .locator("video")
-    .evaluate((video: HTMLVideoElement) => video.currentTime);
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const saved = sessionStorage.getItem("mofied.session.v1.production");
-        return saved ? JSON.parse(saved).positionMs : 0;
-      }),
-    )
-    .toBeGreaterThan(1500);
+  const freshResponse = page.waitForResponse((response) =>
+    response.url().startsWith("https://faqieh.com/api/v1/mofied/session"),
+  );
   await page.reload();
-  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-  await expect
-    .poll(
-      () =>
-        page
-          .locator("video")
-          .evaluate((video: HTMLVideoElement) => video.currentTime),
-      { timeout: 15_000 },
-    )
-    .toBeCloseTo(paused, 0);
-  await expect(page.locator("video")).toHaveJSProperty("paused", true);
-  expect(calls).toBe(1);
+  const next = parseSession(await (await freshResponse).json());
+  expect(next.id).not.toBe(plan.id);
+  await expect(page.locator("main")).toHaveAttribute(
+    "data-item-id",
+    next.items[0]!.id,
+  );
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing", {
+    timeout: 45_000,
+  });
+  expect(calls).toBe(2);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("mofied.session.v1.production"),
+    ),
+  ).toBeNull();
   expect(errors).toEqual([]);
 });

@@ -7,7 +7,7 @@ const shippedPlan: SessionPlan = JSON.parse(
     "utf8",
   ),
 );
-import { serveMp4, plan, start, position } from "./fixtures";
+import { serveMp4, plan, media, start, position } from "./fixtures";
 
 test("navigation arrows work after clicking or focusing media controls without overriding activation", async ({
   page,
@@ -143,14 +143,16 @@ for (const variant of [
   });
 }
 
-test("production restoration retains the session and position with any query string", async ({
+test("every production reload/navigation requests a fresh session regardless of query strings", async ({
   page,
 }) => {
   let requests = 0;
   await page.route("https://api.example.test/session", (route) => {
     requests++;
+    const fresh = plan();
+    fresh.items[0] = media(`fresh-${requests}`);
     return route.fulfill({
-      json: { ...plan(), id: `production-${requests}` },
+      json: { ...fresh, id: `production-${requests}` },
       headers: { "access-control-allow-origin": "*" },
     });
   });
@@ -158,29 +160,29 @@ test("production restoration retains the session and position with any query str
   await page.goto("http://127.0.0.1:4173/");
   await expect.poll(() => position(page)).toBeGreaterThan(0.5);
   await page.locator(".media-tap").click();
-  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-  await expect(page.locator("video")).toHaveJSProperty("paused", true);
-  const pausedAt = await position(page);
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          JSON.parse(
-            sessionStorage.getItem("mofied.session.v1.production") ?? "null",
-          )?.positionMs ?? 0,
-      ),
-    )
-    .toBeCloseTo(pausedAt * 1000, 0);
   for (const query of [
     "",
     "?utm_source=telegram",
     "?fixture=normal&test-session=1",
     "?arbitrary=value",
   ]) {
-    await page.goto(`http://127.0.0.1:4173/${query}`);
-    await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
-    await expect.poll(() => position(page)).toBeCloseTo(pausedAt, 1);
-    expect(requests).toBe(1);
+    const nextRequest = requests + 1;
+    if (!query) await page.reload();
+    else await page.goto(`http://127.0.0.1:4173/${query}`);
+    await expect(page.locator("main")).toHaveAttribute(
+      "data-item-id",
+      `fresh-${nextRequest}`,
+    );
+    await expect(page.locator("main")).toHaveAttribute(
+      "data-status",
+      "playing",
+    );
+    expect(requests).toBe(nextRequest);
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem("mofied.session.v1.production"),
+      ),
+    ).toBeNull();
   }
 });
 

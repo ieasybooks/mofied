@@ -151,14 +151,11 @@ describe("iOS interruption recovery without an end notification", () => {
     },
   );
 
-  it("keeps a restored reminder paused until explicit resume and waits through denied activation", async () => {
+  it("keeps a manually paused reminder paused until explicit resume and waits through denied activation", async () => {
     let now = 0;
-    const original = new SessionController(fixture(), () => now);
-    original.next();
-    const session = SessionController.restore(
-      original.serialize()!,
-      () => now,
-    )!;
+    const session = new SessionController(fixture(), () => now);
+    session.next();
+    session.togglePlayback();
     const source = new IOSResumeSource();
     source.emit(true);
     source.resumeAudioSession = async () => {
@@ -278,9 +275,9 @@ describe("foreground Android focus ownership", () => {
     expect(session.getSnapshot().shouldPlay).toBe(true);
   });
 
-  it("does not acquire on paused restoration until the user resumes", () => {
-    const saved = new SessionController(fixture()).serialize()!;
-    const session = SessionController.restore(saved)!;
+  it("does not acquire on a paused session until the user resumes", () => {
+    const session = new SessionController(fixture());
+    session.togglePlayback();
     const source = new AndroidFocusSource();
     watchSessionInterruptions(source, session);
     session.tick();
@@ -327,9 +324,8 @@ describe("foreground Android focus ownership", () => {
   });
 
   it("does not acquire when resume intent changes behind About", () => {
-    const session = SessionController.restore(
-      new SessionController(fixture()).serialize()!,
-    )!;
+    const session = new SessionController(fixture());
+    session.togglePlayback();
     session.openAbout();
     const source = new AndroidFocusSource();
     watchSessionInterruptions(source, session);
