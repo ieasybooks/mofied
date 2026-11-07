@@ -37,7 +37,7 @@ Deployment is an explicit command; merging this PR does not publish the app or c
 
 ## Serving and analytics
 
-The app's screens all use `/`; Info subpages are component state, not separate URLs. Unknown paths and missing assets return 404. A blanket SPA fallback would return HTML for stale JavaScript URLs and could cache it under the immutable asset rule.
+The app's screens all use `/`; Info subpages are component state, not separate URLs. Standalone, bilingual `/privacy/` and `/support/` pages serve store-review and support links without loading the player, requesting a session, or requiring JavaScript. Unknown paths and missing assets return 404. A blanket SPA fallback would return HTML for stale JavaScript URLs and could cache it under the immutable asset rule.
 
 The release build generates one-year immutable cache rules for the exact fingerprinted asset paths in that build. A wildcard rule would also cache missing-file 404 responses for a year. HTML and unversioned icons retain Workers' default `public, max-age=0, must-revalidate` policy. The zone respects those headers. API responses remain on Faqieh with `Cache-Control: no-store`; this deployment does not proxy or cache them.
 

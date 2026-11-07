@@ -12,7 +12,7 @@ The six WOFF2 files are the exact assets already used by Faqieh: Thmanyah Serif 
 
 Native TTFs are decompressions of those files, not substitute fonts. Noto's variable weight axis is instantiated at 400 and 600 for reliable native font loading. `scripts/convert-fonts.py` records that conversion. Family names in Expo's font map are application aliases.
 
-The Noto OFL notice from the supplied kit is included. Inclusion here does not grant new redistribution rights for Thmanyah, Gilroy or other licensed assets; confirm coverage for the independent app before a public release or making this repository public. Keep existing copyright/name metadata in generated fonts.
+The Noto OFL notice from the supplied kit is included. Inclusion here does not grant new redistribution rights for Thmanyah, Gilroy or other licensed assets. On 2026-11-07, the owner explicitly confirmed that rights cover Mofied's supplied fonts and media, including the selected speakers/images in its store screenshots. This records the owner's confirmation, not an independent license audit. Keep existing copyright/name metadata in generated fonts.
 
 ## Media fixtures
 

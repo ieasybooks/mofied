@@ -4,6 +4,48 @@ import { plan, serveMp4 } from "./fixtures";
 
 const api = "https://faqieh.com/api/v1/mofied/session?locale=ar";
 
+for (const [path, heading] of [
+  ["privacy", "سياسة الخصوصية"],
+  ["support", "التواصل والدعم"],
+]) {
+  test(`store ${path} page works without JavaScript or a session`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    const requests: string[] = [];
+    page.on("request", (request) => requests.push(request.url()));
+    try {
+      for (const width of [320, 1440]) {
+        await page.setViewportSize({ width, height: 800 });
+        const response = await page.goto(`http://127.0.0.1:8787/${path}/`);
+        expect(response?.status()).toBe(200);
+        await expect(
+          page.getByRole("heading", { name: heading, exact: true }),
+        ).toBeVisible();
+        await expect(page.locator("header img")).toBeVisible();
+        expect(
+          await page
+            .locator("header img")
+            .evaluate((img: HTMLImageElement) => img.naturalWidth),
+        ).toBeGreaterThan(0);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBe(width);
+        await page.getByRole("link", { name: "English", exact: true }).click();
+        await expect(page.locator("#english h1")).toBeInViewport();
+        await expect(
+          page.locator('a[href="mailto:easybooksdev@gmail.com"]').first(),
+        ).toBeAttached();
+        await expect(page.locator("video")).toHaveCount(0);
+      }
+      expect(requests.some((url) => url.includes("/session"))).toBe(false);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
 test("Cloudflare serves revalidated HTML and immutable fingerprinted assets", async ({
   request,
 }) => {

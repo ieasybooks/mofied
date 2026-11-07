@@ -1,0 +1,97 @@
+@font-face {
+  font-family: Thmanyah;
+  src: url("../../../packages/design/assets/fonts/ThmanyahSerifDisplay-Medium.woff2")
+    format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: NotoNaskhUI;
+  src: url("../../../packages/design/assets/fonts/NotoNaskhArabicUI.woff2")
+    format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  color-scheme: dark;
+  background: #0a0a0a;
+  color: #f5f5f5;
+}
+body {
+  margin: 0;
+  font:
+    400 19px/1.9 NotoNaskhUI,
+    serif;
+  -webkit-font-smoothing: antialiased;
+}
+main {
+  max-width: 800px;
+  margin: auto;
+  padding: 36px 24px 72px;
+  overflow-wrap: anywhere;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 36px;
+}
+header img {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+}
+a:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 5px;
+}
+h1,
+h2 {
+  font-family: Thmanyah, NotoNaskhUI, serif;
+  font-weight: 500;
+  line-height: 1.6;
+}
+h1 {
+  font-size: clamp(30px, 6vw, 42px);
+  margin: 0 0 12px;
+}
+h2 {
+  font-size: 25px;
+  margin: 32px 0 8px;
+}
+p {
+  margin: 0 0 20px;
+  color: #d2d2d2;
+}
+.date {
+  font-size: 15px;
+  color: #aaa;
+}
+section[lang="en"] {
+  border-top: 1px solid #ffffff25;
+  margin-top: 48px;
+  padding-top: 40px;
+}
+section[lang="en"] h1,
+section[lang="en"] h2 {
+  font-family: NotoNaskhUI, serif;
+}
+footer {
+  border-top: 1px solid #ffffff25;
+  margin-top: 48px;
+  padding-top: 24px;
+}
