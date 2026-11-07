@@ -20,6 +20,12 @@ Executed verification:
 - All **four Cloudflare local-hosting checks** and Wrangler's deployment dry run passed. Development/test fixture markers are absent from production JavaScript.
 - **Three XCTest cases passed on iPhone 18 Pro / iOS 27.0 simulator Safari**, with zero skips: controlled ManagedMediaSource playback under production cache headers, real production streams, and native HLS fallback. Three controlled and four real prepared audible transitions had no loading notices, no duplicated opening requests and no autoplay rejection. Native fallback playback/sound passed; its cache behavior remains browser-controlled. The cold initial real stream did show a legitimate loading wait.
 
+Post-deployment verification for code commit `63b8aa6` (Cloudflare version `14e11891-1bb0-40a3-bdd9-c09f451e2142`, asset `/assets/index-99Vpi-M4.js`):
+
+- Live Chromium and WebKit each passed **six prepared audible swipes** with zero loading notices, zero repeated opening-file requests and the same video element. Measured first frames were 112–126 ms on this connection; this is observed local-network performance, not a latency guarantee.
+- Separate live journeys each traversed **13 server items including a required reminder**, then passed Info/Privacy, manual pause, audible resume and saved-position restoration with exactly one session API request. Deployed asset identity/caching, missing-asset 404, API CORS and analytics 204 responses passed. Neither journey had an uncaught page error.
+- A physical iPhone Chrome follow-up was attempted. The QA host compiled, but Xcode reported the iPhone locked and could not launch automation. That attempt was cancelled; **no physical-device pass is claimed for this revision**.
+
 The repeatable simulator harness and instructions are in `tests/native/web/` and `scripts/ios-web-preload-server.ts`. Local logs, traces and before/after reproductions are under ignored `artifacts/preload-research/`. The frame-order and reader-cleanup regressions were both verified failing before their fixes. Expo exports are not native builds; this change makes no new Android/iOS native-app compilation or hosted-CI claim. Slow/offline connections, immediate swipes before warmup completion, and native-HLS-only browsers can still require visible loading.
 
 ## Posters during web loading — 2026-11-07
