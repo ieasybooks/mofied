@@ -36,7 +36,9 @@ export const PagedSession = forwardRef<
     velocity: number;
     dragging: boolean;
     rejected: boolean;
+    tapPlayback: boolean;
   } | null>(null);
+  const suppressClick = useRef(false);
   const wheelState = useRef({ total: 0, locked: false, timer: 0 });
   useLayoutEffect(pager.connect, [pager]);
   const height = () => viewport.current?.clientHeight || innerHeight;
@@ -132,15 +134,28 @@ export const PagedSession = forwardRef<
       ref={viewport}
       data-phase={state.phase}
       onPointerDown={(event) => {
+        if (pointer.current || !event.isPrimary) {
+          if (pointer.current) {
+            suppressClick.current = true;
+            pager.cancel();
+            pointer.current = null;
+          }
+          return;
+        }
+        // A new pointer gesture must not inherit a cancelled drag's click guard.
+        suppressClick.current = false;
         if (
           !(event.target instanceof Element) ||
-          !event.target.closest(".media-tap") ||
-          state.phase !== "idle"
+          !event.target.closest(".media-tap, .metadata") ||
+          event.button !== 0 ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.altKey ||
+          event.shiftKey
         )
           return;
-        if (pointer.current || !event.isPrimary || event.button !== 0) {
-          pager.cancel();
-          pointer.current = null;
+        if (state.phase !== "idle") {
+          suppressClick.current = true;
           return;
         }
         pointer.current = {
@@ -152,8 +167,13 @@ export const PagedSession = forwardRef<
           velocity: 0,
           dragging: false,
           rejected: false,
+          tapPlayback: !!event.target.closest(".media-tap"),
         };
-        event.currentTarget.setPointerCapture(event.pointerId);
+        // Capture on the original link so a stationary tap keeps the browser's
+        // normal navigation, focus and new-tab behavior. Drags are guarded below.
+        const capture =
+          event.target.closest(".metadata a") ?? event.currentTarget;
+        capture.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
         const p = pointer.current;
@@ -161,6 +181,7 @@ export const PagedSession = forwardRef<
         const dy = event.clientY - p.y,
           dx = event.clientX - p.x;
         if (!p.dragging && Math.max(Math.abs(dx), Math.abs(dy)) > 8) {
+          suppressClick.current = true;
           if (Math.abs(dy) <= Math.abs(dx) * 1.2) {
             p.rejected = true;
             return;
@@ -175,8 +196,8 @@ export const PagedSession = forwardRef<
       }}
       onPointerUp={(event) => {
         const p = pointer.current;
-        pointer.current = null;
         if (!p || p.id !== event.pointerId) return;
+        pointer.current = null;
         const dy = event.clientY - p.y,
           dx = event.clientX - p.x;
         if (p.dragging)
@@ -187,16 +208,51 @@ export const PagedSession = forwardRef<
               height(),
             ),
           );
-        else if (!p.rejected && Math.abs(dy) < 12 && Math.abs(dx) < 12)
+        else if (
+          p.tapPlayback &&
+          !p.rejected &&
+          Math.abs(dy) < 12 &&
+          Math.abs(dx) < 12
+        )
           togglePlayback();
       }}
       onPointerCancel={() => {
+        if (pointer.current) suppressClick.current = true;
         pointer.current = null;
         pager.release(false);
       }}
       onLostPointerCapture={() => {
+        if (pointer.current) suppressClick.current = true;
         if (pointer.current?.dragging) pager.release(false);
         pointer.current = null;
+      }}
+      onKeyDownCapture={(event) => {
+        // Firefox can give keyboard clicks detail=1. A fresh keyboard action
+        // must not inherit the previous pointer gesture's click guard.
+        if (event.key === "Enter" || event.key === " ")
+          suppressClick.current = false;
+      }}
+      onClickCapture={(event) => {
+        // A drag can still synthesize a click on its originating anchor. Keep
+        // assistive activation (detail=0) and subsequent taps native.
+        if (event.detail !== 0 && suppressClick.current) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onDragStart={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest(".metadata")
+        )
+          event.preventDefault();
+      }}
+      onContextMenu={() => {
+        if (pointer.current) {
+          suppressClick.current = true;
+          pointer.current = null;
+          pager.release(false);
+        }
       }}
     >
       <div

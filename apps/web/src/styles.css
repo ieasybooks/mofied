@@ -291,6 +291,9 @@ img[hidden] {
   z-index: 3;
 }
 .metadata {
+  touch-action: pan-x pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
   position: absolute;
   right: 5%;
   bottom: 95px;

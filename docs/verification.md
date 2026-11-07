@@ -1,5 +1,23 @@
 # Implementation verification
 
+## Swipes starting on title and speaker links — 2026-11-07
+
+Reproduced the reported web failure before the fix: the pager accepted pointer gestures only from `.media-tap`, excluding the title, speaker name and portrait in `.metadata`. Those areas now share vertical paging. Stationary link taps retain browser navigation; only stationary taps on the video toggle playback. Pointer capture stays on the originating anchor, and dragging, cancellation or a second touch suppresses the resulting click. A fresh pointer or keyboard action clears that guard. Firefox's keyboard-generated click can have `detail=1`, so keyboard activation is reconciled explicitly.
+
+Metadata permits horizontal/pinch browser gestures while the pager handles vertical swipes. Browser link/image dragging and text selection no longer take over a vertical swipe. The app's wording, link destinations and presentation are unchanged.
+
+Executed verification:
+
+- Both TypeScript checks, **115 unit tests in nine files**, the release web build, production fixture-marker exclusion and Wrangler's deployment dry run passed.
+- The full headed Chromium suite passed **88 tests**, including all 14 new gesture regressions, actual hidden-tab playback, preloading/posters, recovery, reminders, Info, restoration and the opt-in real API/CORS/playback check.
+- Focused headed Firefox and WebKit suites each passed **34 tests** covering link gestures, paging, HLS recovery, audible playback/preloading and real API restoration. Each skips the Chromium-CDP-only touch case; that case passes in Chromium, and Safari touch is independently exercised below. The final matrix has **156 passing browser checks**, excluding those two skips.
+- All **four Cloudflare local-hosting checks** passed, covering cache/MIME headers, missing-file 404s, production playback/restoration and API error/retry behavior.
+- **One new XCTest passed on iPhone 18 Pro / iOS 27.0 simulator Safari**, with zero failures or skips. Real touch swipes from title and speaker advanced while preserving sound and one video element. A cancelled partial title drag preserved the item, playhead and manual pause; stationary title/speaker taps reached Faqieh.
+
+The gesture tests cover phone/desktop geometry, drag-following motion, one-item advancement, backwards/boundary behavior, cancelled/horizontal gestures, two-finger cancellation, taps after cancellation, keyboard/modified link activation, control activation and required reminders. The new-window test uses an unmocked local destination: Firefox's automation can strand a Shift-click window's first request when request interception is enabled, which also reproduced with a plain anchor outside Mofied.
+
+Evidence is under ignored `artifacts/link-swipes/`; the repeatable browser suite is `tests/link-swipes.spec.ts` and the Safari touch regression is in `tests/native/web/`. This is a web-client correction. The iPhone run tests the browser on a simulator; no new physical-device, Expo native-app build or hosted-CI result is claimed.
+
 ## Reusable web preloads and quiet transitions — 2026-11-07
 
 Reproduced loading notices even after the next stream's speculative downloads had completed. Native HLS could not consume the in-memory warmup; the CDN's `max-age=0, must-revalidate` policy required browser validation requests. Separately, cancelled/failed warmups remembered the target URL and did not restart. Immediate loading notices exposed even short source/decoder handoffs.

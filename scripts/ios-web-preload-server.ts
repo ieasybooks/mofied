@@ -62,7 +62,7 @@ setInterval(()=>{
  const warm=nextPrefix&&[...completed].filter(path=>path.startsWith(nextPrefix)&&segments(path)).length>=2;
  const duplicates=currentPrefix?Object.keys(counts).filter(path=>path.startsWith(currentPrefix)&&(segments(path)||path.endsWith('.m3u8')||path.endsWith('init.mp4'))).reduce((n,path)=>n+Math.max(0,counts[path]-1),0):0;
  if(document.querySelector('.player-status'))notices[item]=(notices[item]||0)+1;
- const state={run,item,video:ids.get(video),time:video.currentTime,muted:video.muted,paused:video.paused,src:video.currentSrc,managed:typeof ManagedMediaSource!=='undefined',cover:!!document.querySelector('[data-page=current] .media-cover'),itemNotices:notices[item]||0,playErrors,status:main.dataset.status,warm:!next||!!warm,nextId:next?.id,duplicateOpeningRequests:duplicates,counts,at:performance.now()};
+ const state={run,item,speakerName:current?.speaker?.name,video:ids.get(video),time:video.currentTime,muted:video.muted,paused:video.paused,src:video.currentSrc,managed:typeof ManagedMediaSource!=='undefined',cover:!!document.querySelector('[data-page=current] .media-cover'),itemNotices:notices[item]||0,playErrors,status:main.dataset.status,warm:!next||!!warm,nextId:next?.id,duplicateOpeningRequests:duplicates,counts,at:performance.now()};
  originalFetch('/qa/trace',{method:'POST',body:JSON.stringify(state)});
 },50);
 </script>`;

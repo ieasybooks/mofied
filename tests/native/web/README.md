@@ -1,6 +1,6 @@
 # iPhone web preload regression
 
-This runs the real web client in Safari on an iOS simulator. It checks ManagedMediaSource, audible swipes on one video element, reuse of warmed HLS resources under the production revalidation headers, absence of loading notices during prepared transitions, Info pause/resume, and native HLS fallback when the streaming APIs are unavailable.
+This runs the real web client in Safari on an iOS simulator. It checks ManagedMediaSource, audible swipes on one video element, reuse of warmed HLS resources under the production revalidation headers, absence of loading notices during prepared transitions, Info pause/resume, and native HLS fallback when the streaming APIs are unavailable. The link-gesture case swipes from the title and speaker, cancels a partial drag while paused, and verifies that stationary title/speaker taps still navigate.
 
 Requirements: Xcode, XcodeGen, MobileBuildMCP, Bun and installed workspace dependencies. From the repository root:
 

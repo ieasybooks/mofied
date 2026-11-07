@@ -105,4 +105,48 @@ final class PreloadTests: XCTestCase {
     tap("إيقاف مؤقت")
   }
 
+  func testTitleAndSpeakerTouchSwipesKeepNativeLinkTaps() async throws {
+    let run = UUID().uuidString
+    open(run)
+    tap("تشغيل الصوت")
+    let first = try await waitState(run) { ($0["item"] as? String) == "qa-0" && ($0["time"] as? Double ?? 0) > 0.3 }
+    let speakerName = try XCTUnwrap(first["speakerName"] as? String)
+    for (index, label) in ["Preload QA 1", speakerName].enumerated() {
+      let link = app.links[label]
+      XCTAssertTrue(link.waitForExistence(timeout: 10))
+      let origin = link.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: -250)), withVelocity: .slow, thenHoldForDuration: 0.15)
+      let next = try await waitState(run) { ($0["item"] as? String) == "qa-\(index + 1)" && ($0["time"] as? Double ?? 0) > 0.3 }
+      XCTAssertEqual(next["video"] as? Int, first["video"] as? Int)
+      XCTAssertEqual(next["muted"] as? Bool, false)
+      XCTAssertEqual(next["playErrors"] as? Int, 0)
+      // A background page can still post traces: assert Safari stayed on Mofied.
+      XCTAssertTrue(app.links["Preload QA \(index + 2)"].exists)
+    }
+    tap("إيقاف مؤقت")
+    let paused = try await state(run)
+    let title = app.links["Preload QA 3"]
+    let origin = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: -40)), withVelocity: .slow, thenHoldForDuration: 0.25)
+    try await Task.sleep(nanoseconds: 500_000_000)
+    let cancelled = try await state(run)
+    XCTAssertEqual(cancelled["item"] as? String, "qa-2")
+    XCTAssertEqual(cancelled["paused"] as? Bool, true)
+    XCTAssertEqual(cancelled["time"] as? Double ?? -1, paused["time"] as? Double ?? -2, accuracy: 0.05)
+    title.tap()
+    let address = app.textFields["Address"]
+    let destination = expectation(for: NSPredicate(format: "value CONTAINS[c] %@", "faqieh.com"), evaluatedWith: address)
+    await fulfillment(of: [destination], timeout: 20)
+
+    // The speaker remains a real link too. Pause before leaving this second page.
+    let speakerRun = UUID().uuidString
+    open(speakerRun)
+    _ = try await waitState(speakerRun) { ($0["time"] as? Double ?? 0) > 0.3 }
+    tap("إيقاف مؤقت")
+    app.links[speakerName].tap()
+    let speakerDestination = expectation(for: NSPredicate(format: "value CONTAINS[c] %@", "faqieh.com"), evaluatedWith: address)
+    await fulfillment(of: [speakerDestination], timeout: 20)
+    print("WEB_LINK_TOUCH_PASS \(run) \(speakerRun)")
+  }
+
 }
