@@ -6,11 +6,25 @@ public release controlled manually. Store review approval is not a public launch
 The owner also confirmed distribution rights for the app's fonts, media, and store
 artwork. The installed app name remains مفيد.
 
+Final console verification: 7 November 2026, approximately 20:07 Asia/Amman.
+
+| Store | Verified status | Public release control |
+| --- | --- | --- |
+| Apple | Waiting for Review | Manually release this version |
+| Google Play | Approved; 17 changes ready to publish | Managed Publishing enabled; nothing published |
+| Huawei AppGallery | Reviewing (open testing) | Owner-only test; public production remains a draft |
+
+Huawei's test review is **not a production review submission**. Its production
+form offered immediate or scheduled release, without a manual-release option.
+The restricted, human-reviewed test avoids an automatic public launch. A public
+AppGallery release still requires a separate production submission and an
+owner-approved release arrangement.
+
 ## Apple App Store
 
 - Listing: **مفيد: مواد نافعة**, Arabic primary language.
 - App ID: `6831969465`.
-- Status verified in App Store Connect: **Waiting for Review**.
+- [Submission](https://appstoreconnect.apple.com/apps/6831969465/distribution/reviewsubmissions/details/f05f444b-1fc3-4409-a50c-153ab1a2efff): **Waiting for Review**.
 - Submitted: 7 November 2026 at 16:03 Asia/Amman.
 - Submission ID: `f05f444b-1fc3-4409-a50c-153ab1a2efff`.
 - Release mode: **Manually release this version**.
@@ -42,28 +56,58 @@ it does not imply a native analytics SDK, advertising, or a user account.
   sharing under the service-provider exception. Purposes are functionality and
   security for requests/identifiers, and diagnostics for troubleshooting.
   No remote data-deletion mechanism is claimed; local data can be cleared.
-- Managed-publishing activation was refused both before and after listing setup.
-  Production remains unpublished. A closed-test Alpha release draft was created
-  as a review path that cannot launch the app publicly.
-- Alpha track ID: `4700063523295749019`; release draft: `1`.
+- [Publishing overview](https://play.google.com/console/u/1/developers/8873333972257518553/app/4975812569745588942/publishing):
+  **17 changes ready to publish**, including the production release. The console
+  confirmed approval, and **Managed Publishing is enabled**. No Publish action
+  was taken; the owner controls the public launch.
+- Managed Publishing became available after configuration and Alpha setup were
+  completed. It was enabled before the production submission.
+- Production track ID: `4697664311770654621`; release: `1`; version 0.1.0 (1).
+  Availability: 177 countries/regions plus the rest-of-world setting.
+- Closed-test Alpha track ID: `4700063523295749019`; release: `1`; Jordan only.
+  The same approved batch contains this track and the **Mofied owner review**
+  tester list, with one owner account. Managed Publishing holds both tracks.
 - The permanent release key was imported through Google's PEPK encryption tool.
   Google displayed the same certificate fingerprint as the AppGallery APK.
-- The final AAB upload started and entered processing; acceptance still needs
-  to be verified in the console. First-release notes were entered.
-- The owner approved IARC's terms on 7 November 2026. Acceptance in the UI and
-  completion of the content-rating questionnaire remain pending.
-- **Not submitted for review yet.** Tester/country setup, final bundle
-  validation, and review submission remain outstanding.
+- The final AAB was accepted. Production release validation showed ready for
+  release, with no errors or warnings. Arabic first-release notes were saved.
+- The owner-approved IARC terms were accepted and the questionnaire completed.
+  Calculated ratings include ESRB Everyone 10+, PEGI 3, USK 6, Brazil all ages,
+  and generic 3+. The advertising-ID declaration is **No**.
+- Review submission and approval were verified on 7 November 2026.
 
 ## Huawei AppGallery
 
 - Android app record created: **مفيد**, app ID `119708951`, Arabic default
-  language, APK package type, mobile-phone device family.
-- **Not submitted for review yet.** Listing details, signed APK, questionnaires,
-  and manual-release controls remain to be completed and verified.
-- A Huawei hover popup broke Chrome's native accessibility state. Its tab was
-  closed without deleting the saved app record. Browser recovery is pending;
-  no automatic public release was authorized.
+  language, APK package type, phone and tablet compatibility.
+- [Restricted review version](https://developer.huawei.com/consumer/en/service/josp/agc/index.html#/myApp/119708951/v2078660010698624576):
+  **Submitted / Reviewing (open testing)**, verified on 7 November 2026.
+  Version ID: `2078660010698624576`; app version 0.1.0 (1).
+- The final signed APK was accepted and attached: `mofied-0.1.0-1.apk`,
+  package `com.mofied.app`, 74.26 MB; upload recorded at 20:04:07 Asia/Amman.
+- Arabic listing, supplied icon, five approved phone screenshots in story order,
+  and Education / Learning category saved. Free; no purchases or reviewer login.
+- Privacy policy and data-subject-right URLs point to the live Mofied privacy
+  and support pages. Privacy tags declare app run logs, app usage information,
+  and IP address for functionality, third-party service providers, and
+  cross-border transfer. Generative AI service: not involved.
+- The content questionnaire calculated **16+** (Brazil A16). The calculated
+  rating was retained; educational spoken references were disclosed.
+- Testing version enabled; **Skip manual review for internal testing is off**.
+  Only Jordan is selected, with automatic addition of new countries disabled.
+  Huawei explicitly states this test is available only to invited users.
+- Tester list **Mofied owner review** contains one valid owner account and zero
+  invalid accounts. **Automatic invitations are off**; no invitation was sent.
+- Test period: 8 November 2026 at 00:00 through 8 December 2026 at 23:59,
+  as displayed in the browser's Asia/Amman timezone. Invitation expiry: 7 days.
+- The test version becomes eligible for restricted distribution after approval
+  within that period. It cannot publish the separate production draft.
+- Production version ID `2078592166849957440` remains **Draft / unsubmitted**.
+  No public release or scheduled public launch was configured.
+
+Chrome was restarted with the owner's explicit approval to recover stale
+accessibility state and a disabled file picker. Saved store data survived;
+the final APK upload completed before review submission.
 
 ## Build artifacts
 
