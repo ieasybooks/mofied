@@ -144,7 +144,14 @@ img[hidden] {
 .session-page[data-page="preview"] {
   pointer-events: none;
 }
+.media-cover {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #111;
+}
 .media-poster {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;

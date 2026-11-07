@@ -1,5 +1,23 @@
 # Implementation verification
 
+## Posters during web loading — 2026-11-07
+
+Reproduced the gray incoming page with the next media response held. The web player now uses an explicit image cover instead of relying on the browser's native `video.poster` behavior. It retains that cover until `requestVideoFrameCallback` reports a presented frame; older engines use decoded-frame readiness followed by a paint opportunity. Metadata, playing status and network completion alone cannot remove the cover. The existing video element stays mounted, preserving audible-playback permission.
+
+Each source load has its own presentation identity. A targeted history reproduction caught an intermediate implementation reusing readiness when returning to the last presented item before its successor produced a frame; the corrected implementation and regression pass. Cancelled callbacks cannot reveal another source. Later buffering retains the last video frame instead of bringing back the poster. Missing or failed poster images use the existing placeholder without failing playback.
+
+The next media poster is warmed and decoded before navigation, one image ahead, with low request priority. Manual pause, Info, terminal errors, expiry and reduced-data connections suppress that speculative image loading. Current-item images still load normally. Actual image availability and network speed remain external limits; a missing or unreachable image cannot be displayed.
+
+Executed verification:
+
+- Both TypeScript checks, **100 unit tests in eight files**, and the production web build passed.
+- The full headed Chromium suite passed **56 tests**, including genuine hidden-tab playback. The separate opt-in live API test ran in the cross-browser set below.
+- **72 checks passed across Chromium, Firefox and WebKit**: all 11 new poster cases, the nine audible-playback/preloading cases, three HLS recovery cases and the real API/playback/restoration integration in each engine. The poster cases include delayed media, actual HLS starvation/recovery, held compositor callbacks, rapid navigation, backward history, manual pause/Info, failed images, retry, saved seeks, reduced-data behavior and the older-browser fallback.
+- All **four Cloudflare local-hosting checks** passed, including asset caching, missing-file 404s, playback/restoration and API error/retry behavior.
+- XCTest on the **iPhone 18 Pro / iOS 27.0 simulator** drove native Safari HLS with controlled fixture segments and public poster images. While the second short's segments were withheld, its image remained visible at zero playback progress. Releasing the segments produced a native frame and removed the cover. Subsequent swiping retained sound and the same video identity. The verified trace contains no sample where the cover was removed before a frame callback. A screenshot and recording preserve the controlled loading state.
+
+Evidence is under ignored `artifacts/poster-loading/`. The successful simulator result is `ios-verified.json`; `ios-verified-trace.json` filters the unique final page run and excludes the old Safari page restored during setup. No new native-app build, physical-phone check or hosted-CI result is claimed for this web change.
+
 ## Audible web paging and next-media loading — 2026-11-07
 
 The web player now keeps one video element through media changes, reminders and the ending. Sound and resume controls synchronize the element directly inside the user gesture. Source listeners and HLS engines are still cleaned up at item boundaries; queued old-source events and rejected play promises cannot advance or block the new item. Metadata and portraits reset independently of the video. Reading regions retain their existing identity-based reset behavior.

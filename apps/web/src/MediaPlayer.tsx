@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -12,6 +13,7 @@ import { copy, formatTime, type Locale } from "@mofied/design";
 import type { SessionController, SessionSnapshot } from "@mofied/session";
 import { watchPlaybackHealth } from "./playback-health";
 import { MediaPreloader, permitsPreload, warmLoader } from "./media-preload";
+import { watchVideoPresentation } from "./video-presentation";
 
 export type MediaHandle = { synchronize: () => void };
 
@@ -34,6 +36,15 @@ export const MediaPlayer = forwardRef<
   const preloader = useRef(new MediaPreloader());
   const startPosition = useRef(state.positionMs / 1000);
   const [attempt, setAttempt] = useState(0);
+  // Returning to the same item is a fresh load, even if the intervening item
+  // never presented a frame. Readiness belongs to this load, not just its URL.
+  const source = useMemo(
+    () => ({ id: item?.id, url: item?.playback.url, attempt }),
+    [item?.id, item?.playback.url, item?.playback.mimeType, attempt, session],
+  );
+  const [presentedSource, setPresentedSource] = useState<typeof source | null>(
+    null,
+  );
   const [measuredDuration, setMeasuredDuration] = useState<{
     id: string;
     ms: number;
@@ -60,6 +71,11 @@ export const MediaPlayer = forwardRef<
     let cancelled = false;
     let recoveries = 0;
     let initialized = false;
+    const stopPresentation = watchVideoPresentation(
+      video,
+      () => initialized,
+      () => setPresentedSource(source),
+    );
     const progress = () =>
       session.mediaProgress(item.id, video.currentTime * 1000);
     const stopWatching = watchPlaybackHealth(
@@ -197,6 +213,7 @@ export const MediaPlayer = forwardRef<
       cancelled = true;
       if (synchronize.current === sync) synchronize.current = () => {};
       stopWatching();
+      stopPresentation();
       for (const [event, handler] of Object.entries({
         ended,
         pause: pausedExternally,
@@ -219,11 +236,40 @@ export const MediaPlayer = forwardRef<
     session,
     attempt,
     preview,
+    source,
   ]);
 
   useEffect(() => {
     if (!preview) synchronize.current();
   }, [state.shouldPlay, state.muted, item?.id, session, attempt, preview]);
+
+  const nextPoster = session.upcomingMedia()?.posterUrl;
+  const warmPoster =
+    !preview &&
+    state.wantsToPlay &&
+    !state.aboutOpen &&
+    !state.backgrounded &&
+    !state.retryRequired &&
+    (!session.plan.expiresAt ||
+      Date.parse(session.plan.expiresAt) > Date.now());
+  useEffect(() => {
+    if (!warmPoster || !nextPoster) return;
+    const connection = (
+      navigator as Navigator & {
+        connection?: { saveData?: boolean; effectiveType?: string };
+      }
+    ).connection;
+    if (!permitsPreload(connection)) return;
+    // Warm and decode one image ahead, so a swipe can show its poster while
+    // the incoming video is still loading.
+    const image = new Image();
+    image.fetchPriority = "low";
+    image.src = nextPoster;
+    void image.decode().catch(() => {});
+    return () => {
+      image.src = "";
+    };
+  }, [nextPoster, warmPoster]);
 
   useEffect(() => {
     if (preview) return;
@@ -277,19 +323,10 @@ export const MediaPlayer = forwardRef<
   return (
     <>
       <div className="player-frame" data-testid="media-player" hidden={!item}>
-        {preview ? (
-          item?.posterUrl ? (
-            <img className="media-poster" src={item.posterUrl} alt="" />
-          ) : (
-            <div className="preview-placeholder">
-              <Play size={42} />
-            </div>
-          )
-        ) : (
+        {!preview && (
           <video
             ref={ref}
             muted={state.muted}
-            poster={item?.posterUrl ?? undefined}
             playsInline
             preload="auto"
             disablePictureInPicture
@@ -297,6 +334,9 @@ export const MediaPlayer = forwardRef<
             controlsList="nodownload noplaybackrate noremoteplayback"
             aria-label={item?.title}
           />
+        )}
+        {item && (preview || presentedSource !== source) && (
+          <MediaPoster key={`${item.id}:${item.posterUrl}`} item={item} />
         )}
         {item && (
           <>
@@ -412,3 +452,24 @@ export const MediaPlayer = forwardRef<
     </>
   );
 });
+
+function MediaPoster({ item }: { item: MediaItem }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="media-cover" aria-hidden="true">
+      {item.posterUrl && !failed ? (
+        <img
+          className="media-poster"
+          src={item.posterUrl}
+          alt=""
+          draggable={false}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="preview-placeholder">
+          <Play size={42} />
+        </div>
+      )}
+    </div>
+  );
+}
