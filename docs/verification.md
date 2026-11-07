@@ -1,5 +1,42 @@
 # Implementation verification
 
+## Manual web installation and social previews — 2026-11-07
+
+Added a web app manifest with the Arabic name مفيد, stable app identity, standalone
+launch, regular and maskable icons, and iOS home-screen metadata. Automatic
+installation prompts are suppressed; installation remains available through the
+browser menu. No service worker, offline playback, or additional session/media
+cache was introduced. The 1200×630 Open Graph/Twitter card uses the supplied icon
+and Arabic fonts; preview metadata is present in the initial HTML.
+
+Executed verification:
+
+- Both TypeScript checks, **115 unit tests**, the release build, and Wrangler's
+  deployment dry run passed.
+- **87 headed browser regressions** and **eight Cloudflare checks** passed.
+  The Cloudflare checks include Chromium's manifest/installability validation,
+  suppression of automatic prompts, JavaScript-free social metadata, and actual
+  decoding of every icon and the share image at their declared dimensions.
+- An iPhone-configured WebKit check loaded the Arabic home-screen name and
+  180×180 Apple icon. Pixel inspection confirmed the maskable icon is fully opaque
+  and its complete mark fits inside the required safe circle.
+- Deployed code commit `771ba9c` as Cloudflare version
+  `70c085c7-faf5-4337-b70c-ceb15cc2f664`. All six new public assets match the
+  committed files byte-for-byte, return the correct MIME types, and revalidate.
+  Requests using Facebook and Twitter crawler user agents received the static
+  preview metadata with HTTP 200.
+- Live Chromium and iPhone-configured WebKit both passed image decoding, prompt
+  suppression, real playback, and paused restoration with exactly one session
+  API request and no uncaught page errors. Chromium reported no installability
+  errors on the production origin.
+
+The first live playback attempt timed out while Faqieh returned a Cloudflare
+525 SSL handshake error. Subsequent ordinary requests returned 200 and both live
+journeys passed without an app change or a browser DNS override. This is an
+observed upstream interruption, not a claim that its underlying cause was fixed.
+Evidence is under ignored `artifacts/pwa-og/`. These are browser checks, not a
+new physical-device home-screen installation or native app build.
+
 ## Swipes starting on title and speaker links — 2026-11-07
 
 Reproduced the reported web failure before the fix: the pager accepted pointer gestures only from `.media-tap`, excluding the title, speaker name and portrait in `.metadata`. Those areas now share vertical paging. Stationary link taps retain browser navigation; only stationary taps on the video toggle playback. Pointer capture stays on the originating anchor, and dragging, cancellation or a second touch suppresses the resulting click. A fresh pointer or keyboard action clears that guard. Firefox's keyboard-generated click can have `detail=1`, so keyboard activation is reconciled explicitly.
@@ -95,17 +132,17 @@ The reported top-edge loading/download text matches the Metro development bundle
 
 Added the Expo splash-screen plugin with the existing white Mofied mark on `#0A0A0A` for Android and iOS. The native splash remains through font setup, then fades into a matching mark and circular session loader without moving the mark or imposing a minimum wait. Errors replace the loader with Retry; Info remains available during session loading and errors. Web now renders the same branded loader in the initial HTML, before JavaScript, fonts or the API response, and preserves its geometry when React takes over. Its spinner respects reduced motion. The actual playback progress line is unchanged.
 
-| Local check | Result |
-| --- | --- |
-| Frozen Bun install, TypeScript, unit tests, web production build | Passed; **89 unit tests in 7 files** |
-| Headed Chromium suite | **36 passed**, including hidden-tab playback and three new startup regressions; the opt-in live integration test is skipped in this command |
-| Startup browser regressions | Development and production HTML show the mark/circular loader while JavaScript is withheld; the mark does not move when React takes over; Privacy and its pause survive API acceptance; error/retry and reduced motion pass |
-| Live browser smoke check | Production API and HLS playback loaded through the local development proxy without page errors |
-| Expo Android/iOS/web exports | All passed; JavaScript/assets checks |
-| Native Release compilation | Android and iOS source builds passed with the new splash-screen module |
-| Physical Android | Reinstalled the Release APK on the Samsung Galaxy Note20 / Android 13 without clearing its session. Cold launch has a dark splash, no white flash or download banner, and restores paused at the saved position. Playback, Info/Privacy, manual pause, warm return and another process restart passed |
-| Android emulator | Fresh launch offline replaced loading with the connection error. Info/Privacy remained usable; enabling connectivity alone did not retry. Explicit Retry showed the branded circular loader and reached real API media playback |
-| iOS simulator | iPhone 18 Pro / iOS 27.0 Release cold-start recording shows dark native artwork, matching circular loader and paused restoration. The XCTest production journey passed playback, cancelled/committed paging, bilingual Info, background return and process restoration |
+| Local check                                                      | Result                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frozen Bun install, TypeScript, unit tests, web production build | Passed; **89 unit tests in 7 files**                                                                                                                                                                                                                                                                  |
+| Headed Chromium suite                                            | **36 passed**, including hidden-tab playback and three new startup regressions; the opt-in live integration test is skipped in this command                                                                                                                                                           |
+| Startup browser regressions                                      | Development and production HTML show the mark/circular loader while JavaScript is withheld; the mark does not move when React takes over; Privacy and its pause survive API acceptance; error/retry and reduced motion pass                                                                           |
+| Live browser smoke check                                         | Production API and HLS playback loaded through the local development proxy without page errors                                                                                                                                                                                                        |
+| Expo Android/iOS/web exports                                     | All passed; JavaScript/assets checks                                                                                                                                                                                                                                                                  |
+| Native Release compilation                                       | Android and iOS source builds passed with the new splash-screen module                                                                                                                                                                                                                                |
+| Physical Android                                                 | Reinstalled the Release APK on the Samsung Galaxy Note20 / Android 13 without clearing its session. Cold launch has a dark splash, no white flash or download banner, and restores paused at the saved position. Playback, Info/Privacy, manual pause, warm return and another process restart passed |
+| Android emulator                                                 | Fresh launch offline replaced loading with the connection error. Info/Privacy remained usable; enabling connectivity alone did not retry. Explicit Retry showed the branded circular loader and reached real API media playback                                                                       |
+| iOS simulator                                                    | iPhone 18 Pro / iOS 27.0 Release cold-start recording shows dark native artwork, matching circular loader and paused restoration. The XCTest production journey passed playback, cancelled/committed paging, bilingual Info, background return and process restoration                                |
 
 Local logs, recordings and UI evidence are under ignored `artifacts/startup/`. No physical iPhone run, hosted CI or new telephony/audio-route/spoken-screen-reader result is claimed for this startup change. Android emulator connectivity was restored, and the physical Android app was left installed and paused. Native launch presentation was checked in embedded Release apps rather than Expo Go or a Metro loading session.
 
@@ -161,18 +198,18 @@ The iOS bridge now requests native reactivation when foreground activity becomes
 
 The rebuilt app passed the original foreground-return assertions and the complete media journey: playback, About/Privacy, language changes, mute/unmute with manual pause, background return, process termination/restoration at the saved position, a required reminder, and backward/forward history without replaying that reminder.
 
-| Physical iPhone check | Result |
-| --- | --- |
-| Native build, installation and HLS playback | Passed with the custom Expo native code; both normal mock streams decoded |
-| Controls, About and restoration | Passed the complete media journey, including manual pause through language/mute changes, saved-position restoration, required reminder and consumed-reminder history |
-| Reminder background and pause | Background samples held at 114,605.9 ms remaining; return resumed the countdown. A later manual pause held at 108,276.7 ms through background/return and Privacy |
-| Consecutive long reminders | Current reading position survived About and language changes; the next item started at the top. Locale badge reflow shifts the bottom position by a few points, without resetting the reading position |
-| Largest system text | Passed at the device accessibility service's maximum Dynamic Type setting. The approximately 38,696-point reminder body scrolled to its citation with controls visible. The next reminder reset correctly, and the long ending's first and final lines remained reachable |
-| Ending and storage removal | Generated reading sessions reached the ending and removed the saved development session |
-| External links | Media and speaker links opened the corresponding screens in the installed Faqieh app via universal links. Mofied paused while away and resumed after returning |
-| Paused foreground and About | A paused video remained stationary across Home/return. Playing intent resumed after returning behind Privacy and closing About; manually paused intent remained paused through the same sequence |
-| Network failure and explicit recovery | Verified an active iOS 100% packet-loss profile. After forcing a fresh load by terminating/relaunching and resuming, the one supplied spare was consumed and the terminal retry screen held active time at 14,001.6 ms. Clearing the profile did not autoplay; explicit Retry decoded the spare and resumed accounting |
-| Natural full fixture | Passed without gestures or seeking: first video → 20-second reminder → second video → ending. No replacements were used and saved state was removed. Across uninterrupted sample spans of approximately 163.5 and 143.8 seconds, playhead and active-time deltas matched; reminder accounting matched the countdown |
+| Physical iPhone check                       | Result                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native build, installation and HLS playback | Passed with the custom Expo native code; both normal mock streams decoded                                                                                                                                                                                                                                              |
+| Controls, About and restoration             | Passed the complete media journey, including manual pause through language/mute changes, saved-position restoration, required reminder and consumed-reminder history                                                                                                                                                   |
+| Reminder background and pause               | Background samples held at 114,605.9 ms remaining; return resumed the countdown. A later manual pause held at 108,276.7 ms through background/return and Privacy                                                                                                                                                       |
+| Consecutive long reminders                  | Current reading position survived About and language changes; the next item started at the top. Locale badge reflow shifts the bottom position by a few points, without resetting the reading position                                                                                                                 |
+| Largest system text                         | Passed at the device accessibility service's maximum Dynamic Type setting. The approximately 38,696-point reminder body scrolled to its citation with controls visible. The next reminder reset correctly, and the long ending's first and final lines remained reachable                                              |
+| Ending and storage removal                  | Generated reading sessions reached the ending and removed the saved development session                                                                                                                                                                                                                                |
+| External links                              | Media and speaker links opened the corresponding screens in the installed Faqieh app via universal links. Mofied paused while away and resumed after returning                                                                                                                                                         |
+| Paused foreground and About                 | A paused video remained stationary across Home/return. Playing intent resumed after returning behind Privacy and closing About; manually paused intent remained paused through the same sequence                                                                                                                       |
+| Network failure and explicit recovery       | Verified an active iOS 100% packet-loss profile. After forcing a fresh load by terminating/relaunching and resuming, the one supplied spare was consumed and the terminal retry screen held active time at 14,001.6 ms. Clearing the profile did not autoplay; explicit Retry decoded the spare and resumed accounting |
+| Natural full fixture                        | Passed without gestures or seeking: first video → 20-second reminder → second video → ending. No replacements were used and saved state was removed. Across uninterrupted sample spans of approximately 163.5 and 143.8 seconds, playhead and active-time deltas matched; reminder accounting matched the countdown    |
 
 Local validation after the correction passed: frozen Bun installation, both TypeScript checks, **72 unit tests**, all **25 headed browser tests**, the web production build, Expo Android/iOS/web exports, the physical iPhone source build and the Swift cache's **200,000-operation Thread Sanitizer** check. The five new interruption cases are included in the unit-test total. Exports validate JavaScript/assets; the signed iPhone build separately compiled the modified Swift code.
 
@@ -194,23 +231,23 @@ Tested on a Samsung Galaxy Note20 (SM-N980F), Android 13/API 33, with an Arabic 
 
 No native dependency changes were needed for these corrections.
 
-| Physical check | Result |
-| --- | --- |
-| Installation and decoded playback | Passed with the patched native APK and USB-served development bundle; both normal public HLS streams decoded and advanced |
-| Startup Privacy | With fixture loading held, the Privacy page and its dialog survived acceptance. Video and accounting remained at zero, and another app's AudioTrack continued. Closing About acquired focus and started video |
-| Media interruption delivery | Real transient and MAY_DUCK requests from a separate QA package stopped playhead/accounting while Mofied remained foreground. Permitted gain resumed playback. Unmuted transient/ducking and muted ducking passed |
-| Reminder interruption delivery | Reminder-first sessions and a new interruption after disposing the preceding media player both paused countdown/accounting and resumed after permitted gain |
-| Manual intent | Pausing during an interruption survived focus return. Privacy, About, UI-language changes and unmuting did not override manual pause |
-| Restoration and acquisition | Force-stop/relaunch restored the actual video position paused. The other AudioTrack kept advancing through paused restoration and paused foreground return; explicit Resume acquired focus and paused that track |
-| Initial focus denial | Temporarily denying `TAKE_AUDIO_FOCUS` kept a reminder at 120,000 ms with zero active time. Restoring the original mode and explicitly resuming allowed progress. This is OS denial, not a telephony-locked/delayed-gain round trip |
-| In-process context teardown | Granted and transient reminder focus disappeared while the replacement bundle was held. The PID stayed unchanged, native context destruction was logged, restoration stayed paused, and explicit Resume acquired a new request. No database transaction failures occurred |
-| Background, lock and return | Running reminders and decoded video stopped counting and released focus in the background and with the keyguard showing. Foreground return resumed playing intent. Video also resumed after normal secure unlocking |
-| Navigation and required reminder | Swipe entered the required reminder; further swipe could not skip it. After completion, second-media playback and backward/forward history worked without repeating the consumed reminder |
-| Wi-Fi loss and recovery | Confirmed no active default network after disabling Wi-Fi. Buffered video continued legitimately, then the supplied replacement was consumed once and the terminal retry screen stopped accounting. Reconnecting alone did not retry or acquire new focus; explicit Retry played the replacement and resumed accounting |
-| External links | Media title and speaker opened their expected public URLs in the system browser. Switching away paused playhead/accounting and released focus; returning to Mofied resumed playing intent |
-| Reading continuity | A long reminder retained its scrolled position through About and UI-language changes; the next consecutive reminder began at the top |
-| Enlarged text and ending | At system font scale 2.0, reminder citation and ending final line were reachable while countdown/Resume remained usable. Completing the generated reminder-only plan removed saved state and released focus |
-| Natural full fixture | Passed without gestures or seeking: first video → 20-second reminder → second video → ending. No replacements were used. Saved state was removed and focus released. Across uninterrupted sample spans of about 158 and 132 seconds, playhead and active-time deltas matched |
+| Physical check                    | Result                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installation and decoded playback | Passed with the patched native APK and USB-served development bundle; both normal public HLS streams decoded and advanced                                                                                                                                                                                               |
+| Startup Privacy                   | With fixture loading held, the Privacy page and its dialog survived acceptance. Video and accounting remained at zero, and another app's AudioTrack continued. Closing About acquired focus and started video                                                                                                           |
+| Media interruption delivery       | Real transient and MAY_DUCK requests from a separate QA package stopped playhead/accounting while Mofied remained foreground. Permitted gain resumed playback. Unmuted transient/ducking and muted ducking passed                                                                                                       |
+| Reminder interruption delivery    | Reminder-first sessions and a new interruption after disposing the preceding media player both paused countdown/accounting and resumed after permitted gain                                                                                                                                                             |
+| Manual intent                     | Pausing during an interruption survived focus return. Privacy, About, UI-language changes and unmuting did not override manual pause                                                                                                                                                                                    |
+| Restoration and acquisition       | Force-stop/relaunch restored the actual video position paused. The other AudioTrack kept advancing through paused restoration and paused foreground return; explicit Resume acquired focus and paused that track                                                                                                        |
+| Initial focus denial              | Temporarily denying `TAKE_AUDIO_FOCUS` kept a reminder at 120,000 ms with zero active time. Restoring the original mode and explicitly resuming allowed progress. This is OS denial, not a telephony-locked/delayed-gain round trip                                                                                     |
+| In-process context teardown       | Granted and transient reminder focus disappeared while the replacement bundle was held. The PID stayed unchanged, native context destruction was logged, restoration stayed paused, and explicit Resume acquired a new request. No database transaction failures occurred                                               |
+| Background, lock and return       | Running reminders and decoded video stopped counting and released focus in the background and with the keyguard showing. Foreground return resumed playing intent. Video also resumed after normal secure unlocking                                                                                                     |
+| Navigation and required reminder  | Swipe entered the required reminder; further swipe could not skip it. After completion, second-media playback and backward/forward history worked without repeating the consumed reminder                                                                                                                               |
+| Wi-Fi loss and recovery           | Confirmed no active default network after disabling Wi-Fi. Buffered video continued legitimately, then the supplied replacement was consumed once and the terminal retry screen stopped accounting. Reconnecting alone did not retry or acquire new focus; explicit Retry played the replacement and resumed accounting |
+| External links                    | Media title and speaker opened their expected public URLs in the system browser. Switching away paused playhead/accounting and released focus; returning to Mofied resumed playing intent                                                                                                                               |
+| Reading continuity                | A long reminder retained its scrolled position through About and UI-language changes; the next consecutive reminder began at the top                                                                                                                                                                                    |
+| Enlarged text and ending          | At system font scale 2.0, reminder citation and ending final line were reachable while countdown/Resume remained usable. Completing the generated reminder-only plan removed saved state and released focus                                                                                                             |
+| Natural full fixture              | Passed without gestures or seeking: first video → 20-second reminder → second video → ending. No replacements were used. Saved state was removed and focus released. Across uninterrupted sample spans of about 158 and 132 seconds, playhead and active-time deltas matched                                            |
 
 The Samsung audio service exposes live owners under `MultiFocusStack`, after a blank line beneath the usual focus-stack heading. Ownership checks read that section and exclude historical focus events. App-scoped logs contained no fatal exceptions, JavaScript runtime errors or SQLite transaction failures. Local screenshots, state samples, app-scoped logs and test scripts are under ignored `artifacts/physical-android/`. These measurements verify state transitions and accounting, not battery use, thermal behavior or precise performance benchmarks.
 
