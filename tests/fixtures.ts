@@ -42,7 +42,7 @@ export const plan = (durationMs = 2000): SessionPlan => ({
       durationMs,
       content: {
         kind: "text",
-        body: "لحظة للتأمّل والعمل بما تعلّمت.",
+        body: "لحظة للتفكر والعمل بما تعلّمت.",
         citation: "الأحاديث ١٠–١٢",
         source: "Reminder text source",
       },
@@ -50,7 +50,7 @@ export const plan = (durationMs = 2000): SessionPlan => ({
     media("last"),
   ],
   replacements: [],
-  ending: { title: "حان وقت التوقّف", body: "خذ لحظة للتأمّل." },
+  ending: { title: "حان وقت التوقّف", body: "خذ لحظة للتفكر." },
 });
 
 export async function start(page: Page, session = plan()) {

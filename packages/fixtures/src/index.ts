@@ -61,7 +61,7 @@ export function fixture(name: FixtureName = "normal"): SessionPlan {
     replacements: [{ ...media[2]!, id: `replacement-${media[2]!.mediaId}` }],
     ending: {
       title: "حان وقت التوقّف",
-      body: "خذ لحظةً للتأمّل، ثم اعمل بشيء مما تعلّمته؛ بصلاة، أو مساعدة أحد، أو نشر فائدة.",
+      body: "خذ لحظةً للتفكر، ثم اعمل بشيء مما تعلّمته؛ بصلاة، أو مساعدة أحد، أو نشر فائدة.",
     },
   });
 }
