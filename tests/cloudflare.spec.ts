@@ -4,6 +4,120 @@ import { plan, serveMp4 } from "./fixtures";
 
 const api = "https://faqieh.com/api/v1/mofied/session?locale=ar";
 
+test("install and social metadata are readable without JavaScript", async ({
+  browser,
+  request,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    const page = await context.newPage();
+    await page.goto("http://127.0.0.1:8787/?utm_source=shared");
+    const manifestUrl = await page
+      .locator('link[rel="manifest"]')
+      .getAttribute("href");
+    const response = await request.get(manifestUrl!);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("manifest+json");
+    const manifest = await response.json();
+    expect(manifest.name).toBe("مفيد");
+    expect(manifest.short_name).toBe("مفيد");
+    expect(manifest.id).toBe("/");
+    expect(manifest.start_url).toBe("/");
+    expect(manifest.scope).toBe("/");
+    expect(manifest.display).toBe("standalone");
+    expect(
+      manifest.icons.some(
+        (icon: { purpose: string }) => icon.purpose === "maskable",
+      ),
+    ).toBe(true);
+    await expect(
+      page.locator('meta[name="apple-mobile-web-app-title"]'),
+    ).toHaveAttribute("content", "مفيد");
+    await expect(
+      page.locator('meta[name="apple-mobile-web-app-capable"]'),
+    ).toHaveAttribute("content", "yes");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://mofied.com/",
+    );
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+      "content",
+      "https://mofied.com/",
+    );
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      "content",
+      "summary_large_image",
+    );
+    const og = await page
+      .locator('meta[property="og:image"]')
+      .getAttribute("content");
+    expect(og).toBe("https://mofied.com/og-card.png");
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+      "content",
+      og!,
+    );
+    await expect(
+      page.locator('meta[property="og:image:alt"]'),
+    ).not.toHaveAttribute("content", "");
+
+    const appleIcon = await page
+      .locator('link[rel="apple-touch-icon"]')
+      .getAttribute("href");
+    for (const { src, sizes } of [
+      ...manifest.icons,
+      { src: appleIcon, sizes: "180x180" },
+      { src: new URL(og!).pathname, sizes: "1200x630" },
+    ]) {
+      const asset = await request.get(src);
+      expect(asset.status()).toBe(200);
+      expect(asset.headers()["content-type"]).toContain("image/png");
+      expect(asset.headers()["cache-control"]).not.toContain("immutable");
+      const dimensions = await page.evaluate(async (src) => {
+        const image = new Image();
+        image.src = src;
+        await image.decode();
+        return `${image.naturalWidth}x${image.naturalHeight}`;
+      }, src);
+      expect(dimensions).toBe(sizes);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
+test("Chromium can install the app while automatic install prompts are suppressed", async ({
+  page,
+  context,
+}) => {
+  await page.route(api, (route) => route.fulfill({ json: plan() }));
+  await serveMp4(page);
+  await page.goto("/");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  const cdp = await context.newCDPSession(page);
+  const manifest = await cdp.send("Page.getAppManifest");
+  expect(manifest.errors).toEqual([]);
+  expect(manifest.url).toBe("http://127.0.0.1:8787/manifest.webmanifest");
+  await expect
+    .poll(
+      async () =>
+        (await cdp.send("Page.getInstallabilityErrors")).installabilityErrors,
+    )
+    .toEqual([]);
+
+  const banner = await page.evaluate(() => {
+    const event = new Event("beforeinstallprompt", { cancelable: true });
+    let prompts = 0;
+    Object.assign(event, {
+      prompt: () => {
+        prompts++;
+      },
+    });
+    window.dispatchEvent(event);
+    return { prevented: event.defaultPrevented, prompts };
+  });
+  expect(banner).toEqual({ prevented: true, prompts: 0 });
+});
+
 for (const [path, heading] of [
   ["privacy", "سياسة الخصوصية"],
   ["support", "التواصل والدعم"],

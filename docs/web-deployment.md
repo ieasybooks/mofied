@@ -43,6 +43,26 @@ The release build generates one-year immutable cache rules for the exact fingerp
 
 Terraform enables Web Analytics with the same `auto_install = true` zone setup used by the other ieasybooks sites. Cloudflare injects its beacon at the edge on the production domain. The app contains no duplicate analytics snippet or SDK. Do not add `Cache-Control: no-transform` to HTML, which would prevent automatic injection. Product copy and features are unchanged.
 
+## Installation and sharing
+
+`/manifest.webmanifest` gives manual browser installation the Arabic name مفيد,
+standalone display, a stable `/` app identity and launch URL, and dedicated normal
+and maskable icons. The Apple touch icon and web-app metadata support iOS home
+screen installation. Automatic install banners are suppressed; there is no
+in-app installation prompt or install button. Users can install through their
+browser's menu.
+
+This does not add offline playback or a service worker. Sessions and media still
+require the network, and no additional API, media, or stale app-shell cache is
+introduced. Browser installation does not affect native store builds.
+
+The initial HTML contains canonical, Open Graph, and Twitter Card metadata, so
+link previews do not need to run JavaScript or fetch a session. `/og-card.png` is
+the 1200×630 PNG share image. It and the install icons use the supplied Mofied
+artwork and fonts; regenerate them with
+`mise exec -- node scripts/generate-web-artwork.mjs`. These stable public asset
+URLs use the default revalidation policy rather than immutable caching.
+
 ## Live checks and rollback
 
 After the first infrastructure apply and certificate activation:
