@@ -1,5 +1,27 @@
 # Implementation verification
 
+## Reusable web preloads and quiet transitions — 2026-11-07
+
+Reproduced loading notices even after the next stream's speculative downloads had completed. Native HLS could not consume the in-memory warmup; the CDN's `max-age=0, must-revalidate` policy required browser validation requests. Separately, cancelled/failed warmups remembered the target URL and did not restart. Immediate loading notices exposed even short source/decoder handoffs.
+
+The web client now uses hls.js on supported MediaSource/ManagedMediaSource browsers, including modern iPhones, so the active player can consume warmed playlists, initialization data and opening segments directly. The same video element retains audible-playback permission. Native HLS remains available when streaming APIs are unavailable or the lazy engine cannot load. The first rendition matches the preload; normal adaptive quality continues afterward. CDN/browser cache policy is unchanged, preserving replacement of published media at existing URLs. The hls.js chunk remains lazy but is now downloaded for supported iPhone HLS playback as well; MP4 does not require it.
+
+Warmups retain completed resources through manual pause, Info and buffering, resume unfinished downloads, and retry transient failures/timeouts with a bounded backoff. Connectivity restoration can restart an exhausted warmup while respecting pause, data-saving and expiry. Handoff transfers pending requests to the active player without aborting or repeating them. Cancellation is checked again after asynchronous reader cleanup so an old response cannot overwrite a newer cache entry. Limits remain one upcoming item, 2 MiB total, at most three playlists/two opening segments, a 1 MiB MP4 range and an eight-second speculative deadline. Partial MP4 files never become playable blobs.
+
+Posters/last frames cover ordinary handoffs. The existing loading text appears only after 750 ms of continuous waiting, with a fresh timer for each source/pause/stall. Real prolonged waits still report their state. A WebKit reload probe also found outgoing XHR cancellation triggering HLS retries before `pagehide`; HLS downloads now stop in `beforeunload`, with complete release on `pagehide` and reconstruction on cached-page return. Hidden-tab playback remains unchanged. The early listener can affect Firefox's back/forward-cache eligibility; normal saved-session restoration remains covered.
+
+Heavy verification exposed a separate Chromium ordering race: a paused restoration's final frame could arrive before `seeking` became false, leaving the poster waiting indefinitely for another frame. The presentation observer now reconciles that matching, already-presented frame when seek readiness catches up. A deterministic real-decoding regression fails before the correction and passes afterward.
+
+Executed verification:
+
+- Both TypeScript checks, **115 unit tests across nine files**, the production web build, and the three Expo JavaScript/assets exports passed. No native app source changed.
+- The full headed Chromium suite passed **74 tests**, including the genuinely hidden-tab journey and opt-in real API/playback/restoration test. The focused Firefox and WebKit suites each passed **41 tests** (156 browser checks in this final matrix).
+- New regressions cover completed/in-flight handoff under production cache headers, abort/resume, stale-response rejection, bounded bytes/retries/timeouts, online recovery, changed data-saving policy, pause/Info, delayed notices, first-frame delays, native-support detection, page navigation and paused-frame ordering. No page-error filtering was added. The live WebKit restoration reproduction also passed five consecutive checks after the early navigation cleanup.
+- All **four Cloudflare local-hosting checks** and Wrangler's deployment dry run passed. Development/test fixture markers are absent from production JavaScript.
+- **Three XCTest cases passed on iPhone 18 Pro / iOS 27.0 simulator Safari**, with zero skips: controlled ManagedMediaSource playback under production cache headers, real production streams, and native HLS fallback. Three controlled and four real prepared audible transitions had no loading notices, no duplicated opening requests and no autoplay rejection. Native fallback playback/sound passed; its cache behavior remains browser-controlled. The cold initial real stream did show a legitimate loading wait.
+
+The repeatable simulator harness and instructions are in `tests/native/web/` and `scripts/ios-web-preload-server.ts`. Local logs, traces and before/after reproductions are under ignored `artifacts/preload-research/`. The frame-order and reader-cleanup regressions were both verified failing before their fixes. Expo exports are not native builds; this change makes no new Android/iOS native-app compilation or hosted-CI claim. Slow/offline connections, immediate swipes before warmup completion, and native-HLS-only browsers can still require visible loading.
+
 ## Posters during web loading — 2026-11-07
 
 Reproduced the gray incoming page with the next media response held. The web player now uses an explicit image cover instead of relying on the browser's native `video.poster` behavior. It retains that cover until `requestVideoFrameCallback` reports a presented frame; older engines use decoded-frame readiness followed by a paint opportunity. Metadata, playing status and network completion alone cannot remove the cover. The existing video element stays mounted, preserving audible-playback permission.

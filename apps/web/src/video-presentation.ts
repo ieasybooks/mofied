@@ -9,6 +9,7 @@ export function watchVideoPresentation(
   let complete = false;
   let frame: number | undefined;
   let paint: number | undefined;
+  let presentedTime: number | undefined;
   const ready = () =>
     initialized() &&
     !video.seeking &&
@@ -24,9 +25,19 @@ export function watchVideoPresentation(
   const observe = () => {
     if (disposed || complete) return;
     if (hasFrameCallback) {
+      // A paused seek can present its final frame just before seeking becomes
+      // false. Reconcile that already-presented frame on seeked/loadeddata;
+      // waiting for another callback would leave the poster up indefinitely.
+      if (
+        presentedTime !== undefined &&
+        Math.abs(presentedTime - video.currentTime) < 0.1
+      )
+        reveal();
+      if (complete) return;
       if (frame !== undefined) return;
-      frame = video.requestVideoFrameCallback(() => {
+      frame = video.requestVideoFrameCallback((_at, metadata) => {
         frame = undefined;
+        if (initialized()) presentedTime = metadata.mediaTime;
         reveal();
         if (!complete) observe();
       });

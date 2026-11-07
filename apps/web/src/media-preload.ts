@@ -8,117 +8,206 @@ import type {
 
 export const PRELOAD_BYTES = 2 * 1024 * 1024;
 const MP4_BYTES = 1024 * 1024;
+const DEADLINE_MS = 8000;
+const RETRY_DELAYS = [300, 1200];
 type Resource = { data: ArrayBuffer; url: string; loadMs: number };
-export type MediaWarmup = Map<string, Resource>;
+class PreloadLimit extends Error {}
 
-/** One next item, two HLS segments at most, no playback or session callbacks.
- * Native HLS uses the browser HTTP cache; hls.js also consumes these bytes
- * directly. A browser may choose not to reuse its native media HTTP cache. */
-export class MediaPreloader {
-  private url: string | null = null;
-  private abort: AbortController | null = null;
-  private resources: MediaWarmup = new Map();
+/** A bounded, session-local warmup. Claiming it transfers ownership to the
+ * current player, including in-flight reads; only that player may then dispose it. */
+export class MediaWarmup extends Map<string, Resource> {
+  private pending = new Map<string, Promise<Resource>>();
+  private controller: AbortController | null = null;
+  private running: Promise<void> | null = null;
+  private deadline: ReturnType<typeof setTimeout> | undefined;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private generation = 0;
+  private failures = 0;
+  private enabled = false;
+  private claimed = false;
+  private complete = false;
+  private disposed = false;
 
-  prepare(item: MediaItem, nativeHls = false): Promise<void> {
-    if (this.url === item.playback.url) return Promise.resolve();
-    this.clear();
-    this.url = item.playback.url;
-    const abort = new AbortController();
-    this.abort = abort;
-    const resources = this.resources;
-    const timer = setTimeout(() => abort.abort(), 8000);
-    return this.load(item, resources, abort.signal, nativeHls)
-      .catch(() => {
-        /* Speculation must never fail or replace the current item. */
-      })
-      .finally(() => clearTimeout(timer));
+  constructor(
+    readonly item: MediaItem,
+    private nativeHls: boolean,
+  ) {
+    super();
+  }
+
+  resume(): Promise<void> {
+    if (this.disposed || this.complete || this.claimed)
+      return Promise.resolve();
+    if (this.enabled) return this.running ?? Promise.resolve();
+    this.enabled = true;
+    this.failures = 0;
+    return this.start();
   }
 
   suspend() {
-    this.abort?.abort();
-  }
-  clear() {
-    this.suspend();
-    this.url = null;
-    this.resources = new Map();
-  }
-  take(url: string): MediaWarmup {
-    if (this.url !== url) return new Map();
-    const resources = this.resources;
-    this.clear();
-    return resources;
+    this.enabled = false;
+    this.generation++;
+    clearTimeout(this.retryTimer);
+    clearTimeout(this.deadline);
+    this.controller?.abort();
+    this.controller = null;
+    this.running = null;
+    this.pending.clear();
   }
 
-  private async load(
-    item: MediaItem,
-    resources: MediaWarmup,
-    signal: AbortSignal,
-    nativeHls: boolean,
-  ) {
-    let remaining = PRELOAD_BYTES;
-    const read = async (url: string, limit: number, range = false) => {
-      const parsed = new URL(url);
-      if (parsed.protocol !== "https:" || parsed.username || parsed.password)
-        throw new Error("Unsupported preload URL");
-      signal.throwIfAborted();
-      const started = performance.now();
-      const response = await fetch(url, {
-        signal,
-        credentials: "omit",
-        priority: "low",
-        ...(range ? { headers: { Range: `bytes=0-${limit - 1}` } } : {}),
-      });
-      if (!response.ok || !response.body) {
-        await response.body?.cancel();
-        throw new Error("Preload unavailable");
-      }
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let size = 0;
-      try {
-        if (
-          Number(response.headers.get("content-length")) >
-          Math.min(limit, remaining)
-        )
-          throw new Error("Preload too large");
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          size += value.byteLength;
-          if (size > limit || size > remaining)
-            throw new Error("Preload limit");
-          chunks.push(value);
+  reconnect() {
+    if (!this.enabled || this.running) return;
+    clearTimeout(this.retryTimer);
+    this.enabled = false;
+    void this.resume();
+  }
+
+  claim() {
+    this.claimed = true;
+    // The active loader owns retries now. Keep its already-started work alive.
+    clearTimeout(this.retryTimer);
+    return this;
+  }
+
+  dispose() {
+    this.disposed = true;
+    this.suspend();
+    this.clear();
+  }
+
+  /** Never blocks on speculative retries or on a different rendition. */
+  async wait(url: string): Promise<Resource | undefined> {
+    const cached = this.get(url);
+    if (cached) return cached;
+    await this.pending.get(url)?.catch(() => undefined);
+    return this.get(url);
+  }
+
+  private start(): Promise<void> {
+    const generation = ++this.generation;
+    const controller = new AbortController();
+    this.controller = controller;
+    this.deadline = setTimeout(() => controller.abort(), DEADLINE_MS);
+    this.running = this.load(controller.signal)
+      .then(() => {
+        if (generation === this.generation) this.complete = true;
+      })
+      .catch((error: unknown) => {
+        if (generation !== this.generation) return;
+        if (error instanceof PreloadLimit) this.complete = true;
+        else if (this.enabled && !this.claimed) {
+          const delay = RETRY_DELAYS[this.failures++];
+          if (delay !== undefined)
+            this.retryTimer = setTimeout(() => {
+              if (
+                generation === this.generation &&
+                this.enabled &&
+                !this.claimed
+              )
+                void this.start();
+            }, delay);
         }
+      })
+      .finally(() => {
+        if (generation === this.generation) {
+          clearTimeout(this.deadline);
+          this.running = null;
+          this.controller = null;
+        }
+      });
+    return this.running;
+  }
+
+  private async load(signal: AbortSignal) {
+    let remaining =
+      PRELOAD_BYTES -
+      [...this.values()].reduce((n, r) => n + r.data.byteLength, 0);
+    const read = (
+      url: string,
+      limit: number,
+      range = false,
+    ): Promise<Resource> => {
+      signal.throwIfAborted();
+      const cached = this.get(url);
+      if (cached) return Promise.resolve(cached);
+      const request = (async () => {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "https:" || parsed.username || parsed.password)
+          throw new PreloadLimit("Unsupported preload URL");
+        const started = performance.now();
+        const response = await fetch(url, {
+          signal,
+          credentials: "omit",
+          priority: "low",
+          ...(range ? { headers: { Range: `bytes=0-${limit - 1}` } } : {}),
+        });
+        if (!response.ok || !response.body) {
+          await response.body?.cancel();
+          if (
+            response.status >= 400 &&
+            response.status < 500 &&
+            response.status !== 429
+          )
+            throw new PreloadLimit("Preload unavailable");
+          throw new Error("Preload unavailable");
+        }
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let size = 0;
+        try {
+          if (
+            Number(response.headers.get("content-length")) >
+            Math.min(limit, remaining)
+          )
+            throw new PreloadLimit("Preload too large");
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            size += value.byteLength;
+            if (size > limit || size > remaining)
+              throw new PreloadLimit("Preload limit");
+            chunks.push(value);
+          }
+          signal.throwIfAborted();
+        } finally {
+          await reader.cancel().catch(() => {});
+        }
+        // Suspension can race the asynchronous reader cleanup as well as reads.
         signal.throwIfAborted();
-      } finally {
-        await reader.cancel().catch(() => {});
-      }
-      remaining -= size;
-      const data = new Uint8Array(size);
-      let offset = 0;
-      for (const chunk of chunks) {
-        data.set(chunk, offset);
-        offset += chunk.length;
-      }
-      const result = {
-        data: data.buffer,
-        url: response.url || url,
-        loadMs: Math.max(1, performance.now() - started),
-      };
-      // Partial MP4 bytes warm the HTTP cache but are never treated as a file.
-      const contentRange = response.headers.get("content-range");
-      const complete =
-        response.status === 200 ||
-        (contentRange &&
-          new RegExp(`^bytes 0-${size - 1}/${size}$`).test(contentRange));
-      if (!range || complete) resources.set(url, result);
-      return result;
+        remaining -= size;
+        const data = new Uint8Array(size);
+        let offset = 0;
+        for (const chunk of chunks) {
+          data.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const result = {
+          data: data.buffer,
+          url: response.url || url,
+          loadMs: Math.max(1, performance.now() - started),
+        };
+        const contentRange = response.headers.get("content-range");
+        const complete =
+          response.status === 200 ||
+          (contentRange &&
+            new RegExp(`^bytes 0-${size - 1}/${size}$`).test(contentRange));
+        // Partial MP4 bytes may warm HTTP cache, but cannot become a playable blob.
+        if (!range || complete) this.set(url, result);
+        return result;
+      })();
+      this.pending.set(url, request);
+      void request
+        .finally(() => {
+          if (this.pending.get(url) === request) this.pending.delete(url);
+        })
+        .catch(() => {});
+      return request;
     };
-    if (item.playback.mimeType === "video/mp4") {
-      await read(item.playback.url, MP4_BYTES, true);
+    if (this.item.playback.mimeType === "video/mp4") {
+      await read(this.item.playback.url, MP4_BYTES, true);
       return;
     }
-    let url = item.playback.url;
+    let url = this.item.playback.url;
     for (let depth = 0; depth < 3; depth++) {
       const resource = await read(url, 64 * 1024);
       const text = new TextDecoder().decode(resource.data);
@@ -140,15 +229,12 @@ export class MediaPreloader {
           : [];
       });
       if (variants.length) {
-        // Native HLS starts from the server's first rendition. hls.js starts
-        // from its lowest level before estimating bandwidth. Warm one only.
-        if (!nativeHls) variants.sort((a, b) => a.bandwidth - b.bandwidth);
+        if (!this.nativeHls) variants.sort((a, b) => a.bandwidth - b.bandwidth);
         url = new URL(variants[0]!.path, resource.url).href;
         continue;
       }
-      // Avoid stale live manifests and guessing encrypted/byte-range layouts.
       if (!lines.includes("#EXT-X-ENDLIST")) {
-        resources.clear();
+        this.clear();
         return;
       }
       if (lines.some((line) => /^#EXT-X-(KEY|BYTERANGE):/.test(line))) return;
@@ -168,16 +254,44 @@ export class MediaPreloader {
   }
 }
 
-/** Keep hls.js lazy: this adapter has only type imports from the large engine. */
-export function warmLoader(HlsClass: typeof Hls, resources: MediaWarmup) {
+/** One upcoming item. Completed bytes survive pause; cancelled work can resume. */
+export class MediaPreloader {
+  private target: MediaWarmup | null = null;
+  prepare(item: MediaItem, nativeHls = false): Promise<void> {
+    if (this.target?.item.playback.url !== item.playback.url) {
+      this.clear();
+      this.target = new MediaWarmup(item, nativeHls);
+    }
+    return this.target!.resume();
+  }
+  suspend() {
+    this.target?.suspend();
+  }
+  reconnect() {
+    this.target?.reconnect();
+  }
+  clear() {
+    this.target?.dispose();
+    this.target = null;
+  }
+  take(url: string): MediaWarmup | undefined {
+    if (this.target?.item.playback.url !== url) return undefined;
+    const target = this.target;
+    this.target = null;
+    return target.claim();
+  }
+}
+
+/** No runtime engine import here: MP4 and unsupported browsers keep it lazy. */
+export function warmLoader(HlsClass: typeof Hls, resources?: MediaWarmup) {
   return class extends HlsClass.DefaultConfig.loader {
-    private stopped = false;
+    private generation = 0;
     override abort() {
-      this.stopped = true;
+      this.generation++;
       super.abort();
     }
     override destroy() {
-      this.stopped = true;
+      this.generation++;
       super.destroy();
     }
     override load(
@@ -185,22 +299,24 @@ export function warmLoader(HlsClass: typeof Hls, resources: MediaWarmup) {
       config: LoaderConfiguration,
       callbacks: LoaderCallbacks<LoaderContext>,
     ) {
-      const cached =
+      const generation = ++this.generation;
+      const pending =
         !context.rangeStart && !context.rangeEnd
-          ? resources.get(context.url)
+          ? resources?.wait(context.url)
           : undefined;
-      if (!cached) return super.load(context, config, callbacks);
+      if (!pending) return super.load(context, config, callbacks);
       this.context = context;
-      this.stats.loaded = this.stats.total = cached.data.byteLength;
-      const now = performance.now();
-      // Use measured network time, not memory speed, for ABR estimation.
-      this.stats.loading = {
-        start: now - cached.loadMs,
-        first: now - cached.loadMs,
-        end: now,
-      };
-      queueMicrotask(() => {
-        if (this.stopped) return;
+      void pending.then((cached) => {
+        if (generation !== this.generation) return;
+        if (!cached) return super.load(context, config, callbacks);
+        this.stats.loaded = this.stats.total = cached.data.byteLength;
+        const now = performance.now();
+        // Network speed, not memory speed, must feed the quality estimator.
+        this.stats.loading = {
+          start: now - cached.loadMs,
+          first: now - cached.loadMs,
+          end: now,
+        };
         callbacks.onSuccess(
           {
             url: cached.url,

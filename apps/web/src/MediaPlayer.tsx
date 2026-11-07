@@ -14,6 +14,8 @@ import type { SessionController, SessionSnapshot } from "@mofied/session";
 import { watchPlaybackHealth } from "./playback-health";
 import { MediaPreloader, permitsPreload, warmLoader } from "./media-preload";
 import { watchVideoPresentation } from "./video-presentation";
+import { canBufferHls, loadHls } from "./streaming";
+import { useLoadingNotice } from "./use-loading-notice";
 
 export type MediaHandle = { synchronize: () => void };
 
@@ -60,6 +62,15 @@ export const MediaPlayer = forwardRef<
     [],
   );
   const t = copy[locale];
+  const loadingNotice = useLoadingNotice(
+    source,
+    !preview &&
+      !!item &&
+      state.shouldPlay &&
+      (state.status === "loading" ||
+        state.status === "buffering" ||
+        presentedSource !== source),
+  );
 
   useEffect(() => {
     if (preview || !item) return;
@@ -161,23 +172,40 @@ export const MediaPlayer = forwardRef<
     }))
       video.addEventListener(event, handler);
     document.addEventListener("visibilitychange", visibleAgain);
+    const stopDownloads = () => {
+      // WebKit cancels XHR before pagehide, which otherwise lets HLS retry into
+      // a departing document. Do not preventDefault or present an unload prompt.
+      hlsRef.current?.stopLoad();
+      warmup?.suspend();
+      preloader.current.suspend();
+    };
     const load = async () => {
+      let Engine: typeof Hls | undefined;
       if (
         item.playback.mimeType === "application/vnd.apple.mpegurl" &&
-        !video.canPlayType("application/vnd.apple.mpegurl")
+        canBufferHls()
       ) {
-        // Native HLS and MP4 playback never download the fallback engine.
-        const { default: Hls } = await import("hls.js");
+        try {
+          const Hls = await loadHls();
+          if (Hls.isSupported()) Engine = Hls;
+        } catch (error) {
+          if (!video.canPlayType("application/vnd.apple.mpegurl")) throw error;
+        }
         if (cancelled) return;
-        if (!Hls.isSupported()) return failed();
+      }
+      if (Engine) {
+        const Hls = Engine;
         const hls = new Hls({
           loader: warmLoader(Hls, warmup),
+          // Match the warmed opening rendition; subsequent quality adapts normally.
+          startLevel: 0,
           maxBufferLength: 20,
           maxMaxBufferLength: 40,
           backBufferLength: 0,
           enableWorker: true,
         });
         hlsRef.current = hls;
+        window.addEventListener("beforeunload", stopDownloads);
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (!data.fatal || cancelled) return;
           if (recoveries++ < 2 && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
@@ -196,10 +224,16 @@ export const MediaPlayer = forwardRef<
         hls.loadSource(item.playback.url);
         hls.attachMedia(video);
       } else {
+        if (
+          item.playback.mimeType === "application/vnd.apple.mpegurl" &&
+          !video.canPlayType("application/vnd.apple.mpegurl")
+        )
+          return failed();
         const cached =
           item.playback.mimeType === "video/mp4"
-            ? warmup.get(item.playback.url)
+            ? await warmup?.wait(item.playback.url)
             : undefined;
+        if (cancelled) return;
         if (cached)
           objectUrl = URL.createObjectURL(
             new Blob([cached.data], { type: "video/mp4" }),
@@ -209,7 +243,8 @@ export const MediaPlayer = forwardRef<
       if (session.getSnapshot().shouldPlay) void play();
     };
     void load().catch(failed);
-    return () => {
+    const cleanup = () => {
+      if (cancelled) return;
       cancelled = true;
       if (synchronize.current === sync) synchronize.current = () => {};
       stopWatching();
@@ -222,13 +257,24 @@ export const MediaPlayer = forwardRef<
       }))
         video.removeEventListener(event, handler);
       document.removeEventListener("visibilitychange", visibleAgain);
+      window.removeEventListener("beforeunload", stopDownloads);
+      window.removeEventListener("pagehide", leavePage);
       hlsRef.current?.destroy();
       hlsRef.current = null;
+      warmup?.dispose();
       video.pause();
       video.removeAttribute("src");
       video.load();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
+    const leavePage = () => {
+      if (initialized) progress();
+      // React does not unmount when the document leaves. Abort before browser
+      // cancellation can trigger HLS retries in a departing document.
+      cleanup();
+    };
+    window.addEventListener("pagehide", leavePage);
+    return cleanup;
   }, [
     item?.id,
     item?.playback.url,
@@ -297,10 +343,12 @@ export const MediaPlayer = forwardRef<
         state.status === "reminder" ||
         state.navigating)
     ) {
-      void preloader.current.prepare(
-        next,
-        !!ref.current?.canPlayType("application/vnd.apple.mpegurl"),
-      );
+      if (
+        next.playback.mimeType === "application/vnd.apple.mpegurl" &&
+        canBufferHls()
+      )
+        void loadHls().catch(() => {});
+      void preloader.current.prepare(next, !canBufferHls());
     } else preloader.current.suspend();
   }, [
     session,
@@ -311,9 +359,37 @@ export const MediaPlayer = forwardRef<
     state.backgrounded,
     state.navigating,
     state.remainingMs === 0,
+    attempt,
     preview,
   ]);
-  useEffect(() => () => preloader.current.clear(), []);
+  useEffect(() => {
+    const reconnect = () => {
+      const connection = (
+        navigator as Navigator & {
+          connection?: { saveData?: boolean; effectiveType?: string };
+        }
+      ).connection;
+      if (
+        permitsPreload(connection) &&
+        (!session.plan.expiresAt ||
+          Date.parse(session.plan.expiresAt) > Date.now())
+      )
+        preloader.current.reconnect();
+    };
+    const leavePage = () => preloader.current.suspend();
+    const returnToPage = (event: PageTransitionEvent) => {
+      if (event.persisted) setAttempt((value) => value + 1);
+    };
+    window.addEventListener("online", reconnect);
+    window.addEventListener("pagehide", leavePage);
+    window.addEventListener("pageshow", returnToPage);
+    return () => {
+      window.removeEventListener("online", reconnect);
+      window.removeEventListener("pagehide", leavePage);
+      window.removeEventListener("pageshow", returnToPage);
+      preloader.current.clear();
+    };
+  }, [session]);
 
   const retry = () => {
     startPosition.current = state.positionMs / 1000;
@@ -357,13 +433,12 @@ export const MediaPlayer = forwardRef<
                   <Play size={28} />
                 </div>
               )}
-            {!preview &&
-              (state.status === "loading" || state.status === "buffering") && (
-                <div className="player-status" role="status">
-                  <span className="loader" />
-                  {state.status === "loading" ? t.loading : t.buffering}
-                </div>
-              )}
+            {loadingNotice && (
+              <div className="player-status" role="status">
+                <span className="loader" />
+                {state.status === "loading" ? t.loading : t.buffering}
+              </div>
+            )}
             {state.status === "autoplay-blocked" && (
               <button className="player-message" onClick={togglePlayback}>
                 <Play size={28} />
