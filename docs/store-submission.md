@@ -2,28 +2,60 @@
 
 Version **0.1.1 (2)** removes saved-session restoration. Native app openings,
 including returns from the background, request a fresh Faqieh plan. The updated
-Arabic/English listing descriptions, release notes and reviewer instructions are
-prepared under ignored `artifacts/fresh-sessions/listing/`.
+listing descriptions and reviewer instructions explain that viewing progress is
+no longer saved. Existing artwork, rights declarations and release controls remain
+in place.
 
 Current update status:
 
-| Store             | 0.1.1 update status                                                                                                  | Release control to retain                                      |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Apple             | Signed build uploaded successfully at 00:36 Asia/Amman; processing/review selection still needs console verification | Manual release                                                 |
-| Google Play       | Signed AAB prepared; not uploaded or submitted yet                                                                   | Managed Publishing enabled                                     |
-| Huawei AppGallery | Signed APK prepared; not uploaded or submitted yet                                                                   | 1 January 2027, 00:00 Asia/Amman / 31 December 2026, 21:00 UTC |
+| Store             | 0.1.1 update status                                              | Release control                                                |
+| ----------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| Apple             | **Waiting for Review**, submitted 8 November at 10:23 Asia/Amman | Manual release                                                 |
+| Google Play       | **Review requested**; automated quick checks running             | Managed Publishing enabled                                     |
+| Huawei AppGallery | **Production Submitted / Reviewing**, verified 8 November        | 1 January 2027, 00:00 Asia/Amman / 31 December 2026, 21:00 UTC |
 
-Chrome automation could list the reopened store tabs but failed to read or operate
-the pages, including after reconnecting the automation session. The browser tool
-rejected automated Chrome restart and prohibited alternate restart mechanisms.
-A manual full quit/reopen is pending. No new review submission or public native
-release is claimed. The previous submissions below have not been withdrawn or
-replaced yet; Apple 0.1.0 was most recently observed In Review.
+The owner-approved background AppleScript connection to signed-in Chrome recovered
+console control without interrupting other work. Apple and Huawei's previous
+review submissions were withdrawn so the new build and corrected metadata could
+replace them. No public release action was taken.
+
+- Apple app `6831969465`, version **0.1.1 (2)**, build ID
+  `c08fbe0a-baf9-4ffd-bb78-2ac989fe0037`.
+  [New review submission](https://appstoreconnect.apple.com/apps/6831969465/distribution/reviewsubmissions/details/a0f7ad00-e5df-44ba-b953-98980e512cac):
+  `a0f7ad00-e5df-44ba-b953-98980e512cac`. The submitted version form confirms
+  **Manually release this version** and the new fresh-session description/notes.
+- Google Play app `4975812569745588942`: submitted three changes at approximately
+  **10:34 Asia/Amman**. The [publishing overview](https://play.google.com/console/u/1/developers/8873333972257518553/app/4975812569745588942/publishing)
+  places **production 0.1.1 (2)**, **owner-only Alpha 0.1.1 (2)**, and the corrected
+  Arabic full description under **Changes in review**. Production and Alpha each
+  use release `2` on their existing tracks. Google's automated quick checks were
+  still running at verification; the console says the changes proceed to review
+  when those checks pass. No successful check result or approval is claimed yet.
+  **Managed Publishing is enabled**. The prior 17 approved changes remain held;
+  no Publish action was taken. Tester lists and country availability were retained.
+- Huawei app `119708951`, production version ID `2078592166849957440`,
+  **0.1.1 (2)**. The accepted APK upload is dated 8 November at 10:24:46
+  Asia/Amman. The read-only submitted form confirms **Use testing version: No**,
+  the same 199 territories excluding mainland China, and the exact January 1
+  schedule above. The separate owner-restricted 0.1.0 test version is unchanged.
+
+Updated store text and console verification records are under ignored
+`artifacts/fresh-sessions/listing/` and `artifacts/fresh-sessions/browser/`.
+The previous submission record below is historical and is superseded by this
+update where noted.
 
 Apple accepted the 0.1.1 upload with nonblocking missing-dSYM warnings for the
-precompiled React, ReactNativeDependencies and Hermes frameworks. The upload
-itself succeeded. Release build evidence, UI checks and SHA-256 hashes are under
-`artifacts/fresh-sessions/`; see the current verification addendum.
+precompiled React, ReactNativeDependencies and Hermes frameworks. Framework-level
+crash symbolication may be limited; upload and review submission succeeded.
+Release build evidence and UI checks are under `artifacts/fresh-sessions/`; see
+[verification.md](verification.md) for the completed local validation and deployed
+web behavior.
+
+| Artifact          | SHA-256                                                            |
+| ----------------- | ------------------------------------------------------------------ |
+| iOS App Store IPA | `099ab4b10c11be7785f7751e61441aba33a2365f704461ab51595830255604ce` |
+| Android AAB       | `7640c3910aa7115fa0404e3ee0634a351d5154312f918f0cee3044e395ef4408` |
+| Android APK       | `161c5accd3110c1999ca5251e12bc7f3a713904be3e43e9884ffd81166dae570` |
 
 ---
 

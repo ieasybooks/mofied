@@ -61,6 +61,14 @@ Wrangler's first authentication refresh failed on the network; the normal deploy
 succeeded on retry with Node's IPv4-first DNS order. No TLS verification or other
 security protection was disabled.
 
+The 0.1.1 (2) store update was submitted through signed-in Chrome on 8 November.
+Apple confirms Waiting for Review with manual release. Huawei confirms production
+Submitted / Reviewing with the owner-approved January 1, 2027 schedule. Google
+confirms Changes in review with Managed Publishing enabled; its automatic quick
+checks were still running. These console checks establish submission settings,
+not store approval. See [store-submission.md](store-submission.md) for identifiers
+and artifact hashes.
+
 Evidence is under ignored `artifacts/fresh-sessions/`; repeatable cases are in
 `fresh-sessions.test.ts`, `tests/fresh-sessions.spec.ts` and
 `tests/native/session/`. These are local builds, browser tests and emulator/simulator
