@@ -121,3 +121,17 @@ test("a malformed start is ignored and the address is cleaned", async ({
   expect(requests).toEqual([""]);
   expect(new URL(page.url()).search).toBe("?test-session=1");
 });
+
+test("Info, sound and share leave the time pill room on a 320px phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await start(page, shared());
+  const controls = (await page.locator(".header-controls").boundingBox())!;
+  const budget = (await page.locator(".budget").boundingBox())!;
+  expect(budget.x - (controls.x + controls.width)).toBeGreaterThanOrEqual(8);
+  expect(budget.x + budget.width).toBeLessThanOrEqual(300);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+});

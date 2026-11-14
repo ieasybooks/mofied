@@ -1106,6 +1106,15 @@ kbd {
     font-size: 14px;
   }
 }
+@media (max-width: 359px) {
+  /* Info, sound and share leave the time pill little room on 320px phones. */
+  .budget {
+    padding: 0 12px;
+  }
+  .budget-clock {
+    display: none;
+  }
+}
 @media (max-height: 640px) and (max-width: 900px) {
   .reminder-body {
     top: 16%;
