@@ -563,7 +563,8 @@ function SessionPage({
 
 /**
  * The system share sheet where the browser has one; otherwise copy the link.
- * A dismissed share sheet is not an error.
+ * The title and link travel as one text, as on Faqieh, so every destination,
+ * including Copy, gets both. A dismissed share sheet is not an error.
  */
 async function shareMedia(
   media: MediaItem,
@@ -573,7 +574,7 @@ async function shareMedia(
   const url = shareLink(media.mediaId);
   if (typeof navigator.share === "function") {
     try {
-      await navigator.share({ title: media.title, url });
+      await navigator.share({ text: `${media.title}\n${url}` });
       return;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;

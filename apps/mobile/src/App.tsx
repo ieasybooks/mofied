@@ -219,15 +219,15 @@ function LoadedApp() {
   );
 }
 
-/** The OS share sheet; leaving for another app keeps this session. */
+/**
+ * The OS share sheet; leaving for another app keeps this session. Title and
+ * link travel as one message: separate items make iOS Copy drop the link.
+ */
 async function shareMedia(media: MediaItem) {
-  const url = shareLink(media.mediaId);
   try {
-    await ShareSheet.share(
-      Platform.OS === "ios"
-        ? { url, message: media.title }
-        : { message: `${media.title}\n${url}`, title: media.title },
-    );
+    await ShareSheet.share({
+      message: `${media.title}\n${shareLink(media.mediaId)}`,
+    });
   } catch {
     // Dismissal and an unavailable sheet both leave playback as it was.
   }

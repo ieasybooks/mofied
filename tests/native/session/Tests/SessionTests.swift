@@ -83,4 +83,51 @@ final class SessionTests: XCTestCase {
     capture("A relaunch gets a fresh session")
     pause()
   }
+
+  func open(_ link: String) {
+    XCUIDevice.shared.system.open(URL(string: link)!)
+    XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+  }
+
+  func testPausingThenMovingOnPlaysTheNextMedia() {
+    app.terminate(); app.launch()
+    _ = opening()
+    pause()
+    app.swipeUp(velocity: .fast)
+    // A pause belongs to the media it was made on.
+    waitForLabel("إيقاف مؤقت")
+    capture("The next media plays after a paused one")
+  }
+
+  func testShareSheetKeepsTheSessionPlaying() {
+    app.terminate(); app.launch()
+    let first = opening()
+    app.buttons["مشاركة المادة"].tap()
+    let copy = app.cells["Copy"]
+    XCTAssertTrue(copy.waitForExistence(timeout: 10), "The system share sheet should open")
+    capture("System share sheet")
+    copy.tap()
+    XCTAssertTrue(session.waitForExistence(timeout: 10))
+    // Title and link travel together; check with `xcrun simctl pbpaste`.
+    XCTAssertEqual(session.identifier, first)
+    waitForLabel("إيقاف مؤقت")
+  }
+
+  func testShareLinksStartNewSessionsAndPlainLinksKeepTheCurrentOne() {
+    app.terminate(); app.launch()
+    let first = opening()
+    open("mofied://")
+    XCTAssertEqual(session.identifier, first, "A plain link only brings the app forward")
+    open("mofied://?start=26920")
+    let second = opening(previous: first)
+    capture("A share link opens a new session")
+    XCUIDevice.shared.press(.home)
+    XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+    open("mofied://?start=44445")
+    _ = opening(previous: second)
+    app.terminate()
+    // A cold launch from a share link.
+    open("mofied://?start=26920")
+    _ = opening()
+  }
 }

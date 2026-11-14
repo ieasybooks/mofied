@@ -54,10 +54,7 @@ test("a phone shares through the system sheet from the header", async ({
   await expect(header).toBeVisible();
   await header.click();
   expect(await page.evaluate(() => (window as any).shareCalls)).toEqual([
-    {
-      title: media("first").title,
-      url: "https://mofied.com/?start=4321",
-    },
+    { text: `${media("first").title}\nhttps://mofied.com/?start=4321` },
   ]);
   await expect(page.locator(".share-notice")).toHaveCount(0);
   await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
