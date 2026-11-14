@@ -1,53 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { legacySession, media, plan, position, serveMp4 } from "./fixtures";
+import { media, plan, position, serveMp4 } from "./fixtures";
 
 const api = "https://api.example.test/session";
 const origin = "http://127.0.0.1:4173/";
-
-test("valid legacy progress is removed without reading it or writing new progress", async ({
-  page,
-}) => {
-  await page.addInitScript((saved) => {
-    sessionStorage.setItem("mofied.session.v1.production", saved);
-    sessionStorage.setItem("mofied.session.v1.development", saved);
-    sessionStorage.setItem("unrelated", "keep");
-    const reads: string[] = [],
-      writes: string[] = [];
-    const get = Storage.prototype.getItem,
-      set = Storage.prototype.setItem;
-    Storage.prototype.getItem = function (key) {
-      reads.push(key);
-      return get.call(this, key);
-    };
-    Storage.prototype.setItem = function (key, value) {
-      writes.push(key);
-      return set.call(this, key, value);
-    };
-    Object.assign(window, { storageAccess: { reads, writes } });
-  }, legacySession());
-  let calls = 0;
-  await page.route(api, (route) => {
-    calls++;
-    return route.fulfill({ json: { ...plan(), items: [media("fresh")] } });
-  });
-  await serveMp4(page);
-  await page.goto(origin);
-  await expect(page.locator("main")).toHaveAttribute("data-item-id", "fresh");
-  await expect.poll(() => position(page)).toBeGreaterThan(2);
-  expect(await position(page)).toBeLessThan(5);
-  await page.locator(".media-tap").click();
-  await page.evaluate(() =>
-    window.dispatchEvent(new PageTransitionEvent("pagehide")),
-  );
-  expect(await page.evaluate(() => (window as any).storageAccess)).toEqual({
-    reads: [],
-    writes: [],
-  });
-  expect(await page.evaluate(() => ({ ...sessionStorage }))).toEqual({
-    unrelated: "keep",
-  });
-  expect(calls).toBe(1);
-});
 
 test("a failed refresh shows Retry instead of replaying the previous session", async ({
   page,

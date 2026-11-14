@@ -10,14 +10,22 @@ final class SessionTests: XCTestCase {
   override func setUpWithError() throws { continueAfterFailure = false }
 
   func opening(previous: String? = nil) -> String {
-    XCTAssertTrue(session.waitForExistence(timeout: 30), "Fresh API session should load")
+    XCTAssertTrue(session.waitForExistence(timeout: 30), "The API session should load")
     let id = session.identifier
-    if let previous { XCTAssertNotEqual(id, previous, "Reopening must fetch a new server plan") }
+    if let previous { XCTAssertNotEqual(id, previous, "A relaunch must fetch a new server plan") }
     XCTAssertTrue(media.waitForExistence(timeout: 20))
-    let playing = NSPredicate(format: "label == %@", "إيقاف مؤقت")
-    expectation(for: playing, evaluatedWith: media)
-    waitForExpectations(timeout: 20)
+    waitForLabel("إيقاف مؤقت")
     return id
+  }
+  func waitForLabel(_ label: String) {
+    expectation(for: NSPredicate(format: "label == %@", label), evaluatedWith: media)
+    waitForExpectations(timeout: 20)
+  }
+  func leaveAndReturn() {
+    XCUIDevice.shared.press(.home)
+    XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+    app.activate()
+    XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
   }
   func pause() {
     if media.label == "إيقاف مؤقت" { media.tap() }
@@ -27,10 +35,21 @@ final class SessionTests: XCTestCase {
     let a = XCTAttachment(screenshot: app.screenshot())
     a.name = name; a.lifetime = .keepAlways; add(a)
   }
-  func testFreshSessionsAndInfoContinuity() {
+  func testSessionsContinueAcrossAppSwitchesUntilRelaunch() {
     app.terminate(); app.launch()
     let first = opening()
+
+    leaveAndReturn()
+    XCTAssertEqual(session.identifier, first, "Returning must continue the same session")
+    waitForLabel("إيقاف مؤقت")
+    capture("A playing session continues after leaving the app")
+
     pause()
+    leaveAndReturn()
+    XCTAssertEqual(session.identifier, first)
+    XCTAssertEqual(media.label, "تشغيل", "A manual pause survives leaving the app")
+    capture("A paused session stays paused after leaving the app")
+
     app.buttons["عن التطبيق"].tap()
     app.buttons["سياسة الخصوصية"].tap()
     XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "لا يُحفظ تقدم الجلسة")).firstMatch.waitForExistence(timeout: 10))
@@ -40,21 +59,9 @@ final class SessionTests: XCTestCase {
     XCTAssertEqual(media.label, "تشغيل")
     capture("Info preserves the current paused session")
 
-    XCUIDevice.shared.press(.home)
-    XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
-    app.activate()
-    let second = opening(previous: first)
-    capture("Paused foreground return gets a fresh playing session")
-
-    XCUIDevice.shared.press(.home)
-    XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
-    app.activate()
-    let third = opening(previous: second)
-    capture("Playing foreground return gets a fresh session")
-
-    pause(); app.terminate(); app.launch()
-    _ = opening(previous: third)
-    capture("Cold relaunch gets a fresh session")
+    app.terminate(); app.launch()
+    _ = opening(previous: first)
+    capture("A relaunch gets a fresh session")
     pause()
   }
 }

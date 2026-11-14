@@ -51,9 +51,6 @@ describe("session contract", () => {
         items: [{ ...media, pageUrl: "javascript:alert(1)" }],
       }).success,
     ).toBe(false);
-    expect(() =>
-      parseSession({ ...plan, expiresAt: "2000-01-01T00:00:00.000Z" }),
-    ).toThrow("expired");
   });
   it("does not substitute fixtures when the API fails or returns a different schema", async () => {
     const original = globalThis.fetch;
@@ -96,7 +93,7 @@ describe("session contract", () => {
       vi.useRealTimers();
     }
   });
-  it("distinguishes configuration, network, HTTP, malformed, invalid, expired and cancelled requests", async () => {
+  it("distinguishes configuration, network, HTTP, malformed, invalid and cancelled requests", async () => {
     const original = globalThis.fetch;
     try {
       expect(() => createHttpProvider("http://example.test")).toThrow("HTTPS");
@@ -105,13 +102,6 @@ describe("session contract", () => {
         [new Response("", { status: 503 }), "http"],
         [new Response("not json"), "invalid-json"],
         [Response.json({ schemaVersion: 99 }), "invalid-plan"],
-        [
-          Response.json({
-            ...fixture(),
-            expiresAt: "2000-01-01T00:00:00.000Z",
-          }),
-          "expired",
-        ],
       ] as const) {
         globalThis.fetch = vi.fn().mockResolvedValue(response);
         await expect(provider.load()).rejects.toMatchObject({ code });

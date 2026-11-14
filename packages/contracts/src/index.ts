@@ -51,7 +51,6 @@ export const SessionPlanSchema = z
     schemaVersion: z.literal(1),
     id,
     locale: z.enum(["ar", "en"]),
-    expiresAt: z.iso.datetime().nullable(),
     policy: z.object({
       maxActiveMs: milliseconds.positive().max(86_400_000),
       limitBehavior: z.literal("finish-current-item"),
@@ -85,7 +84,6 @@ export type SessionLoadErrorCode =
   | "http"
   | "invalid-json"
   | "invalid-plan"
-  | "expired"
   | "timeout"
   | "aborted";
 
@@ -114,10 +112,7 @@ export function parseSession(value: unknown): SessionPlan {
   const result = SessionPlanSchema.safeParse(value);
   if (!result.success)
     throw new SessionLoadError("invalid-plan", "Invalid session plan");
-  const plan = result.data;
-  if (plan.expiresAt && Date.parse(plan.expiresAt) <= Date.now())
-    throw new SessionLoadError("expired", "Session plan has expired");
-  return plan;
+  return result.data;
 }
 
 export function createHttpProvider(
@@ -162,7 +157,7 @@ export function createHttpProvider(
             );
           throw error;
         });
-        // No fixture fallback. Invalid, expired and failed API responses remain errors.
+        // No fixture fallback. Invalid and failed API responses remain errors.
         return parseSession(value);
       } catch (error) {
         if (error instanceof SessionLoadError) throw error;

@@ -59,13 +59,7 @@ export function App() {
     else session?.closeAbout();
   };
   useEffect(() => {
-    // Remove legacy progress after upgrading. Sessions now live only in memory.
-    try {
-      sessionStorage.removeItem("mofied.session.v1.production");
-      sessionStorage.removeItem("mofied.session.v1.development");
-    } catch {
-      /* Storage can be disabled. Loading a fresh session does not need it. */
-    }
+    // Sessions live only in memory; a back/forward-cache return loads anew.
     const reopen = (event: PageTransitionEvent) => {
       if (event.persisted) setAttempt((value) => value + 1);
     };

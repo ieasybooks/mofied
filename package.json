@@ -47,7 +47,6 @@
     "workerd"
   ],
   "patchedDependencies": {
-    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch",
-    "@react-native-async-storage/async-storage@2.2.0": "patches/@react-native-async-storage%2Fasync-storage@2.2.0.patch"
+    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch"
   }
 }

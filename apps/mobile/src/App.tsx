@@ -16,7 +16,6 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -51,7 +50,7 @@ import { PagedSession } from "./SessionPager";
 import type { Direction } from "@mofied/session";
 import { NativeMedia } from "./NativeMedia";
 import { loadSession } from "./provider";
-import { watchFreshSessions } from "./fresh-sessions";
+import { watchSessions } from "./session-lifetime";
 import { ContactLinks } from "./ContactLinks";
 import { useSessionLifecycle } from "./use-session-lifecycle";
 import { Reminder } from "./Reminder";
@@ -139,17 +138,9 @@ function LoadedApp() {
     if (open) session?.openAbout();
     else session?.closeAbout();
   };
-  useEffect(() => {
-    // Migration only: never read or save session progress again.
-    for (const key of [
-      "mofied.session.v1.production",
-      "mofied.session.v1.development",
-    ])
-      void AsyncStorage.removeItem(key).catch(() => {});
-  }, []);
   useEffect(
     () =>
-      watchFreshSessions({
+      watchSessions({
         appState: Platform.OS === "web" ? undefined : AppState,
         load: loadSession,
         loading: () => {

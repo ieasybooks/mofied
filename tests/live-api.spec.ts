@@ -38,9 +38,6 @@ test("deployed-origin API, HLS playback and fresh sessions on reload", async ({
   expect(response.headers()["cache-control"]).toContain("no-store");
   const plan = parseSession(await response.json());
   expect(plan.locale).toBe("ar");
-  expect(plan.expiresAt && Date.parse(plan.expiresAt)).toBeGreaterThan(
-    Date.now(),
-  );
   await expect(page.locator("main")).toHaveAttribute("data-status", "playing", {
     timeout: 45_000,
   });

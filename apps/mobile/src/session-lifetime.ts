@@ -9,8 +9,12 @@ type AppStateSource = {
   ): { remove(): void };
 };
 
-/** One request per app opening. Inactive/blur alone is not an opening. */
-export function watchFreshSessions({
+/**
+ * One session per app launch. Going to the background pauses it and coming
+ * back resumes it, however long the app was away. Inactive/blur alone
+ * (Control Center, notification drawer) changes nothing.
+ */
+export function watchSessions({
   appState,
   load,
   loading,
@@ -25,45 +29,36 @@ export function watchFreshSessions({
 }) {
   let disposed = false;
   let backgrounded = appState?.currentState === "background";
-  let request: AbortController | undefined;
+  const request = new AbortController();
   let session: SessionController | undefined;
-  const discard = () => {
-    request?.abort();
-    // Stop accounting and release focus immediately, before React unmounts media.
-    session?.setBackgrounded(true);
-    session = undefined;
-  };
-  const open = () => {
-    discard();
-    const current = (request = new AbortController());
-    loading();
-    void load(current.signal).then(
-      (plan) => {
-        if (disposed || current.signal.aborted) return;
-        session = new SessionController(plan);
-        accept(session);
-      },
-      (error: unknown) => {
-        if (!disposed && !current.signal.aborted) fail(error);
-      },
-    );
-  };
+  loading();
+  void load(request.signal).then(
+    (plan) => {
+      if (disposed) return;
+      session = new SessionController(plan);
+      // A plan that arrives while the app is away waits, paused, for its return.
+      if (backgrounded) session.setBackgrounded(true);
+      accept(session);
+    },
+    (error: unknown) => {
+      if (!disposed) fail(error);
+    },
+  );
   const subscription = appState?.addEventListener("change", (state) => {
     if (disposed) return;
     if (state === "background" && !backgrounded) {
       backgrounded = true;
-      discard();
-      loading();
+      session?.setBackgrounded(true);
     } else if (state === "active" && backgrounded) {
       backgrounded = false;
-      open();
+      session?.setBackgrounded(false);
     }
   });
-  if (!backgrounded) open();
-  else loading();
   return () => {
     disposed = true;
     subscription?.remove();
-    discard();
+    request.abort();
+    // Stop accounting and release focus immediately, before React unmounts media.
+    session?.setBackgrounded(true);
   };
 }

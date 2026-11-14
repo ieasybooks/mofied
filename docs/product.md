@@ -31,7 +31,7 @@ This is the behavior baseline for the initial implementation. The approved desig
 | About closes                                       | Resume only if intent was playing before opening                                                    |
 | Browser tab hidden                                 | No app-induced pause; media and reminder transitions continue while browser scheduling permits      |
 | Native background or phone locked                  | Pause media/reminder and session accounting; no PiP/background audio                                |
-| Native foreground return                           | Resume prior play intent; manual pause remains paused                                               |
+| Native foreground return                           | Continue the same session; resume prior play intent; manual pause remains paused                    |
 | Control Center or notification drawer              | Do not pause merely because focus becomes inactive/blurred                                          |
 | Audio interruption                                 | Pause accounting, preserve user intent; resume when the platform reports that resumption is allowed |
 | Timer budget reached                               | Finish the current item, then end; navigation/failure does not start another item                   |
@@ -39,16 +39,18 @@ This is the behavior baseline for the initial implementation. The approved desig
 
 Browser autoplay is subject to browser policy. Web starts muted and offers the approved sound control. Chrome can suspend untouched muted autoplay after tab hiding; the UI reflects an externally blocked player and attempts to resume on return. The continuous hidden-tab test enables sound with a user gesture first. A frozen/discarded tab or sleeping device cannot be made to run on schedule by JavaScript. Delayed reminder callbacks consume only that reminder's remaining duration, never time for media that has not played.
 
-Web title/speaker links open a separate tab. Native links open the system browser; the resulting native background transition ends the current local session, and returning fetches a fresh plan.
+Web title/speaker links open a separate tab. Native links open the system browser; returning continues the same session.
 Native link-opening failures show localized feedback. The time badge describes the current item as finishing after the budget is exhausted.
 
 ## Session lifetime and failure handling
 
 Each web page load or refresh requests a new session from Faqieh with HTTP caching disabled. Returning through browser back/forward cache also requests a fresh plan. Merely hiding a tab does not reset or pause its session.
 
-Native cold launches and returns after an actual `background` transition request a new session, including after manual pause or the ending. Backgrounding immediately stops the old session and cancels its pending request. Stale responses cannot replace the new session. `inactive`/blur alone (Control Center, notification drawer) does not start a new session. Info and language changes retain the current in-memory session.
+Each native app launch requests a new session. Moving to another app, opening a link or locking the phone pauses the session; returning continues the same session where it was, however long the app was away. Only a relaunch (the viewer closed the app, or the OS ended it) starts a new one. A plan that arrives while the app is in the background waits, paused, for its return. `inactive`/blur alone (Control Center, notification drawer) changes nothing. Info and language changes retain the current in-memory session.
 
-Neither client saves plans, playheads, counted time, reminders, replacements or sound preferences. Upgrades remove the legacy session keys; AsyncStorage remains only for that deletion. The shared controller has no serialization/restoration API. Normal media/image caching and next-item preloading still operate within the current session.
+Sessions do not expire.
+
+Neither client saves plans, playheads, counted time, reminders, replacements or sound preferences, and neither uses device storage. The shared controller has no serialization/restoration API. Normal media/image caching and next-item preloading still operate within the current session.
 
 An API error remains an error and offers retry; it never silently substitutes a fixture. Info/privacy stay accessible before a session loads. Requests time out after 15 seconds.
 

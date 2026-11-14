@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import {
-  legacySession,
   finishMedia,
   media,
   plan,
@@ -248,42 +247,6 @@ test("reduced-data mode suppresses speculative downloads but navigation still wo
   await next(page, "second");
   await expect.poll(() => position(page)).toBeGreaterThan(0.2);
   expect(nextRequests).toBeGreaterThan(0);
-});
-
-test("a legacy audible session is discarded and a fresh session starts muted from zero", async ({
-  page,
-}) => {
-  await audiblePolicy(page);
-  await page.addInitScript(
-    (saved) => sessionStorage.setItem("mofied.session.v1.production", saved),
-    legacySession(),
-  );
-  const fresh = plan();
-  fresh.items = [media("new-first"), media("second")];
-  let api = 0;
-  await page.route("https://api.example.test/session", (route) => {
-    api++;
-    return route.fulfill({ json: fresh });
-  });
-  await serveMp4(page);
-  await page.goto("http://127.0.0.1:4173/");
-  await expect(page.locator("main")).toHaveAttribute(
-    "data-item-id",
-    "new-first",
-  );
-  await expect.poll(() => position(page)).toBeGreaterThan(0.2);
-  expect(await position(page)).toBeLessThan(3);
-  await expect(page.locator("video")).toHaveJSProperty("muted", true);
-  expect(api).toBe(1);
-  expect(
-    await page.evaluate(() =>
-      sessionStorage.getItem("mofied.session.v1.production"),
-    ),
-  ).toBeNull();
-  await page.getByRole("button", { name: "تشغيل الصوت", exact: true }).click();
-  await next(page, "second");
-  await expect.poll(() => position(page)).toBeGreaterThan(0.3);
-  await expect(page.locator("video")).toHaveJSProperty("muted", false);
 });
 
 test("late playback callbacks from the outgoing source cannot block or advance the next source", async ({

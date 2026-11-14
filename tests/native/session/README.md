@@ -1,12 +1,12 @@
-# Native fresh-session check
+# Native session lifetime check
 
-This opt-in XCUITest drives an installed Release build of `com.mofied.app` on an iOS simulator. It verifies new server session identities after background returns (playing and manually paused) and process relaunch, plus same-session continuity through Info. It uses four live Faqieh API requests, so do not loop it against the production rate limit.
+This opt-in XCUITest drives an installed Release build of `com.mofied.app` on an iOS simulator. It verifies that one server session continues across background returns (playing and manually paused) and through Info, and that a process relaunch requests a new one. It uses two live Faqieh API requests, so do not loop it against the production rate limit.
 
-Build/install the Release simulator app using MobileBuildMCP, then run:
+Build and install the Release simulator app, then run:
 
 ```sh
-xcodegen generate --spec tests/native/session/project.yml --project artifacts/fresh-sessions/qa
-mobilebuildmcp simulator test --project-path "$PWD/artifacts/fresh-sessions/qa/MofiedSessionQA.xcodeproj" --scheme MofiedSessionQA --simulator-id YOUR_SIMULATOR_ID --derived-data-path "$PWD/artifacts/fresh-sessions/qa-derived"
+xcodegen generate --spec tests/native/session/project.yml --project artifacts/sessions/qa
+xcodebuild test -project artifacts/sessions/qa/MofiedSessionQA.xcodeproj -scheme MofiedSessionQA -destination "id=YOUR_SIMULATOR_ID" -derivedDataPath artifacts/sessions/qa-derived
 ```
 
-The `session-…` native test identifier is an opaque plan identity used only by automation. It is not spoken or drawn in the app. Unit tests in `fresh-sessions.test.ts` cover controlled cancellation, stale responses/errors, inactive-only events, loading while backgrounded, offline recovery and disposal without calling the public API.
+The `session-…` native test identifier is an opaque plan identity used only by automation. It is not spoken or drawn in the app. Unit tests in `session-lifetime.test.ts` cover background and inactive transitions, plans that arrive while the app is away, load failures and disposal without calling the public API.

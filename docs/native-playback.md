@@ -54,10 +54,6 @@ For context teardown, start a reminder, record Mofied's PID and OS request, then
 
 For denial, record `adb shell cmd appops get com.mofied.app TAKE_AUDIO_FOCUS`, temporarily set that operation to `ignore`, and launch/resume the app. Playback and counting must remain stopped. Restore the recorded mode, verify playback still waits for explicit retry, then retry. Always restore the original mode in cleanup. For delayed gain, an emulator GSM call can hold the actual telephony focus lock: keep Mofied foreground while the call is active, request playback, then cancel the simulated call. These are OS checks on an emulator, not physical telephony/audio-route certification.
 
-## Storage during context teardown
-
-The pinned AsyncStorage 2.2.0 dependency closes its process-wide database synchronously in `invalidate()`, which can race a running save. Repeated native reload testing exposed `SQLITE_BUSY`, transaction errors and loss of the saved session. Its small Android patch serializes operations across runtime contexts and queues close after in-flight work. Old queued work observes the shutdown flag and exits; a new context's operations cannot overlap an old transaction or close. The regression blocks a real module's save at the mocked database boundary, destroys that module and starts a second context's save. The original ordering fails; the patched ordering passes. Review this patch when upgrading AsyncStorage.
-
 ## Buffering and recovery
 
 `native-playback-health.ts` reconciles callbacks with current player properties and playhead. Android can deliver `playingChange(false)` after returning to `readyToPlay` and resuming. That callback does not remove play intent.

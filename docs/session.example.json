@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "id": "development-normal-v1",
   "locale": "ar",
-  "expiresAt": null,
   "policy": {
     "maxActiveMs": 600000,
     "limitBehavior": "finish-current-item",

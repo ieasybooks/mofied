@@ -295,9 +295,7 @@ export const MediaPlayer = forwardRef<
     state.wantsToPlay &&
     !state.aboutOpen &&
     !state.backgrounded &&
-    !state.retryRequired &&
-    (!session.plan.expiresAt ||
-      Date.parse(session.plan.expiresAt) > Date.now());
+    !state.retryRequired;
   useEffect(() => {
     if (!warmPoster || !nextPoster) return;
     const connection = (
@@ -328,12 +326,7 @@ export const MediaPlayer = forwardRef<
       }
     ).connection;
     const next = session.upcomingMedia();
-    if (
-      !next ||
-      !permitsPreload(connection) ||
-      (session.plan.expiresAt &&
-        Date.parse(session.plan.expiresAt) <= Date.now())
-    ) {
+    if (!next || !permitsPreload(connection)) {
       preloader.current.clear();
     } else if (
       state.wantsToPlay &&
@@ -369,12 +362,7 @@ export const MediaPlayer = forwardRef<
           connection?: { saveData?: boolean; effectiveType?: string };
         }
       ).connection;
-      if (
-        permitsPreload(connection) &&
-        (!session.plan.expiresAt ||
-          Date.parse(session.plan.expiresAt) > Date.now())
-      )
-        preloader.current.reconnect();
+      if (permitsPreload(connection)) preloader.current.reconnect();
     };
     const leavePage = () => preloader.current.suspend();
     const returnToPage = (event: PageTransitionEvent) => {

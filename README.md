@@ -21,7 +21,7 @@ Open `http://localhost:5173` for the live API. Vite proxies the session request 
 - `/?fixture=missing-portrait`: name without a portrait.
 - `/?fixture=unavailable`: failed stream replaced by a supplied spare.
 
-The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Every page load/refresh and native app opening requests a fresh session. Progress is never saved or restored. Fixtures remain development-only.
+The sample 10-minute budget and 20-second reminder are fixture values, not product-wide limits. Every page load/refresh and native app launch requests a fresh session; leaving and returning to the native app continues the same one. Progress is never saved to the device. Fixtures remain development-only.
 
 ## Web deployment
 

@@ -37,7 +37,6 @@ export function fixture(name: FixtureName = "normal"): SessionPlan {
     schemaVersion: 1,
     id: `development-${name}-v1`,
     locale: "ar",
-    expiresAt: null,
     policy: {
       maxActiveMs: 600_000,
       limitBehavior: "finish-current-item",

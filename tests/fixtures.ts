@@ -28,7 +28,6 @@ export const plan = (durationMs = 2000): SessionPlan => ({
   schemaVersion: 1,
   id: "browser-test",
   locale: "ar",
-  expiresAt: null,
   policy: {
     maxActiveMs: 120_000,
     limitBehavior: "finish-current-item",
@@ -95,17 +94,3 @@ export async function serveMp4(page: Page) {
     });
   });
 }
-
-/** A valid pre-0.1.1 snapshot, used only to verify upgrade cleanup. */
-export const legacySession = (session = plan()) =>
-  JSON.stringify({
-    version: 1,
-    plan: session,
-    index: 0,
-    positionMs: 7500,
-    activeMs: 7500,
-    reminderRemainingMs: 0,
-    completed: [],
-    usedReplacements: [],
-    muted: false,
-  });

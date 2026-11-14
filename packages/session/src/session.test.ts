@@ -27,7 +27,6 @@ function setup(overrides: Partial<SessionPlan> = {}) {
     schemaVersion: 1,
     id: "test",
     locale: "ar",
-    expiresAt: null,
     policy: {
       maxActiveMs: 60_000,
       limitBehavior: "finish-current-item",
