@@ -44,6 +44,25 @@ describe("page settlement and session ownership", () => {
     });
     expect(pager.begin()).toBe(false);
   });
+  it("a committed swipe from a paused media lands on a running reminder", () => {
+    const { session, pager, advance, finish } = setup();
+    session.togglePlayback();
+    pager.begin();
+    pager.preview(1);
+    expect(pager.getSnapshot().neighbor).toMatchObject({
+      item: { kind: "reminder" },
+      wantsToPlay: true,
+      shouldPlay: false,
+    });
+    pager.release(true);
+    finish();
+    advance(1000);
+    expect(session.getSnapshot()).toMatchObject({
+      status: "reminder",
+      wantsToPlay: true,
+      reminderRemainingMs: 19_000,
+    });
+  });
   it("cancels to the same player position and preserves manual pause", () => {
     const { session, pager, finish } = setup();
     session.togglePlayback();

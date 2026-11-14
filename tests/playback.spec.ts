@@ -105,7 +105,7 @@ test("audible swipe and natural transitions retain one authorized element throug
   await expect(page.locator("video")).not.toHaveAttribute("src");
 });
 
-test("manual pause and Info survive preloading and navigation with sound enabled", async ({
+test("manual pause survives Info, and the next media plays with sound enabled", async ({
   page,
 }) => {
   await audiblePolicy(page);
@@ -125,11 +125,12 @@ test("manual pause and Info survive preloading and navigation with sound enabled
     .getByRole("button", { name: "متابعة المشاهدة", exact: true })
     .click();
   expect(await position(page)).toBeCloseTo(before, 1);
-  await next(page, "second");
   await expect(page.locator("video")).toHaveJSProperty("paused", true);
-  expect(await position(page)).toBe(0);
-  await page.locator(".small-pause").click();
+  // A pause belongs to the media it was made on; the next media plays.
+  await next(page, "second");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
   await expect.poll(() => position(page)).toBeGreaterThan(0.3);
+  await expect(page.locator("video")).toHaveJSProperty("muted", false);
   await expect(page.locator(".player-message")).toHaveCount(0);
 });
 

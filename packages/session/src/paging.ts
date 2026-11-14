@@ -124,6 +124,8 @@ export class SessionPager {
           ...live,
           ...target,
           positionMs: 0,
+          // The destination starts playing, whatever the current item's pause.
+          wantsToPlay: true,
           shouldPlay: false,
           navigating: true,
           reminderRemainingMs:

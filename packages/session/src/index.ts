@@ -357,8 +357,10 @@ export class SessionController {
     if (target >= this.items.length) this.finish();
     else this.enter(target);
   }
+  /** A pause belongs to the item it was made on: every item starts playing. */
   private enter(index: number) {
     this.index = index;
+    this.wants = true;
     this.position = 0;
     this.ready = "loading";
     this.progressSample = null;

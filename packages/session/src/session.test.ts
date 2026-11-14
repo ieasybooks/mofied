@@ -147,6 +147,79 @@ describe("session execution", () => {
     expect(s.getSnapshot().reminderRemainingMs).toBe(3000);
     expect(s.getSnapshot().activeMs).toBe(2000);
   });
+  it("starts every item it lands on, whatever the previous item's pause", () => {
+    const { session: s, step } = setup({
+      items: [
+        media("a"),
+        {
+          kind: "reminder",
+          id: "reminder",
+          durationMs: 5000,
+          content: { kind: "text", body: "Read", citation: "", source: "" },
+        },
+        media("b"),
+        media("c"),
+      ],
+      replacements: [media("spare")],
+    });
+    s.mediaPlaying("a", 0);
+    s.togglePlayback();
+    s.next();
+    // The reminder's countdown runs although the media before it was paused.
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "reminder" },
+      status: "reminder",
+      wantsToPlay: true,
+      shouldPlay: true,
+    });
+    step(1000);
+    s.tick();
+    expect(s.getSnapshot().reminderRemainingMs).toBe(4000);
+    s.togglePlayback();
+    step(10_000);
+    s.tick();
+    expect(s.getSnapshot().reminderRemainingMs).toBe(4000);
+    s.togglePlayback();
+    step(4000);
+    s.tick();
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "b" },
+      wantsToPlay: true,
+    });
+    s.togglePlayback();
+    s.next();
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "c" },
+      wantsToPlay: true,
+    });
+    s.togglePlayback();
+    s.previous();
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "b" },
+      wantsToPlay: true,
+    });
+    s.togglePlayback();
+    s.mediaFailed("b");
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "spare" },
+      wantsToPlay: true,
+    });
+  });
+  it("an interruption that may not resume pauses only the current item", () => {
+    const { session: s } = setup();
+    s.setInterrupted(true);
+    s.setInterrupted(false, false);
+    expect(s.getSnapshot()).toMatchObject({
+      wantsToPlay: false,
+      shouldPlay: false,
+    });
+    s.next();
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "reminder" },
+      wantsToPlay: true,
+      shouldPlay: true,
+    });
+  });
   it("does not replay a consumed reminder when navigating backward then forward", () => {
     const { session: s, step } = setup();
     s.next();
