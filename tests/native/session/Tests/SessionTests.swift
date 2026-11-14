@@ -27,6 +27,21 @@ final class SessionTests: XCTestCase {
     app.activate()
     XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
   }
+  /// The media's "0:07 / 1:30" clock, which follows the native player's position.
+  var clock: XCUIElement {
+    app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "[0-9]+:[0-9]{2} / [0-9]+:[0-9]{2}")).firstMatch
+  }
+  func playhead() -> Int {
+    XCTAssertTrue(clock.waitForExistence(timeout: 10))
+    let played = clock.label.split(separator: " ")[0].split(separator: ":").compactMap { Int($0) }
+    return played[0] * 60 + played[1]
+  }
+  /// The label only says what the controller wants; the clock shows the player itself.
+  func waitForPlayhead(after seconds: Int) {
+    let deadline = Date().addingTimeInterval(15)
+    while playhead() <= seconds && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.5)) }
+    XCTAssertGreaterThan(playhead(), seconds, "The native player must actually play")
+  }
   func pause() {
     if media.label == "إيقاف مؤقت" { media.tap() }
     XCTAssertEqual(media.label, "تشغيل")
@@ -42,12 +57,16 @@ final class SessionTests: XCTestCase {
     leaveAndReturn()
     XCTAssertEqual(session.identifier, first, "Returning must continue the same session")
     waitForLabel("إيقاف مؤقت")
+    waitForPlayhead(after: playhead())
     capture("A playing session continues after leaving the app")
 
     pause()
     leaveAndReturn()
     XCTAssertEqual(session.identifier, first)
     XCTAssertEqual(media.label, "تشغيل", "A manual pause survives leaving the app")
+    let paused = playhead()
+    RunLoop.current.run(until: Date().addingTimeInterval(2.5))
+    XCTAssertEqual(playhead(), paused, "A paused player stays still after returning")
     capture("A paused session stays paused after leaving the app")
 
     app.buttons["عن التطبيق"].tap()
