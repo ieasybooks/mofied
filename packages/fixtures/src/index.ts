@@ -28,11 +28,19 @@ const media: MediaItem[] = publicMedia.map((item) => ({
 
 export type FixtureName =
   "normal" | "long-title" | "missing-portrait" | "unavailable";
-export function fixture(name: FixtureName = "normal"): SessionPlan {
-  const first = structuredClone(name === "normal" ? media[1]! : media[0]!);
+/** `start` mirrors Rails: a known shared media opens the plan. */
+export function fixture(
+  name: FixtureName = "normal",
+  start?: string,
+): SessionPlan {
+  const shared = media.find((item) => item.mediaId === start);
+  const first = structuredClone(
+    shared ?? (name === "normal" ? media[1]! : media[0]!),
+  );
   if (name === "missing-portrait") first.speaker.imageUrl = null;
   if (name === "unavailable")
     first.playback.url = "https://media.invalid/unavailable.m3u8";
+  const last = first.mediaId === media[4]!.mediaId ? media[1]! : media[4]!;
   return parseSession({
     schemaVersion: 1,
     id: `development-${name}-v1`,
@@ -55,7 +63,7 @@ export function fixture(name: FixtureName = "normal"): SessionPlan {
           source: "Tanzil",
         },
       },
-      media[4]!,
+      last,
     ],
     replacements: [{ ...media[2]!, id: `replacement-${media[2]!.mediaId}` }],
     ending: {

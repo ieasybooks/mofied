@@ -16,11 +16,17 @@ import {
   BookOpen,
   Pause,
   Play,
+  Share,
 } from "lucide-react";
 import { SessionController, type SessionSnapshot } from "@mofied/session";
 import { SessionPager } from "@mofied/session";
 import { PagedSession, type PagerHandle } from "./SessionPager";
-import { sessionLoadDiagnostic } from "@mofied/contracts";
+import {
+  parseStart,
+  sessionLoadDiagnostic,
+  shareLink,
+  type MediaItem,
+} from "@mofied/contracts";
 import {
   copy,
   remainingLabel,
@@ -35,6 +41,18 @@ import { About } from "./About";
 import { LaunchArtwork } from "./LaunchArtwork";
 
 const subscribeWithoutSession = () => () => {};
+
+/** A share link (https://mofied.com/?start=ID) opens the session from that media. */
+function sharedStartFromAddress() {
+  return parseStart(new URLSearchParams(location.search).get("start"));
+}
+/** Once the shared session is open, a refresh behaves like any other refresh. */
+function dropSharedStartFromAddress() {
+  const url = new URL(location.href);
+  if (!url.searchParams.has("start")) return;
+  url.searchParams.delete("start");
+  history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+}
 
 export function App() {
   const [session, setSession] = useState<SessionController | null>(null);
@@ -52,6 +70,7 @@ export function App() {
   }, [locale]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const aboutOpenRef = useRef(false);
+  const sharedStart = useRef(sharedStartFromAddress());
   const showAbout = (open: boolean) => {
     aboutOpenRef.current = open;
     setAboutOpen(open);
@@ -73,9 +92,12 @@ export function App() {
     const accept = (next: SessionController) => {
       if (abort.signal.aborted) return;
       if (aboutOpenRef.current) next.openAbout();
+      // Retries keep the shared media until a session has actually opened.
+      sharedStart.current = undefined;
+      dropSharedStartFromAddress();
       setSession(next);
     };
-    void loadSession(abort.signal)
+    void loadSession(abort.signal, sharedStart.current)
       .then((plan) => accept(new SessionController(plan)))
       .catch((error: unknown) => {
         if (!abort.signal.aborted) {
@@ -159,6 +181,16 @@ function SessionView({
     session.toggleMuted();
     mediaRef.current?.synchronize();
   };
+  const [notice, setNotice] = useState<{ text: string; id: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const share = (media: MediaItem) =>
+    void shareMedia(media, (text) => setNotice({ text, id: Date.now() }), t);
   // Any tap, swipe or key on media brings back sound the browser withheld.
   // Unmuting inside the gesture itself is what lets iOS play it audibly.
   const restoredSound = useRef(false);
@@ -290,6 +322,16 @@ function SessionView({
                 {state.muted ? <VolumeX size={21} /> : <Volume2 size={21} />}
               </button>
             )}
+            {item?.kind === "media" && (
+              <button
+                type="button"
+                className="mobile-share round-button"
+                aria-label={t.share}
+                onClick={() => share(item)}
+              >
+                <Share size={20} />
+              </button>
+            )}
           </div>
           <div className="brand-budget">
             <img className="header-mark" src={logo} alt={t.name} />
@@ -352,7 +394,19 @@ function SessionView({
             >
               {state.muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
+            <button
+              className="round-button rail-share"
+              aria-label={t.share}
+              onClick={() => share(item)}
+            >
+              <Share size={19} />
+            </button>
           </aside>
+        )}
+        {notice && (
+          <p key={notice.id} className="share-notice" role="status">
+            {notice.text}
+          </p>
         )}
         {item && (
           <div className="keyboard-hint" aria-hidden="true">
@@ -505,4 +559,30 @@ function SessionPage({
       )}
     </>
   );
+}
+
+/**
+ * The system share sheet where the browser has one; otherwise copy the link.
+ * A dismissed share sheet is not an error.
+ */
+async function shareMedia(
+  media: MediaItem,
+  notify: (text: string) => void,
+  t: (typeof copy)[Locale],
+) {
+  const url = shareLink(media.mediaId);
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: media.title, url });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    notify(t.linkCopied);
+  } catch {
+    notify(t.copyFailed);
+  }
 }

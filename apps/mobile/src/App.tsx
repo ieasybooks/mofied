@@ -3,9 +3,11 @@ import {
   ActivityIndicator,
   AppState,
   Image,
+  Linking,
   Modal,
   Platform,
   Pressable,
+  Share as ShareSheet,
   StyleSheet,
   Text,
   View,
@@ -34,9 +36,14 @@ import {
   Shield,
   Mail,
   Globe,
+  Share,
 } from "lucide-react-native";
 import { SessionController, type SessionSnapshot } from "@mofied/session";
-import { sessionLoadDiagnostic } from "@mofied/contracts";
+import {
+  sessionLoadDiagnostic,
+  shareLink,
+  type MediaItem,
+} from "@mofied/contracts";
 import {
   appVersion,
   colors,
@@ -142,6 +149,7 @@ function LoadedApp() {
     () =>
       watchSessions({
         appState: Platform.OS === "web" ? undefined : AppState,
+        links: Platform.OS === "web" ? undefined : Linking,
         load: loadSession,
         loading: () => {
           setSession(null);
@@ -211,6 +219,20 @@ function LoadedApp() {
   );
 }
 
+/** The OS share sheet; leaving for another app keeps this session. */
+async function shareMedia(media: MediaItem) {
+  const url = shareLink(media.mediaId);
+  try {
+    await ShareSheet.share(
+      Platform.OS === "ios"
+        ? { url, message: media.title }
+        : { message: `${media.title}\n${url}`, title: media.title },
+    );
+  } catch {
+    // Dismissal and an unavailable sheet both leave playback as it was.
+  }
+}
+
 function KeepScreenAwake() {
   useKeepAwake("mofied-session");
   return null;
@@ -276,6 +298,18 @@ function SessionView({
               ) : (
                 <Volume2 color="white" size={21} />
               )}
+            </Pressable>
+          )}
+          {item?.kind === "media" && (
+            <Pressable
+              style={styles.circle}
+              accessibilityRole="button"
+              accessibilityLabel={t.share}
+              testID="share-media"
+              onPress={() => void shareMedia(item)}
+              hitSlop={4}
+            >
+              <Share color="white" size={20} />
             </Pressable>
           )}
         </View>

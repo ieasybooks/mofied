@@ -1,6 +1,6 @@
 # Session API contract · version 1
 
-The client requests one small, complete session plan over HTTPS. The default endpoint is `https://faqieh.com/api/v1/mofied/session?locale=ar`; build-time overrides remain available for staging or English plans (`locale=en`). The initial provider uses `GET`, `Accept: application/json`, no cookies, `cache: no-store`, and a 15-second timeout.
+The client requests one small, complete session plan over HTTPS. A share link adds `start=<mediaId>` (a positive decimal id) to the request; Rails opens the plan with that media when it is eligible and otherwise returns an ordinary plan. The default endpoint is `https://faqieh.com/api/v1/mofied/session?locale=ar`; build-time overrides remain available for staging or English plans (`locale=en`). The initial provider uses `GET`, `Accept: application/json`, no cookies, `cache: no-store`, and a 15-second timeout.
 
 The authoritative runtime validator is `packages/contracts/src/index.ts`. Run `bun run contract:generate` to regenerate `session.schema.json` and `session.example.json`.
 

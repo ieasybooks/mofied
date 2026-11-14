@@ -51,6 +51,19 @@ Use a **development build**, not Expo Go, to test interruptions. A small, versio
 
 `bun run --cwd apps/mobile web` is a convenient browser preview of the React Native layout. It uses a web playback adapter and does not verify native lifecycle behavior. The actual web product is `apps/web`.
 
+### Share links and deep links
+
+Share links are `https://mofied.com/?start=<mediaId>`. The apps claim `https://mofied.com/` through `apple-app-site-association` and `assetlinks.json` in `apps/web/public/.well-known/`, which only work once deployed and fetched by Apple and Google. To exercise the in-app handling before that:
+
+```sh
+# iOS simulator: the app's own scheme reaches the same link handler.
+xcrun simctl openurl booted "mofied://?start=<mediaId>"
+# Android: an explicit VIEW intent, as a tapped mofied.com link sends.
+adb shell am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "https://mofied.com/?start=<mediaId>" com.mofied.app
+```
+
+Store builds also need the Associated Domains capability on the `com.mofied.app` App ID (Apple Developer portal or Xcode automatic signing).
+
 ## Repository layout
 
 | Path                 | Responsibility                                                      |

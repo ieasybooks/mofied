@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["KJ597HLVMB.com.mofied.app"],
+        "components": [
+          {
+            "/": "/",
+            "comment": "Sessions and shared shorts (/?start=ID). Privacy and support pages stay on the web."
+          }
+        ]
+      }
+    ]
+  }
+}

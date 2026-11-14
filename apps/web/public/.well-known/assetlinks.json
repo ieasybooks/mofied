@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mofied.app",
+      "sha256_cert_fingerprints": [
+        "2C:F5:F2:29:E9:35:C4:BA:6A:D9:D4:38:54:A1:8B:BB:4A:41:23:8E:AB:AA:CD:40:D1:EA:49:1A:D2:E9:AB:37"
+      ]
+    }
+  }
+]

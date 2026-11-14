@@ -2,7 +2,7 @@
 
 This is the behavior baseline for the initial implementation. The approved design reference is `design/decisions.json`; later explicit user decisions take precedence.
 
-- Open into the first media. No homepage, accounts, catalog, comments, reactions or creator actions.
+- Open into the first media. No homepage, accounts, catalog, comments, reactions or creator actions. Sharing a media link is the only social action.
 - Use the supplied monochrome Mofied icon unchanged. Thmanyah for titles; Noto Naskh Arabic UI for interface text; Kitab for Quran text; Gilroy for Latin/time labels.
 - Desktop Info is icon-only. No “من مكتبة فقيه” line beneath titles. Keep media and speaker links to their actual Faqieh pages.
 - Clamp titles to three lines on desktop and two on narrow web/native. Keep the full title in the contract and link directly to Faqieh; no extra details sheet.
@@ -41,6 +41,12 @@ Browser autoplay is subject to browser policy. Web tries to play with sound firs
 
 Web title/speaker links open a separate tab. Native links open the system browser; returning continues the same session.
 Native link-opening failures show localized feedback. The time badge describes the current item as finishing after the budget is exhausted.
+
+## Sharing and links
+
+- Media screens have a share button: beside Info and sound on native/narrow web, below sound in the desktop rail. Reminders and the ending have none. It shares `https://mofied.com/?start=<mediaId>` with the media title, through the system share sheet. Desktop browsers without one copy the link and briefly confirm “تم نسخ الرابط”. Sharing never pauses playback, and returning from another app continues the same native session.
+- Opening a share link starts a new session from that media: Rails puts an eligible media first and plans the rest around it; an unknown or ineligible id gives an ordinary session. On the web the `start` parameter is removed from the address once the session opens, so a refresh behaves like any other. A failed load keeps it for Retry.
+- On iOS and Android, tapping a `https://mofied.com/` link from another app or site opens the app (universal links and verified Android App Links); a share link starts from its media, and a plain link just brings the app forward. Typing the address in a browser, in-app browsers, `www` links and `/privacy/` or `/support/` stay on the web.
 
 ## Session lifetime and failure handling
 

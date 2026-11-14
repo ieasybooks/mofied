@@ -428,8 +428,25 @@ img[hidden] {
   border-radius: 50%;
   background: #0005;
 }
-.mobile-sound {
+.mobile-sound,
+.mobile-share {
   display: none;
+}
+.share-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  z-index: 20;
+  padding: 10px 18px;
+  border: 1px solid #ffffff26;
+  border-radius: 9999px;
+  background: #151515;
+  color: #f5f5f5;
+  font-size: 15px;
+  white-space: nowrap;
+  translate: -50% 0;
+  pointer-events: none;
+  animation: sound-hint-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .keyboard-hint {
   position: absolute;
@@ -954,9 +971,14 @@ kbd {
   .small-pause {
     display: none;
   }
-  .mobile-sound {
+  .mobile-sound,
+  .mobile-share {
     display: flex;
     background: #0009;
+  }
+  .share-notice {
+    top: calc(env(safe-area-inset-top) + 76px);
+    bottom: auto;
   }
   .media-timing {
     position: static;
@@ -1004,7 +1026,8 @@ kbd {
     background: #151515;
   }
   .control-rail .rail-divider,
-  .control-rail .rail-sound {
+  .control-rail .rail-sound,
+  .control-rail .rail-share {
     display: none;
   }
   .sound-hint {
@@ -1108,7 +1131,8 @@ kbd {
 }
 @media (prefers-reduced-motion: reduce) {
   .loader,
-  .sound-hint {
+  .sound-hint,
+  .share-notice {
     animation: none;
   }
 }

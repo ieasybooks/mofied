@@ -70,9 +70,47 @@ export type MediaItem = z.infer<typeof MediaItemSchema>;
 export type ReminderItem = z.infer<typeof ReminderItemSchema>;
 export type SessionItem = z.infer<typeof SessionItemSchema>;
 export type SessionPlan = z.infer<typeof SessionPlanSchema>;
-export type SessionProvider = {
-  load(signal?: AbortSignal): Promise<SessionPlan>;
+export type SessionRequest = {
+  /** A shared media's `mediaId`: Rails opens the session with it when eligible. */
+  start?: string;
 };
+export type SessionProvider = {
+  load(signal?: AbortSignal, request?: SessionRequest): Promise<SessionPlan>;
+};
+
+/** The public page every share link and the apps' deep links point at. */
+export const SHARE_ORIGIN = "https://mofied.com";
+const START = /^[1-9][0-9]{0,18}$/;
+
+/** A link that opens a Mofied session from this media, on the web or in the apps. */
+export function shareLink(mediaId: string) {
+  return `${SHARE_ORIGIN}/?start=${encodeURIComponent(mediaId)}`;
+}
+
+/** Only a positive decimal id is sent on; anything else is an ordinary session. */
+export function parseStart(value: string | null | undefined) {
+  return value && START.test(value) ? value : undefined;
+}
+
+/**
+ * The shared media in a link that opened the app: mofied.com (or www) at its
+ * root, or the app's own mofied:// scheme. Other pages and hosts are not shares.
+ */
+export function sharedStart(link: string | null | undefined) {
+  if (!link) return undefined;
+  let url: URL;
+  try {
+    url = new URL(link);
+  } catch {
+    return undefined;
+  }
+  const web =
+    url.protocol === "https:" &&
+    (url.hostname === "mofied.com" || url.hostname === "www.mofied.com") &&
+    (url.pathname === "/" || url.pathname === "");
+  if (!web && url.protocol !== "mofied:") return undefined;
+  return parseStart(url.searchParams.get("start"));
+}
 
 /** Public, anonymous Faqieh session endpoint. UI language never replaces a live plan. */
 export const DEFAULT_SESSION_API_URL =
@@ -125,7 +163,7 @@ export function createHttpProvider(
       "Session API must be configured with an HTTPS URL",
     );
   return {
-    async load(signal) {
+    async load(signal, { start } = {}) {
       if (signal?.aborted)
         throw new SessionLoadError("aborted", "Session request cancelled");
       const request = new AbortController();
@@ -137,7 +175,10 @@ export function createHttpProvider(
         abort();
       }, 15_000);
       try {
-        const response = await (requestFetch ?? fetch)(endpoint, {
+        const url = new URL(endpoint);
+        const shared = parseStart(start);
+        if (shared) url.searchParams.set("start", shared);
+        const response = await (requestFetch ?? fetch)(url.toString(), {
           signal: request.signal,
           credentials: "omit",
           cache: "no-store",

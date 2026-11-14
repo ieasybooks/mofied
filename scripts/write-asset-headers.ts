@@ -15,12 +15,16 @@ const files = readdirSync(join(output, "assets"), {
   )
   .sort();
 
-// Cloudflare supports 100 header rules; the shared headers already use one.
-if (files.length === 0 || files.length > 99) {
-  throw new Error(`Expected 1–99 fingerprinted assets, found ${files.length}`);
+const common = readFileSync("apps/web/public/_headers", "utf8").trimEnd();
+// Cloudflare supports 100 header rules, including the shared ones.
+const limit =
+  100 - common.split("\n").filter((line) => /^\//.test(line)).length;
+if (files.length === 0 || files.length > limit) {
+  throw new Error(
+    `Expected 1–${limit} fingerprinted assets, found ${files.length}`,
+  );
 }
 
-const common = readFileSync("apps/web/public/_headers", "utf8").trimEnd();
 const immutable = files.map(
   (file) => `/${file}\n  Cache-Control: public, max-age=31536000, immutable`,
 );

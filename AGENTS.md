@@ -5,7 +5,7 @@ Standalone client repository for mofied.com. Rails publishing and the session AP
 - apps/web: React/Vite browser UI. apps/mobile: Expo native iOS/Android UI.
 - packages/contracts owns the wire schema. packages/session owns session behavior.
 - Rails supplies the ordered media and reminders; clients do not select or shuffle content.
-- Match docs/design and docs/product.md. No homepage, accounts, social actions, PiP, background native audio, session-repeat CTA or library attribution under titles.
+- Match docs/design and docs/product.md. No homepage, accounts, comments/reactions or other social actions beyond sharing a media link, PiP, background native audio, session-repeat CTA or library attribution under titles.
 - Use media in English and مادة / مواد in Arabic.
 - Use exact Thmanyah title and Noto Naskh UI fonts. Preserve the supplied Mofied icon.
 - Browser tab hiding must not pause. Native background/lock must pause; focus loss alone must not.

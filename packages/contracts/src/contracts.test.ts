@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createHttpProvider,
   parseSession,
+  parseStart,
   sessionLoadDiagnostic,
   SessionPlanSchema,
+  sharedStart,
+  shareLink,
 } from "./index";
 import { fixture } from "@mofied/fixtures";
 
@@ -116,6 +119,52 @@ describe("session contract", () => {
       await expect(provider.load(abort.signal)).rejects.toMatchObject({
         code: "aborted",
       });
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+  it("builds share links and reads only real shares back", () => {
+    expect(shareLink("4321")).toBe("https://mofied.com/?start=4321");
+    expect(sharedStart(shareLink("4321"))).toBe("4321");
+    for (const [link, start] of [
+      ["https://mofied.com/?start=7&utm_source=x", "7"],
+      ["https://www.mofied.com/?start=7", "7"],
+      ["https://mofied.com?start=7", "7"],
+      ["mofied://?start=7", "7"],
+      ["mofied:///?start=7", "7"],
+      ["https://mofied.com/", undefined],
+      ["https://mofied.com/privacy/?start=7", undefined],
+      ["http://mofied.com/?start=7", undefined],
+      ["https://mofied.com.evil.test/?start=7", undefined],
+      ["https://mofied.com/?start=0", undefined],
+      ["https://mofied.com/?start=-1", undefined],
+      ["https://mofied.com/?start=7x", undefined],
+      ["https://mofied.com/?start=" + "9".repeat(20), undefined],
+      ["not a url", undefined],
+      [null, undefined],
+    ] as const)
+      expect(sharedStart(link), String(link)).toBe(start);
+    expect(parseStart("12")).toBe("12");
+    expect(parseStart(" 12")).toBeUndefined();
+  });
+  it("asks the API for a valid shared media and never for anything else", async () => {
+    const original = globalThis.fetch;
+    try {
+      const fetch = vi
+        .fn()
+        .mockImplementation(async () => Response.json(fixture()));
+      globalThis.fetch = fetch;
+      const provider = createHttpProvider(
+        "https://faqieh.com/api/v1/mofied/session?locale=ar",
+      );
+      await provider.load(undefined, { start: "4321" });
+      await provider.load(undefined, { start: "4321&locale=en" });
+      await provider.load();
+      expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+        "https://faqieh.com/api/v1/mofied/session?locale=ar&start=4321",
+        "https://faqieh.com/api/v1/mofied/session?locale=ar",
+        "https://faqieh.com/api/v1/mofied/session?locale=ar",
+      ]);
     } finally {
       globalThis.fetch = original;
     }

@@ -271,3 +271,59 @@ test("production API errors show Retry and recover without fixture playback", as
   await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
   expect(calls).toBe(2);
 });
+
+test("app association files are JSON at the apex, without redirects", async ({
+  request,
+}) => {
+  const apple = await request.get("/.well-known/apple-app-site-association", {
+    maxRedirects: 0,
+  });
+  expect(apple.status()).toBe(200);
+  expect(apple.headers()["content-type"]).toBe("application/json");
+  const details = (await apple.json()).applinks.details;
+  expect(details).toEqual([
+    expect.objectContaining({
+      appIDs: ["KJ597HLVMB.com.mofied.app"],
+      components: [expect.objectContaining({ "/": "/" })],
+    }),
+  ]);
+
+  const android = await request.get("/.well-known/assetlinks.json", {
+    maxRedirects: 0,
+  });
+  expect(android.status()).toBe(200);
+  expect(android.headers()["content-type"]).toContain("application/json");
+  expect(await android.json()).toEqual([
+    {
+      relation: ["delegate_permission/common.handle_all_urls"],
+      target: {
+        namespace: "android_app",
+        package_name: "com.mofied.app",
+        sha256_cert_fingerprints: [
+          "2C:F5:F2:29:E9:35:C4:BA:6A:D9:D4:38:54:A1:8B:BB:4A:41:23:8E:AB:AA:CD:40:D1:EA:49:1A:D2:E9:AB:37",
+        ],
+      },
+    },
+  ]);
+});
+
+test("a share link asks Faqieh for that media first, then leaves a plain address", async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  await page.route(
+    (url) => url.href.startsWith("https://faqieh.com/api/v1/mofied/session"),
+    (route) => {
+      requests.push(route.request().url());
+      return route.fulfill({ json: plan() });
+    },
+  );
+  await serveMp4(page);
+  await page.goto("/?start=4321&utm_source=whatsapp");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  expect(requests).toEqual([`${api}&start=4321`]);
+  expect(new URL(page.url()).search).toBe("?utm_source=whatsapp");
+  await page.reload();
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  expect(requests).toEqual([`${api}&start=4321`, api]);
+});

@@ -19,7 +19,10 @@ export const usesFixture =
       query.get("fixture") ?? "",
     ));
 
-export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
+export async function loadSession(
+  signal?: AbortSignal,
+  start?: string,
+): Promise<SessionPlan> {
   if (import.meta.env.DEV && usesFixture) {
     // A same-origin development endpoint lets E2E tests exercise the real transport.
     // Production builds contain neither the fixture import nor this branch.
@@ -32,7 +35,10 @@ export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
         ? name
         : "normal";
     if (new URLSearchParams(location.search).has("test-session")) {
-      const response = await fetch("/__test/session", { signal });
+      const response = await fetch(
+        `/__test/session${start ? `?start=${encodeURIComponent(start)}` : ""}`,
+        { signal },
+      );
       if (!response.ok)
         throw new SessionLoadError(
           "http",
@@ -42,13 +48,13 @@ export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
       return parseSession(await response.json());
     }
     signal?.throwIfAborted();
-    return fixture(selected);
+    return fixture(selected, start);
   }
   const endpoint = configuredEndpoint || DEFAULT_SESSION_API_URL;
   if (import.meta.env.DEV && !configuredEndpoint) {
-    return createHttpProvider(endpoint, (_url, init) =>
-      fetch("/__mofied/session?locale=ar", init),
-    ).load(signal);
+    return createHttpProvider(endpoint, (url, init) =>
+      fetch(`/__mofied/session${new URL(String(url)).search}`, init),
+    ).load(signal, { start });
   }
-  return createHttpProvider(endpoint).load(signal);
+  return createHttpProvider(endpoint).load(signal, { start });
 }

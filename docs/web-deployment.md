@@ -37,7 +37,7 @@ Deployment is an explicit command; merging this PR does not publish the app or c
 
 ## Serving and analytics
 
-The app's screens all use `/`; Info subpages are component state, not separate URLs. Standalone, bilingual `/privacy/` and `/support/` pages serve store-review and support links without loading the player, requesting a session, or requiring JavaScript. Unknown paths and missing assets return 404. A blanket SPA fallback would return HTML for stale JavaScript URLs and could cache it under the immutable asset rule.
+The app's screens all use `/`; Info subpages are component state, not separate URLs. Standalone, bilingual `/privacy/` and `/support/` pages serve store-review and support links without loading the player, requesting a session, or requiring JavaScript. Share links are `/?start=<mediaId>` on the same page. `/.well-known/apple-app-site-association` (served as JSON) and `/.well-known/assetlinks.json` let the iOS and Android apps open `https://mofied.com/` links; they claim only `/`, so `/privacy/` and `/support/` stay on the web. Apple and Google fetch these without redirects, so they must stay on the apex. Unknown paths and missing assets return 404. A blanket SPA fallback would return HTML for stale JavaScript URLs and could cache it under the immutable asset rule.
 
 The release build generates one-year immutable cache rules for the exact fingerprinted asset paths in that build. A wildcard rule would also cache missing-file 404 responses for a year. HTML and unversioned icons retain Workers' default `public, max-age=0, must-revalidate` policy. The zone respects those headers. API responses remain on Faqieh with `Cache-Control: no-store`; this deployment does not proxy or cache them.
 
@@ -69,6 +69,7 @@ After the first infrastructure apply and certificate activation:
 
 - Verify `https://mofied.com/` loads, HTTP redirects to HTTPS, and `https://www.mofied.com/?utm_source=release` redirects to the apex preserving the query. Confirm DNSSEC resolves successfully.
 - Verify HTML revalidates, fingerprinted assets cache immutably, and a missing JavaScript asset returns 404.
+- Verify both `/.well-known/` files return 200 JSON without redirects. Check Apple's CDN copy with `curl https://app-site-association.cdn-apple.com/a/v1/mofied.com` and Android verification with `adb shell pm verify-app-links --re-verify com.mofied.app` then `adb shell pm get-app-links com.mofied.app` on an installed store build.
 - Verify one real session request succeeds with the expected CORS origin, real HLS manifests/segments decode, and a paused reload restores without another session request. Exercise Info, reminders, navigation and the ending in Chromium and Safari.
 - Inspect production HTML for one Cloudflare beacon and check its request/collection in the analytics dashboard. Local Wrangler does not emulate zone analytics injection.
 

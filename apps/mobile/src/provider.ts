@@ -13,7 +13,10 @@ const usesFixture =
     fixtureName ?? "",
   );
 
-export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
+export async function loadSession(
+  signal?: AbortSignal,
+  start?: string,
+): Promise<SessionPlan> {
   if (__DEV__ && usesFixture) {
     const { fixture } = await import("@mofied/fixtures");
     signal?.throwIfAborted();
@@ -24,9 +27,11 @@ export async function loadSession(signal?: AbortSignal): Promise<SessionPlan> {
         name === "unavailable"
         ? name
         : "normal",
+      start,
     );
   }
   return createHttpProvider(configuredEndpoint || DEFAULT_SESSION_API_URL).load(
     signal,
+    { start },
   );
 }
