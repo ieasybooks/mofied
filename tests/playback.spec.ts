@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import {
+  audiblePolicy,
   finishMedia,
   media,
   plan,
@@ -9,41 +10,6 @@ import {
   start,
 } from "./fixtures";
 
-/** Deterministic per-element audible permission. Real decoding still occurs.
- * Desktop automation grants gestures more freely than iOS, so this deliberately
- * does not use navigator.userActivation as an oracle for an iPhone policy. */
-async function audiblePolicy(page: Page) {
-  await page.addInitScript(() => {
-    const authorized = new WeakSet<HTMLMediaElement>();
-    let gesture = false;
-    for (const name of ["click", "keydown"]) {
-      window.addEventListener(
-        name,
-        (event) => {
-          gesture = event.isTrusted;
-        },
-        true,
-      );
-      window.addEventListener(name, () => {
-        gesture = false;
-      });
-    }
-    const play = HTMLMediaElement.prototype.play;
-    HTMLMediaElement.prototype.play = function () {
-      if (!this.muted) {
-        if (gesture) authorized.add(this);
-        if (!authorized.has(this))
-          return Promise.reject(
-            new DOMException(
-              "Tap this element to play sound",
-              "NotAllowedError",
-            ),
-          );
-      }
-      return play.call(this);
-    };
-  });
-}
 async function next(page: Page, id: string) {
   await page.keyboard.press("ArrowDown");
   await expect(page.locator("main")).toHaveAttribute("data-item-id", id);

@@ -1,6 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { realBrowser } from "./real-browser";
-import { media, plan, start, finishMedia, position } from "./fixtures";
+import {
+  audiblePolicy,
+  media,
+  plan,
+  start,
+  finishMedia,
+  position,
+} from "./fixtures";
 
 test("opens directly into playback; About pauses and restores the same position and manual pause intent", async ({
   page,
@@ -148,9 +155,13 @@ test("continues actual media playback and reminder-to-media transitions in a hid
   await page.setViewportSize({ width: 1440, height: 900 });
   try {
     await start(page, plan(1200));
-    await page
-      .getByRole("button", { name: "تشغيل الصوت", exact: true })
-      .click();
+    // Chrome may already allow sound; otherwise activate it with a gesture.
+    const enable = page.getByRole("button", {
+      name: "تشغيل الصوت",
+      exact: true,
+    });
+    if (await enable.count()) await enable.click();
+    await expect(page.locator("video")).toHaveJSProperty("muted", false);
     const before = await position(page);
     const other = await context.newPage();
     await other.goto("about:blank");
@@ -273,7 +284,9 @@ test("mobile overlay keeps sound, tap and swipe navigation accessible without ex
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 800 });
+  await audiblePolicy(page);
   await start(page, plan(5000));
+  await expect(page.locator(".sound-hint")).toBeVisible();
   expect(
     await page
       .locator(".media-title a")

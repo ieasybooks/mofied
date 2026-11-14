@@ -46,7 +46,7 @@
     "Icon-only Info at upper left (accessible name “عن التطبيق”); Mofied icon and remaining-time block at upper right",
     "Switching browser tabs continues media, reminder countdown and session timing, subject to browser suspension",
     "Responsive narrow browser layout shares the simple mobile presentation; no new controls",
-    "Desktop keeps labelled sound beside the player, removes the in-player top fade and limits the bottom fade to 128px. Narrow web uses the accepted phone overlay, per player-overlay.md."
+    "Desktop keeps an icon-only sound control beside the player (withheld sound is explained by the in-player tap-to-unmute pill), removes the in-player top fade and limits the bottom fade to 128px. Narrow web uses the accepted phone overlay, per player-overlay.md."
   ],
   "reminder": [
     "Rails chooses exact ordered position, text and duration; do not invent cadence/count client side",

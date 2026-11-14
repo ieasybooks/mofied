@@ -148,8 +148,6 @@ function LoadedApp() {
           setError(false);
         },
         accept: (next) => {
-          // Browser layout preview keeps autoplay muted; real native playback starts with sound.
-          if (Platform.OS !== "web") next.toggleMuted();
           // Android grants focus asynchronously. Gate the very first render too.
           if (Platform.OS === "android") next.setInterrupted(true);
           if (aboutOpenRef.current) next.openAbout();

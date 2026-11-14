@@ -290,7 +290,8 @@ describe("native playback health", () => {
     "preserves intent across the reported Android event race (muted=%s)",
     (muted) => {
       const { player, session, plan, step, play } = setup();
-      if (!muted) session.toggleMuted();
+      // Sessions start with sound.
+      if (muted) session.toggleMuted();
       player.status = "loading";
       player.emit("statusChange", { status: "loading" });
       step(89);

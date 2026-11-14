@@ -159,6 +159,30 @@ function SessionView({
     session.toggleMuted();
     mediaRef.current?.synchronize();
   };
+  // Any tap, swipe or key on media brings back sound the browser withheld.
+  // Unmuting inside the gesture itself is what lets iOS play it audibly.
+  const restoredSound = useRef(false);
+  const restoreSound = useCallback(() => {
+    if (!session.restoreSound()) return;
+    restoredSound.current = true;
+    mediaRef.current?.synchronize();
+  }, [session]);
+  const noteGesture = (event: React.SyntheticEvent) => {
+    if (
+      !(event.target instanceof Element) ||
+      !event.target.closest("[data-sound-control]")
+    )
+      restoreSound();
+  };
+  // A tap that brings sound back does not also pause, as on Faqieh's Shorts.
+  const tapPlayer = useCallback(() => {
+    const restored = restoredSound.current;
+    restoredSound.current = false;
+    const live = session.getSnapshot();
+    if (restored && live.wantsToPlay && live.status !== "autoplay-blocked")
+      return;
+    togglePlayback();
+  }, [session, togglePlayback]);
   const t = copy[locale];
   const item = state.item;
   useEffect(() => {
@@ -183,6 +207,8 @@ function SessionView({
           ))
       )
         return;
+      if (["Space", "ArrowUp", "ArrowDown"].includes(event.code))
+        restoreSound();
       if (event.code === "Space") {
         // Buttons/links retain their normal Space/Enter activation; arrow
         // navigation remains available after ordinary clicks and keyboard focus.
@@ -205,7 +231,14 @@ function SessionView({
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [session, pager, state.aboutOpen, item?.kind, togglePlayback]);
+  }, [
+    session,
+    pager,
+    state.aboutOpen,
+    item?.kind,
+    togglePlayback,
+    restoreSound,
+  ]);
   return (
     <>
       <main
@@ -214,7 +247,17 @@ function SessionView({
         data-session-id={state.sessionId}
         data-active-ms={state.activeMs}
         data-item-id={item?.id ?? "ended"}
+        data-sound-withheld={state.soundWithheld || undefined}
         onWheel={(event) => pagerRef.current?.wheel(event)}
+        onPointerDownCapture={() => {
+          restoredSound.current = false;
+        }}
+        onPointerUpCapture={noteGesture}
+        onKeyDownCapture={(event) => {
+          restoredSound.current = false;
+          noteGesture(event);
+        }}
+        onClickCapture={noteGesture}
       >
         <header className="session-header">
           <div className="header-controls">
@@ -230,6 +273,7 @@ function SessionView({
               <button
                 type="button"
                 className="mobile-sound round-button"
+                data-sound-control
                 aria-label={state.muted ? t.soundOn : t.soundOff}
                 onClick={toggleMuted}
               >
@@ -259,7 +303,7 @@ function SessionView({
         <PagedSession
           ref={pagerRef}
           pager={pager}
-          togglePlayback={togglePlayback}
+          togglePlayback={tapPlayer}
           renderPage={(page, preview) => (
             <SessionPage
               session={session}
@@ -268,6 +312,7 @@ function SessionView({
               preview={preview}
               mediaRef={preview ? undefined : mediaRef}
               togglePlayback={togglePlayback}
+              tapPlayer={tapPlayer}
             />
           )}
         />
@@ -290,13 +335,13 @@ function SessionView({
             </button>
             <div className="rail-divider" />
             <button
-              className="round-button"
+              className="round-button rail-sound"
+              data-sound-control
               aria-label={state.muted ? t.soundOn : t.soundOff}
               onClick={toggleMuted}
             >
               {state.muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
-            {state.muted && <p>{t.soundOn}</p>}
           </aside>
         )}
         {item && (
@@ -325,6 +370,7 @@ function SessionPage({
   preview,
   mediaRef,
   togglePlayback,
+  tapPlayer,
 }: {
   session: SessionController;
   state: SessionSnapshot;
@@ -332,6 +378,7 @@ function SessionPage({
   preview: boolean;
   mediaRef?: React.Ref<MediaHandle>;
   togglePlayback: () => void;
+  tapPlayer: () => void;
 }) {
   const item = state.item;
   const t = copy[locale];
@@ -347,6 +394,7 @@ function SessionPage({
         locale={locale}
         preview={preview}
         togglePlayback={togglePlayback}
+        tapPlayer={tapPlayer}
       />
       {item?.kind === "reminder" && (
         <section

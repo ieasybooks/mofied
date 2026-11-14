@@ -29,6 +29,8 @@ export type SessionSnapshot = Readonly<{
   wantsToPlay: boolean;
   shouldPlay: boolean;
   muted: boolean;
+  /** The browser refused autoplay with sound; any tap or swipe restores it. */
+  soundWithheld: boolean;
   aboutOpen: boolean;
   backgrounded: boolean;
   interrupted: boolean;
@@ -50,7 +52,9 @@ export class SessionController {
     "loading" | "buffering" | "playing" | "error" | "autoplay-blocked" =
     "loading";
   private wants = true;
-  private muted = true;
+  // Sessions start with sound. A browser that refuses it reports soundWithheld.
+  private muted = false;
+  private withheld = false;
   private about = false;
   private background = false;
   private interrupted = false;
@@ -126,6 +130,7 @@ export class SessionController {
         this.ready !== "error" &&
         this.ready !== "autoplay-blocked",
       muted: this.muted,
+      soundWithheld: this.withheld,
       aboutOpen: this.about,
       backgrounded: this.background,
       interrupted: this.interrupted,
@@ -265,8 +270,28 @@ export class SessionController {
     this.publish();
   };
   toggleMuted = () => {
-    this.muted = !this.muted;
+    // The sound button brings back withheld sound rather than muting again.
+    this.muted = this.withheld ? false : !this.muted;
+    this.withheld = false;
     this.publish();
+  };
+  /** Autoplay with sound was refused for the current media; it plays muted. */
+  soundWithheld(id: string) {
+    if (!this.isCurrent(id) || this.muted) return;
+    this.muted = true;
+    this.withheld = true;
+    this.publish();
+  }
+  /**
+   * Any gesture on media is permission enough to bring back withheld sound.
+   * Returns true when this one did. Reminders and the ending are silent.
+   */
+  restoreSound = () => {
+    if (!this.withheld || this.item?.kind !== "media") return false;
+    this.muted = false;
+    this.withheld = false;
+    this.publish();
+    return true;
   };
   openAbout = () => {
     this.tick();

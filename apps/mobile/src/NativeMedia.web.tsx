@@ -56,7 +56,9 @@ export function NativeMedia({ item, session, state }: MediaProps) {
     if (state.shouldPlay)
       void element.play().catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "NotAllowedError")
-          session.autoplayBlocked(item.id);
+          // The browser preview may refuse sound; play muted, as the web app does.
+          if (!element.muted) session.soundWithheld(item.id);
+          else session.autoplayBlocked(item.id);
       });
     else element.pause();
   }, [state.shouldPlay, state.muted, item.id, session]);

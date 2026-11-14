@@ -14,7 +14,7 @@ Accepted on 2026-11-05. This replaces the playback overlay in the earlier design
 
 ## Desktop (above 900px)
 
-Keep the right metadata column and labelled sound control in the left navigation rail. Keep the small pause control, elapsed/total time, progress and keyboard hint. Remove the in-player top fade. The bottom fade is a 128px strip: black at 0.62 opacity at the edge, 0.60 at 56px above it, then eased to transparent at 128px.
+Keep the right metadata column and the icon-only sound control in the left navigation rail. The rail never changes height, so its buttons stay put when sound changes; the in-player “اضغط لتشغيل الصوت” pill explains withheld sound instead of a label under the button. Keep the small pause control, elapsed/total time, progress and keyboard hint. Remove the in-player top fade. The bottom fade is a 128px strip: black at 0.62 opacity at the edge, 0.60 at 56px above it, then eased to transparent at 128px.
 
 ## Scope and verification
 

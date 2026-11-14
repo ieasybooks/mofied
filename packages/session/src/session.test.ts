@@ -219,6 +219,49 @@ describe("session execution", () => {
       shouldPlay: true,
     });
   });
+  it("starts with sound, and restores sound a browser withheld only on media", () => {
+    const { session: s, step } = setup();
+    expect(s.getSnapshot()).toMatchObject({
+      muted: false,
+      soundWithheld: false,
+    });
+    s.soundWithheld("stale");
+    expect(s.getSnapshot().soundWithheld).toBe(false);
+    s.soundWithheld("a");
+    expect(s.getSnapshot()).toMatchObject({ muted: true, soundWithheld: true });
+    s.next();
+    // Reminders are silent: a gesture there keeps sound withheld.
+    expect(s.restoreSound()).toBe(false);
+    expect(s.getSnapshot()).toMatchObject({ muted: true, soundWithheld: true });
+    step(5000);
+    s.tick();
+    expect(s.getSnapshot().item?.id).toBe("b");
+    expect(s.restoreSound()).toBe(true);
+    expect(s.getSnapshot()).toMatchObject({
+      muted: false,
+      soundWithheld: false,
+    });
+    expect(s.restoreSound()).toBe(false);
+  });
+  it("the sound button restores withheld sound, and a chosen mute is not withheld", () => {
+    const { session: s } = setup();
+    s.soundWithheld("a");
+    s.toggleMuted();
+    expect(s.getSnapshot()).toMatchObject({
+      muted: false,
+      soundWithheld: false,
+    });
+    s.toggleMuted();
+    expect(s.getSnapshot()).toMatchObject({
+      muted: true,
+      soundWithheld: false,
+    });
+    // Playing already muted cannot be a refusal of sound.
+    s.soundWithheld("a");
+    expect(s.getSnapshot().soundWithheld).toBe(false);
+    expect(s.restoreSound()).toBe(false);
+    expect(s.getSnapshot().muted).toBe(true);
+  });
   it("does not replay a consumed reminder when navigating backward then forward", () => {
     const { session: s, step } = setup();
     s.next();

@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import type Hls from "hls.js";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, VolumeX } from "lucide-react";
 import type { MediaItem } from "@mofied/contracts";
 import { copy, formatTime, type Locale } from "@mofied/design";
 import type { SessionController, SessionSnapshot } from "@mofied/session";
@@ -28,9 +28,11 @@ export const MediaPlayer = forwardRef<
     locale: Locale;
     preview?: boolean;
     togglePlayback: () => void;
+    /** A tap on the picture: restores withheld sound, otherwise toggles. */
+    tapPlayer: () => void;
   }
 >(function MediaPlayer(
-  { item, session, state, locale, preview = false, togglePlayback },
+  { item, session, state, locale, preview = false, togglePlayback, tapPlayer },
   handle,
 ) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -82,6 +84,8 @@ export const MediaPlayer = forwardRef<
     let cancelled = false;
     let recoveries = 0;
     let initialized = false;
+    // Only the latest play request's outcome describes the element.
+    let attempts = 0;
     const stopPresentation = watchVideoPresentation(
       video,
       () => initialized,
@@ -144,13 +148,26 @@ export const MediaPlayer = forwardRef<
       if (session.getSnapshot().shouldPlay) void play();
     };
     const play = async () => {
+      const attempt = ++attempts;
+      const audible = !video.muted;
       try {
         await video.play();
       } catch (error) {
-        if (cancelled || !session.getSnapshot().shouldPlay) return;
-        if (error instanceof DOMException && error.name === "NotAllowedError")
-          session.autoplayBlocked(item.id);
-        else if (!(
+        if (
+          cancelled ||
+          attempt !== attempts ||
+          !session.getSnapshot().shouldPlay
+        )
+          return;
+        if (error instanceof DOMException && error.name === "NotAllowedError") {
+          if (audible) {
+            // Sound was refused, not playback: play muted and offer the tap
+            // that brings sound back, as Faqieh's Shorts do.
+            session.soundWithheld(item.id);
+            video.muted = true;
+            void play();
+          } else session.autoplayBlocked(item.id);
+        } else if (!(
           error instanceof DOMException && error.name === "AbortError"
         ))
           failed();
@@ -411,7 +428,7 @@ export const MediaPlayer = forwardRef<
               className="media-tap"
               aria-label={state.wantsToPlay ? t.pause : t.play}
               onClick={(event) => {
-                if (event.detail === 0) togglePlayback();
+                if (event.detail === 0) tapPlayer();
               }}
             />
             {state.status === "paused" &&
@@ -427,6 +444,21 @@ export const MediaPlayer = forwardRef<
                 {state.status === "loading" ? t.loading : t.buffering}
               </div>
             )}
+            {!preview &&
+              state.soundWithheld &&
+              state.status !== "autoplay-blocked" &&
+              !state.retryRequired && (
+                <button
+                  type="button"
+                  className="sound-hint"
+                  onClick={() => {
+                    if (session.restoreSound()) synchronize.current();
+                  }}
+                >
+                  <VolumeX size={16} strokeWidth={2.25} aria-hidden="true" />
+                  <span>{t.tapToUnmute}</span>
+                </button>
+              )}
             {state.status === "autoplay-blocked" && (
               <button className="player-message" onClick={togglePlayback}>
                 <Play size={28} />

@@ -94,3 +94,49 @@ export async function serveMp4(page: Page) {
     });
   });
 }
+
+/** Deterministic per-element audible permission. Real decoding still occurs.
+ * Like Safari and Chrome on a first visit, sound needs a gesture on the element
+ * and muted playback does not. A pointer release counts, as iOS treats touchend.
+ * Desktop automation grants gestures more freely than iOS, so this deliberately
+ * does not use navigator.userActivation as an oracle for an iPhone policy. */
+export async function audiblePolicy(page: Page, { muted = true } = {}) {
+  await page.addInitScript((allowMuted) => {
+    const authorized = new WeakSet<HTMLMediaElement>();
+    let gesture = false;
+    for (const name of ["click", "keydown", "pointerup"])
+      window.addEventListener(
+        name,
+        (event) => {
+          gesture = event.isTrusted;
+          // The gesture lasts for every listener of this event, including the
+          // app's own window listeners, and ends once dispatch is over.
+          setTimeout(() => {
+            gesture = false;
+          });
+        },
+        true,
+      );
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      if (gesture) authorized.add(this);
+      if ((!this.muted || !allowMuted) && !authorized.has(this))
+        return Promise.reject(
+          new DOMException("Tap this element to play sound", "NotAllowedError"),
+        );
+      return play.call(this);
+    };
+    // Unmuting inside a gesture also authorizes the element, as in WebKit.
+    const muted = Object.getOwnPropertyDescriptor(
+      HTMLMediaElement.prototype,
+      "muted",
+    )!;
+    Object.defineProperty(HTMLMediaElement.prototype, "muted", {
+      ...muted,
+      set(value: boolean) {
+        if (!value && gesture) authorized.add(this);
+        muted.set!.call(this, value);
+      },
+    });
+  }, muted);
+}
