@@ -1,5 +1,54 @@
 # Implementation verification
 
+## 0.1.2: sharing, app links, session continuity and sound — 2026-11-14
+
+Changes: every item the session lands on plays; native sessions continue across
+app switches with no plan expiry or device storage; the web tries sound first and
+offers a “اضغط لتشغيل الصوت” pill; media can be shared as
+`https://mofied.com/?start=<mediaId>`; the apps claim `https://mofied.com/`; mobile
+browsers are offered the app. Rails changes are in faqieh-web-app#531.
+
+Web and JavaScript checks (not device verification):
+
+- Both TypeScript checks, **141 unit tests in 11 files**, the production web build
+  and the Expo iOS/Android/web exports passed.
+- **111 headless Chromium tests** passed (1 opt-in skipped), including new sound
+  (8), share (7) and app-banner (6) suites. **10 local Wrangler tests** passed,
+  including both association files served 200 JSON without redirects, and the
+  deployment dry run passed.
+- Rails: the Mofied plan/serializer/controller tests (23) passed with 100% line
+  and branch coverage of the changed files. The full suite's only failures (35, in
+  `test/lib/shorts_publisher`) fail identically on a clean `main` on macOS, whose
+  `/tmp` is a symlink.
+
+Native verification:
+
+- **iOS simulator** (iPhone 18 Pro, iOS 27), Release build against production:
+  four XCUITests passed. A session continued after playing and paused background
+  returns and through Info, and a relaunch got a new one. Pausing and swiping
+  played the next media. The share sheet opened (with the mofied.com link
+  preview), and Copy put the title and `https://mofied.com/?start=<id>` on the
+  pasteboard while the session kept playing. A plain `mofied://` link kept the
+  session; share links started new sessions while running, from the background
+  and at a cold launch.
+- **iOS simulator, Debug build with fixtures**: a share link opened its media
+  first, both while running and at a cold launch.
+- **Android phone** (Galaxy Note 20, Android 13), Release build signed with the
+  debug key, against production: playback started with sound; leaving and
+  returning continued the same media and session; pausing and swiping played the
+  next media; the share sheet showed the title and link, and closing it kept the
+  media playing. Explicit `VIEW` intents for `https://mofied.com/` kept the
+  session, and share links started new sessions while running and at a cold
+  launch. In the phone's Chrome, the web app showed the open-in-app bar and the
+  withheld-sound pill (real Chrome refused audible autoplay); a tap on the video
+  restored sound without pausing, and “فتح” opened the installed app through the
+  intent link. The seven Android audio-focus lifecycle tests passed.
+
+Not yet verified: OS-level universal links and App Links verification (they need
+the deployed `/.well-known/` files and store-signed builds), Apple's Smart App
+Banner in Safari (needs a device with the App Store), the server honoring `start`
+against production (needs faqieh-web-app#531 deployed), and Huawei devices.
+
 ## Fresh sessions on every opening — 2026-11-08
 
 Removed saved-session serialization/restoration and all progress reads/writes.
