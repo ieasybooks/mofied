@@ -16,10 +16,8 @@ Web and JavaScript checks (not device verification):
   (8), share (7) and app-banner (6) suites. **10 local Wrangler tests** passed,
   including both association files served 200 JSON without redirects, and the
   deployment dry run passed.
-- Rails: the Mofied plan/serializer/controller tests (23) passed with 100% line
-  and branch coverage of the changed files. The full suite's only failures (35, in
-  `test/lib/shorts_publisher`) fail identically on a clean `main` on macOS, whose
-  `/tmp` is a symlink.
+- Rails (faqieh-web-app#531, merged, not yet deployed): the full suite passed in
+  CI (5,265 tests).
 
 Native verification:
 
@@ -43,6 +41,35 @@ Native verification:
   withheld-sound pill (real Chrome refused audible autoplay); a tap on the video
   restored sound without pausing, and “فتح” opened the installed app through the
   intent link. The seven Android audio-focus lifecycle tests passed.
+
+Review fixes (same day): Space on a focused sound button no longer re-mutes
+withheld sound; native Retry after a failed share link asks for that share again;
+Open in the app pauses explicitly, including a blocked player and a session still
+loading. The iOS continuity test now also reads the media clock.
+
+- Web and JavaScript, at the top of the stack: **147 unit tests in 11 files**,
+  both TypeScript checks, the build, **116 headless Chromium tests** (1 opt-in
+  skipped), **10 local Wrangler tests**, the deployment dry run and the Expo
+  exports passed. Each lower branch passed on its own: #3 (127 unit, 90
+  browser), #4 (129, 101) and #5 (140, 108). The new browser tests failed before
+  their fixes: Space left the video muted; Open started a blocked player and
+  let a still-loading session play.
+- **iOS simulator**, Release build against production: the four XCUITests passed,
+  with the clock advancing after a playing return and standing still after a
+  paused one. Copy put the title and `https://mofied.com/?start=<id>` on the
+  pasteboard.
+- **Retry after a failed share**, Release builds against a local HTTPS session
+  server that failed one request on demand and logged each `start`: on the iOS
+  simulator and an Android 10 emulator, after an ordinary launch a failed share
+  for 781 was retried as 781, and after a launch from share 44445 a failed share
+  for 1956 was retried as 1956. Each Retry then played that media. Before the fix
+  these Retries asked for no share and for 44445.
+- **Android phone**, Release build against production: the session continued
+  across a trip to the home screen (not counting the time away); with airplane
+  mode on a share link failed, and Retry loaded a playing session once the network
+  was back; a plain link then kept it; pausing and swiping played the next media.
+  In the phone's Chrome, “فتح” opened the installed app, and on returning the web
+  player was paused and stayed paused.
 
 Not yet verified: OS-level universal links and App Links verification (they need
 the deployed `/.well-known/` files and store-signed builds), Apple's Smart App
