@@ -42,6 +42,7 @@
   --color-ink: #f5f5f5;
 }
 :root {
+  --app-banner-height: 0px;
   font-family: var(--font-sans);
   color: #f5f5f5;
   background: #0a0a0a;
@@ -103,12 +104,76 @@ button {
 img[hidden] {
   display: none;
 }
+:root[data-app-banner] {
+  --app-banner-height: 60px;
+}
+.app-banner {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--app-banner-height);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid #ffffff1c;
+  background: #151515;
+}
+.app-banner-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 44px;
+  margin-inline-end: -4px;
+  background: transparent;
+  color: #9a9a9a;
+}
+.app-banner img {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ffffff20;
+  border-radius: 10px;
+}
+.app-banner p {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.app-banner strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.app-banner span {
+  overflow: hidden;
+  color: #b8b8b8;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-banner-open {
+  flex-shrink: 0;
+  padding: 7px 18px;
+  border-radius: 9999px;
+  background: #fff;
+  color: #111;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.session-view,
+.startup {
+  margin-top: var(--app-banner-height);
+}
 .session-view {
   --player-width: min(44vw, calc((100dvh - 108px) * 0.5625));
   position: relative;
   isolation: isolate;
   width: 100%;
-  height: 100dvh;
+  height: calc(100dvh - var(--app-banner-height));
   min-height: 420px;
   overflow: hidden;
   background: radial-gradient(ellipse at 30% 0%, #141414, #0a0a0a 65%);
@@ -594,7 +659,9 @@ kbd {
   display: none;
 }
 .startup {
-  height: 100dvh;
+  /* Its header is positioned against this screen, below any app banner. */
+  position: relative;
+  height: calc(100dvh - var(--app-banner-height));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1005,7 +1072,7 @@ kbd {
   }
   .control-rail {
     position: fixed;
-    top: calc(env(safe-area-inset-top) + 76px);
+    top: calc(env(safe-area-inset-top) + 76px + var(--app-banner-height));
     left: 20px;
     right: auto;
     z-index: 10;

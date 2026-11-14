@@ -7,6 +7,22 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0A0A0A" />
+    <!-- Safari's own banner opens the app, or its App Store page to install it. -->
+    <meta name="apple-itunes-app" content="app-id=6831969465" />
+    <script>
+      // A shared media link (?start=ID) opens the app at that media.
+      (function () {
+        var start = new URLSearchParams(location.search).get("start");
+        if (start && /^[1-9][0-9]{0,18}$/.test(start))
+          document
+            .querySelector('meta[name="apple-itunes-app"]')
+            .setAttribute(
+              "content",
+              "app-id=6831969465, app-argument=https://mofied.com/?start=" +
+                start,
+            );
+      })();
+    </script>
     <meta
       name="description"
       content="مفيد — مواد نافعة، وجلسات محدودة، ولحظات للتفكر."

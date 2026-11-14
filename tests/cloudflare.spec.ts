@@ -36,6 +36,11 @@ test("install and social metadata are readable without JavaScript", async ({
     await expect(
       page.locator('meta[name="apple-mobile-web-app-capable"]'),
     ).toHaveAttribute("content", "yes");
+    // Safari's own banner works before JavaScript runs.
+    await expect(page.locator('meta[name="apple-itunes-app"]')).toHaveAttribute(
+      "content",
+      "app-id=6831969465",
+    );
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       "href",
       "https://mofied.com/",

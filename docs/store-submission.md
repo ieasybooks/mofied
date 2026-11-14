@@ -1,3 +1,24 @@
+# 0.1.2 (3) — prepared, not submitted
+
+Version **0.1.2 (3)** (iOS build 3, Android version code 3) adds sharing and
+mofied.com app links, keeps a session across app switches and plays every item
+the viewer lands on. Nothing has been uploaded or submitted.
+
+Before archiving:
+
+1. Deploy Faqieh with faqieh-web-app#531 (`start=` support, continuous verses, no `expiresAt`).
+2. Deploy the web (`bun run deploy:web`) right after, so `/.well-known/` serves both association files; run the live checks in [web deployment](web-deployment.md). The web on `main` and the 0.1.1 apps require `expiresAt`, so they cannot load sessions once #531 is live; 0.1.1 stays broken until 0.1.2 replaces it.
+3. Enable **Associated Domains** on the `com.mofied.app` App ID (or let Xcode automatic signing add it) so the `applinks:mofied.com` entitlement is in the distribution profile.
+
+Release notes:
+
+- Arabic: «شارك أي مادة برابط يفتحها في مفيد مباشرة، وتفتح روابط mofied.com التطبيق. تستمر جلستك عند الانتقال إلى تطبيق آخر والعودة، وتعمل كل مادة تنتقل إليها تلقائيًا، وتظهر آيات التذكير متصلة.»
+- English: “Share any media with a link that opens it in Mofied, and mofied.com links now open the app. Your session continues when you switch apps and come back, every media you move to plays automatically, and verse reminders read as one passage.”
+
+Reviewer notes replace the 0.1.1 lifecycle sentences: “Backgrounding or locking the app pauses the current session; returning continues it. A new session starts on each launch. The share button (beside Info) opens the system share sheet with a https://mofied.com/?start=ID link; opening such a link starts a session from that media.”
+
+---
+
 # Fresh-session update — 8 November 2026
 
 Version **0.1.1 (2)** removes saved-session restoration. Native app openings,

@@ -1,6 +1,7 @@
 import {
   useEffect,
   useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,6 +18,7 @@ import {
   Pause,
   Play,
   Share,
+  X,
 } from "lucide-react";
 import { SessionController, type SessionSnapshot } from "@mofied/session";
 import { SessionPager } from "@mofied/session";
@@ -39,6 +41,7 @@ import { loadSession } from "./provider";
 import { MediaPlayer, type MediaHandle } from "./MediaPlayer";
 import { About } from "./About";
 import { LaunchArtwork } from "./LaunchArtwork";
+import { appRoute } from "./app-banner";
 
 const subscribeWithoutSession = () => () => {};
 
@@ -71,6 +74,20 @@ export function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const aboutOpenRef = useRef(false);
   const sharedStart = useRef(sharedStartFromAddress());
+  // Decided once per visit, from the address as it was opened.
+  const [banner, setBanner] = useState(() =>
+    appRoute({
+      userAgent: navigator.userAgent,
+      maxTouchPoints: navigator.maxTouchPoints,
+      standalone:
+        matchMedia("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true,
+      start: sharedStart.current,
+    }),
+  );
+  useLayoutEffect(() => {
+    document.documentElement.toggleAttribute("data-app-banner", !!banner);
+  }, [banner]);
   const showAbout = (open: boolean) => {
     aboutOpenRef.current = open;
     setAboutOpen(open);
@@ -112,6 +129,19 @@ export function App() {
   }, [attempt]);
   return (
     <>
+      {banner && (
+        <AppBanner
+          href={banner}
+          locale={locale}
+          // Leaving for the app or its store page pauses the web session.
+          open={() => {
+            const live = session?.getSnapshot();
+            if (live?.item && live.wantsToPlay) session!.togglePlayback();
+          }}
+          // Hidden for this visit only; nothing is stored.
+          dismiss={() => setBanner(null)}
+        />
+      )}
       {session ? (
         <SessionView
           session={session}
@@ -155,6 +185,40 @@ export function App() {
         />
       )}
     </>
+  );
+}
+
+function AppBanner({
+  href,
+  locale,
+  open,
+  dismiss,
+}: {
+  href: string;
+  locale: Locale;
+  open: () => void;
+  dismiss: () => void;
+}) {
+  const t = copy[locale];
+  return (
+    <aside className="app-banner" aria-label={t.watchInApp}>
+      <button
+        type="button"
+        className="app-banner-close"
+        aria-label={t.close}
+        onClick={dismiss}
+      >
+        <X size={18} />
+      </button>
+      <img src="/icons/icon-192.png" alt="" width={40} height={40} />
+      <p>
+        <strong>{t.name}</strong>
+        <span>{t.watchInApp}</span>
+      </p>
+      <a className="app-banner-open" href={href} onClick={open}>
+        {t.openApp}
+      </a>
+    </aside>
   );
 }
 
