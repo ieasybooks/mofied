@@ -207,7 +207,17 @@ function SessionView({
           ))
       )
         return;
-      if (["Space", "ArrowUp", "ArrowDown"].includes(event.code))
+      // Space on a sound button activates that button, which brings withheld
+      // sound back itself; restoring here first would let its click mute again.
+      if (
+        event.code === "ArrowUp" ||
+        event.code === "ArrowDown" ||
+        (event.code === "Space" &&
+          !(
+            event.target instanceof Element &&
+            event.target.closest("[data-sound-control]")
+          ))
+      )
         restoreSound();
       if (event.code === "Space") {
         // Buttons/links retain their normal Space/Enter activation; arrow

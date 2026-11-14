@@ -86,6 +86,62 @@ test("the sound button brings withheld sound back instead of muting again", asyn
   await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
 });
 
+test("Space and Enter on a focused sound button bring withheld sound back", async ({
+  page,
+}) => {
+  for (const key of ["Space", "Enter"]) {
+    await withheldStart(page);
+    const button = page.getByRole("button", {
+      name: "تشغيل الصوت",
+      exact: true,
+    });
+    // Focus arrives without a click, as from assistive technology or Shift+Tab.
+    await button.focus();
+    await page.keyboard.press(key);
+    await expect(video(page)).toHaveJSProperty("muted", false);
+    await expect(hint(page)).toHaveCount(0);
+    await expect(page.locator("main")).toHaveAttribute(
+      "data-status",
+      "playing",
+    );
+    await expect(
+      page.getByRole("button", { name: "كتم الصوت", exact: true }),
+    ).toBeFocused();
+    // The next press is an ordinary, deliberate mute.
+    await page.keyboard.press(key);
+    await expect(video(page)).toHaveJSProperty("muted", true);
+    await expect(hint(page)).toHaveCount(0);
+  }
+});
+
+test("on a phone, Space on the header sound button brings withheld sound back", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await withheldStart(page);
+  await page
+    .locator(".mobile-sound")
+    .and(page.getByRole("button", { name: "تشغيل الصوت", exact: true }))
+    .focus();
+  await page.keyboard.press("Space");
+  await expect(video(page)).toHaveJSProperty("muted", false);
+  await expect(hint(page)).toHaveCount(0);
+});
+
+test("arrows on a focused sound button still move on and restore sound", async ({
+  page,
+}) => {
+  const session = plan();
+  session.items = [media("first"), media("second")];
+  await withheldStart(page, session);
+  await page.getByRole("button", { name: "تشغيل الصوت", exact: true }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("main")).toHaveAttribute("data-item-id", "second");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  await expect(video(page)).toHaveJSProperty("muted", false);
+  await expect(hint(page)).toHaveCount(0);
+});
+
 test("keyboard navigation restores sound and the next media plays audibly", async ({
   page,
 }) => {
