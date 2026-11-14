@@ -74,6 +74,8 @@ export function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const aboutOpenRef = useRef(false);
   const sharedStart = useRef(sharedStartFromAddress());
+  // Open in the app was pressed before the session arrived.
+  const leftForApp = useRef(false);
   // Decided once per visit, from the address as it was opened.
   const [banner, setBanner] = useState(() =>
     appRoute({
@@ -109,6 +111,8 @@ export function App() {
     const accept = (next: SessionController) => {
       if (abort.signal.aborted) return;
       if (aboutOpenRef.current) next.openAbout();
+      if (leftForApp.current) next.pause();
+      leftForApp.current = false;
       // Retries keep the shared media until a session has actually opened.
       sharedStart.current = undefined;
       dropSharedStartFromAddress();
@@ -135,8 +139,8 @@ export function App() {
           locale={locale}
           // Leaving for the app or its store page pauses the web session.
           open={() => {
-            const live = session?.getSnapshot();
-            if (live?.item && live.wantsToPlay) session!.togglePlayback();
+            if (session) session.pause();
+            else leftForApp.current = true;
           }}
           // Hidden for this visit only; nothing is stored.
           dismiss={() => setBanner(null)}

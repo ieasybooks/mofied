@@ -269,6 +269,15 @@ export class SessionController {
     this.lastTick = this.clock();
     this.publish();
   };
+  /** An explicit pause, whatever the player's state; toggling would start a blocked player. */
+  pause = () => {
+    this.tick();
+    if (!this.item) return;
+    this.wants = false;
+    this.progressSample = null;
+    this.lastTick = this.clock();
+    this.publish();
+  };
   toggleMuted = () => {
     // The sound button brings back withheld sound rather than muting again.
     this.muted = this.withheld ? false : !this.muted;

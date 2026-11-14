@@ -146,6 +146,51 @@ describe("session execution", () => {
     expect(s.getSnapshot().reminderRemainingMs).toBe(3000);
     expect(s.getSnapshot().activeMs).toBe(2000);
   });
+  it("pause always stops, even a player the browser blocked", () => {
+    const { session: s, step } = setup();
+    s.mediaPlaying("a", 0);
+    s.pause();
+    expect(s.getSnapshot()).toMatchObject({
+      status: "paused",
+      wantsToPlay: false,
+      shouldPlay: false,
+    });
+    s.pause();
+    expect(s.getSnapshot().wantsToPlay).toBe(false);
+    s.togglePlayback();
+    s.autoplayBlocked("a");
+    expect(s.getSnapshot()).toMatchObject({
+      status: "autoplay-blocked",
+      wantsToPlay: true,
+    });
+    s.pause();
+    expect(s.getSnapshot()).toMatchObject({
+      status: "paused",
+      wantsToPlay: false,
+      shouldPlay: false,
+    });
+    // A paused reminder stops its countdown; the next item still starts.
+    s.next();
+    step(1000);
+    s.tick();
+    s.pause();
+    step(10_000);
+    s.tick();
+    expect(s.getSnapshot().reminderRemainingMs).toBe(4000);
+    s.togglePlayback();
+    step(4000);
+    s.tick();
+    expect(s.getSnapshot()).toMatchObject({
+      item: { id: "b" },
+      wantsToPlay: true,
+    });
+  });
+  it("pause leaves an ended session alone", () => {
+    const { session: s } = setup({ items: [] });
+    expect(s.getSnapshot().status).toBe("ended");
+    s.pause();
+    expect(s.getSnapshot().status).toBe("ended");
+  });
   it("starts every item it lands on, whatever the previous item's pause", () => {
     const { session: s, step } = setup({
       items: [

@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { media, plan, serveMp4 } from "./fixtures";
+import { audiblePolicy, media, plan, position, serveMp4 } from "./fixtures";
 
 const ua = {
   androidChrome:
@@ -34,6 +34,20 @@ async function open(browser: Browser, userAgent: string, path = "/") {
   return page;
 }
 const banner = (page: Page) => page.locator(".app-banner");
+// Keep the test on the page when Open is clicked.
+const stayHere = (page: Page) =>
+  page.evaluate(() =>
+    document
+      .querySelector(".app-banner-open")!
+      .addEventListener("click", (event) => event.preventDefault()),
+  );
+async function androidPage(browser: Browser) {
+  const context = await browser.newContext({
+    userAgent: ua.androidChrome,
+    viewport: { width: 390, height: 844 },
+  });
+  return context.newPage();
+}
 
 test("Android browsers open the app at the same link, below which the player moves down", async ({
   browser,
@@ -55,14 +69,56 @@ test("Android browsers open the app at the same link, below which the player mov
     await page.evaluate(() => document.documentElement.scrollHeight),
   ).toBeLessThanOrEqual(844);
 
-  // Leaving for the app pauses the web session. Keep the test page here.
-  await page.evaluate(() =>
-    document
-      .querySelector(".app-banner-open")!
-      .addEventListener("click", (event) => event.preventDefault()),
-  );
+  // Leaving for the app pauses the web session.
+  await stayHere(page);
   await link.click();
   await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+});
+
+test("Open stops a player the browser blocked instead of starting it", async ({
+  browser,
+}) => {
+  const page = await androidPage(browser);
+  await audiblePolicy(page, { muted: false });
+  await page.route("**/__test/session*", (route) =>
+    route.fulfill({ json: plan() }),
+  );
+  await serveMp4(page);
+  await page.goto("http://127.0.0.1:5173/?test-session=1");
+  await expect(page.locator("main")).toHaveAttribute(
+    "data-status",
+    "autoplay-blocked",
+  );
+  await stayHere(page);
+  await page.getByRole("link", { name: "فتح" }).click();
+  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+  await expect(page.locator("video")).toHaveJSProperty("paused", true);
+  await page.waitForTimeout(500);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+});
+
+test("Open before the session arrives keeps it paused when it does", async ({
+  browser,
+}) => {
+  const page = await androidPage(browser);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/__test/session*", async (route) => {
+    await held;
+    await route.fulfill({ json: plan() });
+  });
+  await serveMp4(page);
+  await page.goto("http://127.0.0.1:5173/?test-session=1");
+  await expect(page.locator(".startup")).toBeVisible();
+  await stayHere(page);
+  await page.getByRole("link", { name: "فتح" }).click();
+  release();
+  await expect(page.locator("main")).toHaveAttribute("data-item-id", "first");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+  await page.waitForTimeout(500);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "paused");
+  await expect(page.locator("video")).toHaveJSProperty("paused", true);
+  expect(await position(page)).toBe(0);
 });
 
 test("× hides the banner for this visit only and restores the layout", async ({
