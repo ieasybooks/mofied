@@ -135,7 +135,7 @@ function LoadedApp() {
     () => !!session?.getSnapshot().item,
   );
   const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const sessions = useRef<ReturnType<typeof watchSessions>>(undefined);
   const [locale, setLocale] = useState<Locale>("ar");
   const [aboutOpen, setAboutOpen] = useState(false);
   const aboutOpenRef = useRef(false);
@@ -145,32 +145,33 @@ function LoadedApp() {
     if (open) session?.openAbout();
     else session?.closeAbout();
   };
-  useEffect(
-    () =>
-      watchSessions({
-        appState: Platform.OS === "web" ? undefined : AppState,
-        links: Platform.OS === "web" ? undefined : Linking,
-        load: loadSession,
-        loading: () => {
-          setSession(null);
-          setError(false);
-        },
-        accept: (next) => {
-          // Android grants focus asynchronously. Gate the very first render too.
-          if (Platform.OS === "android") next.setInterrupted(true);
-          if (aboutOpenRef.current) next.openAbout();
-          setSession(next);
-        },
-        fail: (error) => {
-          console.warn(
-            "[mofied] Session load failed",
-            sessionLoadDiagnostic(error),
-          );
-          setError(true);
-        },
-      }),
-    [attempt],
-  );
+  // One watcher for the app's lifetime: Retry repeats its last request.
+  useEffect(() => {
+    const watcher = watchSessions({
+      appState: Platform.OS === "web" ? undefined : AppState,
+      links: Platform.OS === "web" ? undefined : Linking,
+      load: loadSession,
+      loading: () => {
+        setSession(null);
+        setError(false);
+      },
+      accept: (next) => {
+        // Android grants focus asynchronously. Gate the very first render too.
+        if (Platform.OS === "android") next.setInterrupted(true);
+        if (aboutOpenRef.current) next.openAbout();
+        setSession(next);
+      },
+      fail: (error) => {
+        console.warn(
+          "[mofied] Session load failed",
+          sessionLoadDiagnostic(error),
+        );
+        setError(true);
+      },
+    });
+    sessions.current = watcher;
+    return watcher.stop;
+  }, []);
   return (
     <View style={styles.root} onLayout={() => SplashScreen.hide()}>
       {session ? (
@@ -199,7 +200,7 @@ function LoadedApp() {
               <Text style={styles.body}>{copy[locale].connection}</Text>
               <Pressable
                 style={styles.readButton}
-                onPress={() => setAttempt((value) => value + 1)}
+                onPress={() => sessions.current?.retry()}
                 accessibilityRole="button"
               >
                 <Text style={styles.ui}>{copy[locale].retry}</Text>

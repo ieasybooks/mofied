@@ -53,7 +53,7 @@ function setup(
   const sessions: SessionController[] = [];
   const loading = vi.fn();
   const fail = vi.fn();
-  const stop = watchSessions({
+  const { stop, retry } = watchSessions({
     appState,
     links,
     now,
@@ -67,7 +67,7 @@ function setup(
     await Promise.resolve();
     return sessions.at(-1)!;
   };
-  return { appState, requests, sessions, loading, fail, stop, resolve };
+  return { appState, requests, sessions, loading, fail, stop, retry, resolve };
 }
 
 describe("native session lifetime", () => {
@@ -275,5 +275,64 @@ describe("native session lifetime", () => {
     const shared = await s.resolve(1);
     expect(s.sessions).toEqual([shared]);
     s.stop();
+  });
+  it.each([
+    ["an ordinary launch", null, undefined],
+    ["a launch from another share", "https://mofied.com/?start=7", "7"],
+  ])(
+    "Retry after %s and a failed incoming share asks for that share again",
+    async (_name, launch, launched) => {
+      let clock = 0;
+      const links = new Links();
+      const s = setup("active", { links, now: () => clock });
+      links.resolveInitial(launch);
+      await Promise.resolve();
+      await s.resolve(0);
+      clock = 10_000;
+      links.emit("https://mofied.com/?start=77");
+      s.requests[1]!.reject(new Error("offline"));
+      await Promise.resolve();
+      expect(s.fail).toHaveBeenCalledOnce();
+      s.retry();
+      expect(s.requests.map((request) => request.start)).toEqual([
+        launched,
+        "77",
+        "77",
+      ]);
+      expect(s.loading).toHaveBeenCalledTimes(3);
+      const shared = await s.resolve(2);
+      expect(s.sessions.at(-1)).toBe(shared);
+      s.stop();
+    },
+  );
+  it("Retry after a failed launch from a share asks for that share again", async () => {
+    const links = new Links();
+    const s = setup("active", { links });
+    links.resolveInitial("https://mofied.com/?start=4321");
+    await Promise.resolve();
+    s.requests[0]!.reject(new Error("offline"));
+    await Promise.resolve();
+    s.retry();
+    expect(s.requests.map((request) => request.start)).toEqual([
+      "4321",
+      "4321",
+    ]);
+    // iOS reporting the launching link again does not load a third time.
+    links.emit("https://mofied.com/?start=4321");
+    expect(s.requests).toHaveLength(2);
+    s.stop();
+  });
+  it("Retry repeats an ordinary failed load and does nothing once stopped", async () => {
+    const s = setup();
+    s.requests[0]!.reject(new Error("offline"));
+    await Promise.resolve();
+    s.retry();
+    expect(s.requests.map((request) => request.start)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    s.stop();
+    s.retry();
+    expect(s.requests).toHaveLength(2);
   });
 });

@@ -26,7 +26,8 @@ const SAME_LINK_MS = 3000;
  * (Control Center, notification drawer) changes nothing. A shared media link
  * (https://mofied.com/?start=ID) opens a new session from that media, at
  * launch or while the app is running; a plain mofied.com link just brings the
- * app forward.
+ * app forward. `retry` repeats the last request, so a failed share link is
+ * retried as that share rather than as the link that launched the app.
  */
 export function watchSessions({
   appState,
@@ -49,9 +50,9 @@ export function watchSessions({
   let backgrounded = appState?.currentState === "background";
   let request: AbortController | undefined;
   let session: SessionController | undefined;
-  let opened: { link?: string; at: number } | undefined;
+  let opened: { start?: string; link?: string; at: number } | undefined;
   const open = (start?: string, link?: string) => {
-    opened = { link, at: now() };
+    opened = { start, link, at: now() };
     request?.abort();
     // Stop accounting and release focus immediately, before React unmounts media.
     session?.setBackgrounded(true);
@@ -100,11 +101,16 @@ export function watchSessions({
         if (!disposed && !opened) open();
       },
     );
-  return () => {
-    disposed = true;
-    appSubscription?.remove();
-    linkSubscription?.remove();
-    request?.abort();
-    session?.setBackgrounded(true);
+  return {
+    retry: () => {
+      if (!disposed && opened) open(opened.start, opened.link);
+    },
+    stop: () => {
+      disposed = true;
+      appSubscription?.remove();
+      linkSubscription?.remove();
+      request?.abort();
+      session?.setBackgrounded(true);
+    },
   };
 }

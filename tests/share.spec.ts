@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { media, plan, position, serveMp4, start } from "./fixtures";
+import {
+  finishMedia,
+  media,
+  plan,
+  position,
+  serveMp4,
+  start,
+} from "./fixtures";
 
 const shared = () => {
   const session = plan(1200);
@@ -81,6 +88,17 @@ test("reminders and the ending offer no share button", async ({ page }) => {
     "data-item-id",
     "reminder",
   );
+  await expect(
+    page.getByRole("button", { name: "مشاركة المادة", exact: true }),
+  ).toHaveCount(0);
+  // The reminder runs out into the last media, which can be shared again.
+  await expect(page.locator("main")).toHaveAttribute("data-item-id", "last");
+  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
+  await expect(
+    page.getByRole("button", { name: "مشاركة المادة", exact: true }),
+  ).not.toHaveCount(0);
+  await finishMedia(page);
+  await expect(page.locator("main")).toHaveAttribute("data-status", "ended");
   await expect(
     page.getByRole("button", { name: "مشاركة المادة", exact: true }),
   ).toHaveCount(0);

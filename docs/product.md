@@ -45,7 +45,7 @@ Native link-opening failures show localized feedback. The time badge describes t
 ## Sharing and links
 
 - Media screens have a share button: beside Info and sound on native/narrow web, below sound in the desktop rail. Reminders and the ending have none. It shares `https://mofied.com/?start=<mediaId>` with the media title, through the system share sheet. Desktop browsers without one copy the link and briefly confirm “تم نسخ الرابط”. Sharing never pauses playback, and returning from another app continues the same native session.
-- Opening a share link starts a new session from that media: Rails puts an eligible media first and plans the rest around it; an unknown or ineligible id gives an ordinary session. On the web the `start` parameter is removed from the address once the session opens, so a refresh behaves like any other. A failed load keeps it for Retry.
+- Opening a share link starts a new session from that media: Rails puts an eligible media first and plans the rest around it; an unknown or ineligible id gives an ordinary session. On the web the `start` parameter is removed from the address once the session opens, so a refresh behaves like any other. If a share's session fails to load, Retry asks for that same media again, on the web and in the apps, even when the app was launched from a different link.
 - On iOS and Android, tapping a `https://mofied.com/` link from another app or site opens the app (universal links and verified Android App Links); a share link starts from its media, and a plain link just brings the app forward. Typing the address in a browser, in-app browsers, `www` links and `/privacy/` or `/support/` stay on the web.
 
 ## Session lifetime and failure handling
