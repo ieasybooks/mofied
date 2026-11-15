@@ -71,10 +71,38 @@ loading. The iOS continuity test now also reads the media clock.
   In the phone's Chrome, “فتح” opened the installed app, and on returning the web
   player was paused and stayed paused.
 
+Deployed the merged stack (#2–#6, code commit `503cfbe`) on 15 November as
+Cloudflare version `5979843f-23f8-426c-a344-57f38bdad096`, asset
+`/assets/index-CUuLKOcl.js`. Faqieh was not deployed with it: production still
+sends `expiresAt` and ignores `start`. The new web parses that payload and drops
+`expiresAt`.
+
+- Before deploying, at `503cfbe`: both TypeScript checks, **147 unit tests**,
+  **116 headless Chromium tests** (1 opt-in skipped), the deployment dry run and
+  **10 local Wrangler tests** passed.
+- The live JavaScript matches the local release by SHA-256. HTML revalidates,
+  fingerprinted assets cache immutably, and missing assets and unknown paths
+  return 404. HTTP and `www` redirect to the apex, keeping the query.
+  `/privacy/`, `/support/`, the manifest and the share image return 200. Browser
+  HTML carries one analytics beacon. Both `/.well-known/` files return 200 JSON
+  matching the build, and Apple's CDN already serves the new association file.
+- **Live Chromium and WebKit journeys** against the real API and media: each
+  received one session with `https://mofied.com` CORS and `no-store`, decoded real
+  media, and kept playing through Share (Chromium copied
+  `https://mofied.com/?start=<mediaId>`). Each kept a manual pause through Info,
+  played the next media after the pause, reached a reminder, and made no other
+  session request and no page error. A share link sent its `start` and played.
+  With an Android Chrome user agent, the open-in-app bar linked to the same URL and
+  “فتح” paused the player. With an iPhone Safari user agent, only Apple's banner
+  appeared, carrying the shared link as its `app-argument`.
+
+Evidence is under ignored `artifacts/0.1.2-deploy/`. These are desktop browser
+checks; no physical device was used for the deployed site.
+
 Not yet verified: OS-level universal links and App Links verification (they need
-the deployed `/.well-known/` files and store-signed builds), Apple's Smart App
-Banner in Safari (needs a device with the App Store), the server honoring `start`
-against production (needs faqieh-web-app#531 deployed), and Huawei devices.
+store-signed builds), Apple's Smart App Banner in Safari (needs a device with the
+App Store), the server honoring `start` against production (needs
+faqieh-web-app#531 deployed), and Huawei devices.
 
 ## Fresh sessions on every opening — 2026-11-08
 

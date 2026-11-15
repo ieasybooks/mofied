@@ -6,8 +6,8 @@ the viewer lands on. Nothing has been uploaded or submitted.
 
 Before archiving:
 
-1. Deploy Faqieh with faqieh-web-app#531 (`start=` support, continuous verses, no `expiresAt`).
-2. Deploy the web (`bun run deploy:web`) right after, so `/.well-known/` serves both association files; run the live checks in [web deployment](web-deployment.md). The web on `main` and the 0.1.1 apps require `expiresAt`, so they cannot load sessions once #531 is live; 0.1.1 stays broken until 0.1.2 replaces it.
+1. Done on 15 November: the web is deployed (Cloudflare version `5979843f-23f8-426c-a344-57f38bdad096`) and `/.well-known/` serves both association files. It loads sessions with or without `expiresAt`, so Faqieh can deploy at any time.
+2. Deploy Faqieh with faqieh-web-app#531 (`start=` support, continuous verses, no `expiresAt`). The 0.1.1 apps require `expiresAt`, so they cannot load sessions once #531 is live; 0.1.1 stays broken until 0.1.2 replaces it.
 3. Enable **Associated Domains** on the `com.mofied.app` App ID (or let Xcode automatic signing add it) so the `applinks:mofied.com` entitlement is in the distribution profile.
 
 Release notes:
