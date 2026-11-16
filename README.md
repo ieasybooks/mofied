@@ -66,7 +66,7 @@ The `com.mofied.app` App ID has the Associated Domains capability that store bui
 
 ### Releasing
 
-Pushing a version tag such as `v0.1.3` builds, signs and submits both apps to the App Store, Google Play and AppGallery, which publish each version once approved. Store listings, release notes and screenshots live in [`store/`](store/README.md). See [releasing](docs/releasing.md).
+Pushing a tag such as `v0.1.3` builds, signs and submits both apps to the App Store, Google Play and AppGallery, which publish each version once approved; `web-v0.1.3` deploys mofied.com. Store listings, release notes and screenshots live in [`store/`](store/README.md). See [releasing](docs/releasing.md).
 
 ## Repository layout
 

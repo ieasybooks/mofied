@@ -31,9 +31,15 @@ For an interactive local check, `bun run preview:cloudflare` serves the release 
 2. Authenticate Wrangler with the ieasybooks Cloudflare account (`bunx wrangler login`), or provide `CLOUDFLARE_API_TOKEN` through the deployment environment. A scoped token needs Workers Scripts Write for that account. The account ID in the configuration is an identifier, not a credential; no token belongs in the repository or frontend environment.
 3. Run `mise exec -- bun run deploy:web`. This builds with the explicit production session endpoint, then creates/uploads `mofied-web`. It has no public hostname until the next step. Record the deployed version ID from Wrangler.
 4. In `ieasybooks/infrastructure`, follow its full plan/review/apply workflow. It imports the existing zone and attaches `mofied.com` to `mofied-web`, which must already exist. Workers provisions the apex DNS record and certificate. Do not recreate the zone or add a competing apex A/CNAME record.
-5. Perform the live checks below. Later application releases use `bun run deploy:web` without reapplying Terraform unless infrastructure changes.
+5. Perform the live checks below. Later releases deploy the web from the `Release` workflow (see below) without reapplying Terraform unless infrastructure changes.
 
-Deployment is an explicit command; merging this PR does not publish the app or create an automatic deployment workflow. `build:web:release` pins `VITE_SESSION_API_URL` to `https://faqieh.com/api/v1/mofied/session?locale=ar`, overriding a developer's local endpoint setting. Native builds and app behavior are unaffected.
+## Releases
+
+Pushing a `web-v<version>` tag, such as `web-v0.1.3`, deploys the web: the `Release web` workflow (`.github/workflows/web.yml`) checks that the tag matches `package.json`'s version, runs the typecheck and unit tests, then `bun run deploy:web` with the ieasybooks vault's `CLOUDFLARE_WORKERS_DEPLOY_TOKEN` as `CLOUDFLARE_API_TOKEN`. `scripts/release/check-live-web.sh` then checks that mofied.com serves the new build's assets, the privacy and support pages, and the app-link files. The apps release from `v<version>` tags and share the version (see [releasing](releasing.md)); a web-only fix needs only the web tag. Any other `web-v*` tag, such as `web-v0-dry-run`, runs `bun run deploy:web:check` instead and deploys nothing. Merging to `main` deploys nothing.
+
+Deploying by hand still works, with `bun run deploy:web` (signed in with `bunx wrangler login`), followed by `scripts/release/check-live-web.sh`.
+
+`build:web:release` pins `VITE_SESSION_API_URL` to `https://faqieh.com/api/v1/mofied/session?locale=ar`, overriding a developer's local endpoint setting. Native builds and app behavior are unaffected.
 
 ## Serving and analytics
 
