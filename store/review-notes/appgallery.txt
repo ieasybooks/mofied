@@ -1,0 +1,1 @@
+No login, ads, or purchases. Curated Islamic media from faqieh.com; internet required. Swipe between media; reading pauses must finish. Each launch starts a new session; backgrounding pauses it and returning continues it. Share opens a mofied.com/?start=ID link that starts from that media.
