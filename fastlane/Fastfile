@@ -35,12 +35,20 @@ def metadata_dir
   ENV.fetch("STORE_METADATA_DIR")
 end
 
+# The App Store Connect API key, for the actions' api_key option and for
+# spaceship. The key file doesn't say whether the team is an enterprise one,
+# which choosing a provisioning profile type needs; ieasybooks's isn't.
+def apple_api_key
+  key = JSON.parse(File.read(ENV.fetch("APPLE_API_KEY_FILE")))
+  app_store_connect_api_key(key_id: key.fetch("key_id"), issuer_id: key.fetch("issuer_id"), key_content: key.fetch("key"), in_house: false)
+end
+
 platform :ios do
   # Signs and builds the App Store IPA in a throwaway keychain, then uploads
   # it to App Store Connect. A dry run asks App Store Connect to validate the
   # IPA instead, which doesn't use up the build number.
   lane :build do |options|
-    api_key_path = ENV.fetch("APPLE_API_KEY_FILE")
+    api_key = apple_api_key
     keychain_name = "mofied-release"
     keychain_password = SecureRandom.hex(24)
     create_keychain(
@@ -61,7 +69,7 @@ platform :ios do
       )
       # Reuses the App Store profile for the certificate, or creates one.
       get_provisioning_profile(
-        api_key_path: api_key_path,
+        api_key: api_key,
         app_identifier: APP_IDENTIFIER,
         team_id: TEAM_ID,
         readonly: false,
@@ -90,7 +98,7 @@ platform :ios do
         output_name: "Mofied.ipa"
       )
       upload_to_app_store(
-        api_key_path: api_key_path,
+        api_key: api_key,
         app_identifier: APP_IDENTIFIER,
         ipa: ipa,
         skip_metadata: true,
@@ -110,9 +118,8 @@ platform :ios do
   # review, released once approved. A version still in review is pulled back
   # so this one replaces it.
   lane :submit do |options|
-    api_key_path = ENV.fetch("APPLE_API_KEY_FILE")
+    api_key = apple_api_key
     info = release_info
-    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(filepath: api_key_path)
     app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("App Store Connect has no #{APP_IDENTIFIER}")
     if dry_run?(options)
       live = app.get_live_app_store_version
@@ -130,7 +137,7 @@ platform :ios do
       return_spaceship_testflight_build: false
     )
     upload_to_app_store(
-      api_key_path: api_key_path,
+      api_key: api_key,
       app_identifier: APP_IDENTIFIER,
       app_version: info[:version],
       build_number: info[:ios_build_number],
