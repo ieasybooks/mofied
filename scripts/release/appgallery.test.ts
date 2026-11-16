@@ -150,17 +150,13 @@ describe("serviceAccountToken", () => {
 });
 
 describe("publishToAppGallery", () => {
-  it("replaces the version in review, uploads the APK, updates what changed and submits", async () => {
+  it("uploads the APK, updates what changed and submits", async () => {
     const { calls, io } = standIn({
       "GET /publish/v2/app-info": [
-        live({
-          releaseState: REVIEWING,
-          appIcon: "https://obs.example/old-icon.png",
-        }),
+        live({ appIcon: "https://obs.example/old-icon.png" }),
       ],
       "GET obs.example/old-icon.png": [Buffer.from("an older icon")],
       ...liveImages,
-      "POST /publish/v1/app-info/withdraw": [ok],
       "GET /publish/v2/upload-url/for-obs": [uploadUrl],
       "PUT bucket.example/object": [new Response("")],
       "PUT /publish/v2/app-file-info": [{ ...ok, pkgVersion: ["pkg-1"] }, ok],
@@ -188,7 +184,6 @@ describe("publishToAppGallery", () => {
       `${call.method} ${new URL(call.url).host}${new URL(call.url).pathname}`;
     expect(calls.map(route)).toEqual([
       "GET connect-api.cloud.huawei.com/api/publish/v2/app-info",
-      "POST connect-api.cloud.huawei.com/api/publish/v1/app-info/withdraw",
       "GET connect-api.cloud.huawei.com/api/publish/v2/upload-url/for-obs",
       "PUT bucket.example/object",
       "PUT connect-api.cloud.huawei.com/api/publish/v2/app-file-info",
@@ -204,7 +199,7 @@ describe("publishToAppGallery", () => {
       "POST connect-api.cloud.huawei.com/api/publish/v2/app-submit",
     ]);
 
-    const uploadQuery = new URL(calls[2].url).searchParams;
+    const uploadQuery = new URL(calls[1].url).searchParams;
     expect(Object.fromEntries(uploadQuery)).toEqual({
       appId: "119708951",
       fileName: "mofied-0.1.2-3.apk",
@@ -212,18 +207,18 @@ describe("publishToAppGallery", () => {
       sha256: createHash("sha256").update("apk bytes").digest("hex"),
       chineseMainlandFlag: "0",
     });
-    expect(calls[4].body).toEqual({
+    expect(calls[3].body).toEqual({
       fileType: 5,
       files: [{ fileName: "mofied-0.1.2-3.apk", fileDestUrl: "object-1" }],
     });
-    expect(calls[7].body).toEqual({
+    expect(calls[6].body).toEqual({
       lang: "ar",
       appName: listing.name,
       appDesc: listing.description,
       briefInfo: listing.shortDescription,
       newFeatures: notes,
     });
-    expect(calls[11].body).toEqual({
+    expect(calls[10].body).toEqual({
       fileType: 0,
       lang: "ar",
       files: [{ fileName: "icon.png", fileDestUrl: "object-1" }],
@@ -270,7 +265,6 @@ describe("publishToAppGallery", () => {
       io,
     });
     expect(calls.some((c) => c.url.includes("app-language-info"))).toBe(false); // texts already match
-    expect(calls.some((c) => c.url.includes("withdraw"))).toBe(false);
     const binds = calls.filter(
       (c) => c.method === "PUT" && c.url.includes("app-file-info"),
     );
@@ -286,6 +280,25 @@ describe("publishToAppGallery", () => {
         files: shots.map((fileName) => ({ fileName, fileDestUrl: "object-1" })),
       },
     ]);
+  });
+
+  it("stops before changing anything while a version is in review", async () => {
+    const { calls, io } = standIn({
+      "GET /publish/v2/app-info": [live({ releaseState: REVIEWING })],
+    });
+    await expect(
+      publishToAppGallery({
+        gallery: new AppGallery(account, "119708951", io),
+        store,
+        version: "0.1.2",
+        apk,
+        dryRun: false,
+        io,
+      }),
+    ).rejects.toThrow(
+      "AppGallery is reviewing 0.1.1, which can't change until its review is cancelled. Cancel it in AppGallery Connect",
+    );
+    expect(calls).toHaveLength(1);
   });
 
   it("changes nothing in a dry run", async () => {
@@ -307,7 +320,7 @@ describe("publishToAppGallery", () => {
     expect(calls.every((c) => c.method === "GET")).toBe(true);
     expect(lines).toEqual([
       "AppGallery has 0.1.1 in release state 4.",
-      "Would withdraw 0.1.1 from review, so 0.1.2 replaces it.",
+      "A release would stop here: AppGallery is reviewing 0.1.1, which can't change until its review is cancelled. Cancel it in AppGallery Connect (the version's page, Cancel review), then run this again.",
       "Would upload mofied-0.1.2-3.apk; AppGallery issued an upload URL for it.",
       "Would update the ar newFeatures.",
       "Would submit 0.1.2 for review, to be released once approved.",
@@ -336,8 +349,6 @@ describe("AppGallery", () => {
     const { io } = standIn({
       "GET /publish/v2/app-info": [
         new Response("<html>bad gateway</html>", { status: 502 }),
-      ],
-      "POST /publish/v1/app-info/withdraw": [
         Response.json({ ret: { code: 0 } }, { status: 403 }),
       ],
     });
@@ -345,8 +356,8 @@ describe("AppGallery", () => {
     await expect(gallery.appInfo()).rejects.toThrow(
       "GET /publish/v2/app-info: HTTP 502, not JSON",
     );
-    await expect(gallery.withdrawReview()).rejects.toThrow(
-      "POST /publish/v1/app-info/withdraw: HTTP 403, 0: no message",
+    await expect(gallery.appInfo()).rejects.toThrow(
+      "GET /publish/v2/app-info: HTTP 403, 0: no message",
     );
   });
 
