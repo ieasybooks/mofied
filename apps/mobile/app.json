@@ -9,6 +9,7 @@
     "ios": {
       "supportsTablet": true,
       "buildNumber": "3",
+      "appleTeamId": "KJ597HLVMB",
       "bundleIdentifier": "com.mofied.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -50,6 +51,7 @@
         }
       ],
       "expo-font",
+      "./plugins/with-release-signing",
       "expo-asset",
       [
         "expo-splash-screen",
