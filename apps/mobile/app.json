@@ -8,7 +8,6 @@
     "icon": "../../packages/design/assets/icons/app-icon-flat-dark-1024.png",
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "3",
       "appleTeamId": "KJ597HLVMB",
       "bundleIdentifier": "com.mofied.app",
       "infoPlist": {
@@ -18,7 +17,6 @@
     },
     "android": {
       "package": "com.mofied.app",
-      "versionCode": 3,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",

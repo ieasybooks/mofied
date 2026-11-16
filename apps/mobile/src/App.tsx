@@ -45,13 +45,13 @@ import {
   type MediaItem,
 } from "@mofied/contracts";
 import {
-  appVersion,
   colors,
   copy,
   remainingLabel,
   formatTime,
   type Locale,
 } from "@mofied/design";
+import { version as appVersion } from "../package.json";
 import { SlidePages } from "./SlidePages";
 import { PagedSession } from "./SessionPager";
 import type { Direction } from "@mofied/session";

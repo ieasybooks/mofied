@@ -66,7 +66,7 @@ The `com.mofied.app` App ID has the Associated Domains capability that store bui
 
 ### Releasing
 
-Pushing a tag such as `v0.1.3` builds, signs and submits both apps to the App Store, Google Play and AppGallery, which publish each version once approved; `web-v0.1.3` deploys mofied.com. Store listings, release notes and screenshots live in [`store/`](store/README.md). See [releasing](docs/releasing.md).
+Commit titles follow [Conventional Commits](https://www.conventionalcommits.org/), from which release-please keeps a release pull request with the next versions: the web and the apps are versioned separately. Merging it deploys mofied.com and submits the apps to the App Store, Google Play and AppGallery, which publish each version once approved. Store listings, release notes and screenshots live in [`apps/mobile/store/`](apps/mobile/store/README.md). See [releasing](docs/releasing.md).
 
 ## Repository layout
 
@@ -74,12 +74,12 @@ Pushing a tag such as `v0.1.3` builds, signs and submits both apps to the App St
 | -------------------- | ------------------------------------------------------------------- |
 | `apps/web`           | React, Vite, Tailwind; native HLS where available, otherwise hls.js |
 | `apps/mobile`        | Expo, React Native, expo-video; iOS and Android                     |
+| `apps/mobile/store`  | Store listings, release notes, reviewer notes and screenshots       |
 | `packages/contracts` | Versioned Zod wire contract and HTTP provider                       |
 | `packages/session`   | Shared session controller, time accounting and navigation           |
 | `packages/design`    | Approved mark, fonts, colors and UI copy                            |
 | `packages/fixtures`  | Development-only session plans with public media URLs               |
 | `docs/design`        | Approved screen references and decisions                            |
-| `store`              | Store listings, release notes, reviewer notes and screenshots       |
 
 The workspace follows the apps/packages organization discussed with the t3code reference. It does not copy t3code's desktop agent architecture or add a JavaScript backend. Keep this checkout beside the private Faqieh Rails checkout; neither repository is nested in the other.
 

@@ -4,9 +4,10 @@
 #   APPLE_DISTRIBUTION_CERTIFICATE_FILE      the Apple Distribution .p12
 #   APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD  its password
 #   GOOGLE_PLAY_SERVICE_ACCOUNT_FILE         Google Play service account key (JSON)
-# Store texts and images come from store/, written for deliver and supply by
-# scripts/release/write-fastlane-metadata.ts into STORE_METADATA_DIR.
+# Store texts and images come from apps/mobile/store/, written for deliver and
+# supply by scripts/release/write-fastlane-metadata.ts into STORE_METADATA_DIR.
 
+require "open3"
 require "securerandom"
 
 ROOT = File.expand_path("..", __dir__)
@@ -18,12 +19,16 @@ OUTPUT = File.join(ROOT, "build/release")
 skip_docs
 opt_out_usage
 
+# The version in apps/mobile/package.json and the build numbers that follow
+# from it, from scripts/release/release-info.ts.
 def release_info
-  app = JSON.parse(File.read(File.join(ROOT, "apps/mobile/app.json")))["expo"]
+  out, status = Open3.capture2("bun", File.join(ROOT, "scripts/release/release-info.ts"), chdir: ROOT)
+  UI.user_error!("scripts/release/release-info.ts failed") unless status.success?
+  info = JSON.parse(out)
   {
-    version: JSON.parse(File.read(File.join(ROOT, "package.json")))["version"],
-    ios_build_number: app.dig("ios", "buildNumber"),
-    android_version_code: app.dig("android", "versionCode")
+    version: info.fetch("version"),
+    ios_build_number: info.fetch("iosBuildNumber"),
+    android_version_code: info.fetch("androidVersionCode")
   }
 end
 
@@ -114,7 +119,7 @@ platform :ios do
   end
 
   # Waits for App Store Connect to process the uploaded build, then sends the
-  # store/ texts, screenshots and reviewer notes and submits the version for
+  # store texts, screenshots and reviewer notes and submits the version for
   # review, released once approved. A version still in review is pulled back
   # so this one replaces it.
   lane :submit do |options|
@@ -156,7 +161,7 @@ platform :ios do
 end
 
 platform :android do
-  # Sends the AAB to Google Play's production track with the store/ texts,
+  # Sends the AAB to Google Play's production track with the store texts,
   # release notes and images (only those that changed). Google reviews it and,
   # with Managed Publishing off, publishes it once approved. A dry run checks
   # the same edit with Google Play without committing it.

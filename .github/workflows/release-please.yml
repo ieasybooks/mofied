@@ -1,0 +1,141 @@
+name: Release please
+
+# On each push to main, release-please keeps a release pull request open with
+# the next versions and changelogs, from the Conventional Commits since each
+# component's last release. Merging it tags the components it raises and
+# creates their GitHub releases, and this workflow then ships them: the apps
+# (v<version>, release.yml) and the web (web-v<version>, web.yml). See
+# docs/releasing.md.
+#
+# Tags made with GITHUB_TOKEN start no workflows, so this workflow calls the
+# release workflows itself, and their jobs run as this workflow on main. The
+# vault serves them the release secrets only when Ali (AliOsm) pushed, as when
+# he merges the release pull request. If someone else merges it, the tags and
+# releases are made but nothing ships: Ali runs Release apps (dry-run
+# unticked) on the v tag and pushes the web tag again, or re-runs this.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    name: Release please
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      apps: ${{ steps.release.outputs['apps/mobile--release_created'] }}
+      apps-tag: ${{ steps.release.outputs['apps/mobile--tag_name'] }}
+      web: ${{ steps.release.outputs['apps/web--release_created'] }}
+      web-tag: ${{ steps.release.outputs['apps/web--tag_name'] }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+
+  # GITHUB_TOKEN's pull requests run no checks, so this one keeps the open
+  # release pull request's bun.lock in step with its versions and checks
+  # that the apps version it brings can be released (its store release
+  # notes), as the "Release check" status.
+  release-pr:
+    name: Release pull request
+    needs: release-please
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release-please-pr
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: read
+      statuses: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Find the release pull request
+        id: pr
+        run: |
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --label "autorelease: pending" \
+            --json number,headRefName --jq '.[0] // empty | "number=\(.number)\nbranch=\(.headRefName)"' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.pr.outputs.number
+        with:
+          ref: ${{ steps.pr.outputs.branch }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.pr.outputs.number
+        with:
+          bun-version: 1.4.4
+      # Resolves the lockfile only: no packages are installed and no package
+      # scripts run.
+      - name: Update bun.lock
+        if: steps.pr.outputs.number
+        env:
+          BRANCH: ${{ steps.pr.outputs.branch }}
+        run: |
+          bun install --lockfile-only --ignore-scripts
+          if git diff --quiet -- bun.lock; then
+            echo "bun.lock already has the release's versions."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --quiet -m "chore: update bun.lock to the release's versions" -- bun.lock
+            git push --quiet origin "HEAD:$BRANCH"
+          fi
+      # Against main as the merge will be: main's store folder, with the
+      # pull request's apps version. Needs no packages.
+      - name: Check the apps can be released
+        if: steps.pr.outputs.number
+        run: |
+          head=$(git rev-parse HEAD)
+          git fetch --quiet --depth=1 origin "$GITHUB_SHA"
+          git checkout --quiet "$GITHUB_SHA"
+          released=$(jq -r .version apps/mobile/package.json)
+          git checkout --quiet "$head" -- apps/mobile/package.json
+          version=$(jq -r .version apps/mobile/package.json)
+          if [ "$version" = "$released" ]; then
+            state=success
+            description="This release leaves the apps at $version."
+            echo "$description" > check.log
+          elif bun scripts/release/check-release.ts > check.log 2>&1; then
+            state=success
+            description=$(tail -1 check.log)
+          else
+            state=failure
+            description=$(sed -n 2p check.log | sed 's/^ *- //')
+          fi
+          cat check.log
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$head" \
+            -f state="$state" -f context="Release check" \
+            -f description="${description:0:140}" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+
+  apps:
+    name: Release apps
+    needs: release-please
+    if: needs.release-please.outputs.apps == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.apps-tag }}
+
+  web:
+    name: Release web
+    needs: release-please
+    if: needs.release-please.outputs.web == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/web.yml
+    with:
+      tag: ${{ needs.release-please.outputs.web-tag }}
