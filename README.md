@@ -62,7 +62,11 @@ xcrun simctl openurl booted "mofied://?start=<mediaId>"
 adb shell am start -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "https://mofied.com/?start=<mediaId>" com.mofied.app
 ```
 
-Store builds also need the Associated Domains capability on the `com.mofied.app` App ID (Apple Developer portal or Xcode automatic signing).
+The `com.mofied.app` App ID has the Associated Domains capability that store builds need.
+
+### Releasing
+
+Pushing a version tag such as `v0.1.3` builds, signs and submits both apps to the App Store, Google Play and AppGallery, which publish each version once approved. Store listings, release notes and screenshots live in [`store/`](store/README.md). See [releasing](docs/releasing.md).
 
 ## Repository layout
 
@@ -75,6 +79,7 @@ Store builds also need the Associated Domains capability on the `com.mofied.app`
 | `packages/design`    | Approved mark, fonts, colors and UI copy                            |
 | `packages/fixtures`  | Development-only session plans with public media URLs               |
 | `docs/design`        | Approved screen references and decisions                            |
+| `store`              | Store listings, release notes, reviewer notes and screenshots       |
 
 The workspace follows the apps/packages organization discussed with the t3code reference. It does not copy t3code's desktop agent architecture or add a JavaScript backend. Keep this checkout beside the private Faqieh Rails checkout; neither repository is nested in the other.
 
