@@ -166,6 +166,12 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # Gradle's downloads and build outputs, from main's cache: a tag run can
+      # read it but not write it. The basic provider is actions/cache; the
+      # default one is proprietary and only a preview for private repositories.
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
       - name: Generate the Android project
         working-directory: apps/mobile
         run: bunx expo prebuild --platform android --no-install
@@ -175,7 +181,8 @@ jobs:
           base64-files: MOFIED_ANDROID_KEYSTORE.p12
       - name: Build the AAB and APK
         working-directory: apps/mobile/android
-        run: ./gradlew --no-daemon bundleRelease assembleRelease
+        # No 32-bit x86: no phone runs it, and each architecture adds C++ build time.
+        run: ./gradlew --no-daemon bundleRelease assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64
       - name: Check they're signed with Mofied's key
         env:
           # MOFIED_ANDROID_KEYSTORE's certificate, which Google Play and AppGallery know.
