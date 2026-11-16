@@ -1,8 +1,8 @@
-// store/ holds what the release workflow sends to the App Store, Google Play
+// apps/mobile/store/ holds what the release workflow sends to the App Store, Google Play
 // and AppGallery besides the apps themselves: the listing texts, the release
 // notes, the reviewer notes and the images. This module reads it, checks it
 // against each store's limits, and writes the folder layouts fastlane reads.
-// See store/README.md.
+// See apps/mobile/store/README.md.
 
 import {
   copyFileSync,
@@ -68,7 +68,7 @@ export const REVIEW_NOTES = {
   appGallery: { file: "appgallery.txt", min: 10, max: 300 },
 } as const;
 
-// Image folders under store/screenshots/<store>/<language>/ and what each
+// Image folders under apps/mobile/store/screenshots/<store>/<language>/ and what each
 // store accepts there. Apple tells devices apart by size, so its folders list
 // the sizes fastlane maps to a display type.
 type ImageRule = {
@@ -106,7 +106,7 @@ export type Store = {
   reviewNotes: Record<keyof typeof REVIEW_NOTES, string>;
 };
 
-export function readStore(root = "store"): Store {
+export function readStore(root = "apps/mobile/store"): Store {
   const config = JSON.parse(
     readFileSync(join(root, "store.json"), "utf8"),
   ) as Config;

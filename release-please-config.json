@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/v17.11.2/schemas/config.json",
+  "release-type": "node",
+  "include-v-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bootstrap-sha": "4547e41fa00fec084e2b0de3df7ce0f2e9344d0e",
+  "plugins": ["node-workspace"],
+  "packages": {
+    "apps/mobile": {
+      "component": "apps",
+      "include-component-in-tag": false
+    },
+    "apps/web": {
+      "component": "web"
+    },
+    "packages/contracts": {
+      "component": "contracts"
+    },
+    "packages/design": {
+      "component": "design"
+    },
+    "packages/fixtures": {
+      "component": "fixtures"
+    },
+    "packages/session": {
+      "component": "session"
+    }
+  }
+}

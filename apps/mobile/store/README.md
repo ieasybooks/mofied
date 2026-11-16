@@ -1,6 +1,6 @@
 # Store listings
 
-Everything the stores show besides the app itself. Each release sends it to the App Store, Google Play and AppGallery (see [docs/releasing.md](../docs/releasing.md)), so change listings here rather than in the stores' consoles: a release overwrites console edits. `bun run release:check` checks every file against the stores' limits.
+Everything the stores show besides the app itself. Each release sends it to the App Store, Google Play and AppGallery (see [docs/releasing.md](../../../docs/releasing.md)), so change listings here rather than in the stores' consoles: a release overwrites console edits. `bun run release:check` checks every file against the stores' limits.
 
 ## Texts
 

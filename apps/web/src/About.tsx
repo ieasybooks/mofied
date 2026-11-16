@@ -9,7 +9,8 @@ import {
   ChevronRight,
   Play,
 } from "lucide-react";
-import { appVersion, copy, type Locale } from "@mofied/design";
+import { copy, type Locale } from "@mofied/design";
+import { version as appVersion } from "../package.json";
 import appIcon from "@mofied/design/assets/icons/app-icon-flat-dark-1024.png";
 import { SlidePages } from "./SlidePages";
 import { ContactLinks } from "./ContactLinks";

@@ -28,9 +28,12 @@ const account = {
 
 const store = readStore();
 const listing = store.listings.ar;
-const notes = readFileSync("store/release-notes/0.1.2/ar.txt", "utf8").trim();
+const notes = readFileSync(
+  "apps/mobile/store/release-notes/0.1.2/ar.txt",
+  "utf8",
+).trim();
 const shot = (file: string) =>
-  readFileSync(`store/screenshots/appgallery/ar/phone/${file}`);
+  readFileSync(`apps/mobile/store/screenshots/appgallery/ar/phone/${file}`);
 const shots = [
   "01-watch.png",
   "02-swipe.png",
@@ -38,7 +41,9 @@ const shots = [
   "04-speaker.png",
   "05-finish.png",
 ];
-const icon = readFileSync("store/screenshots/appgallery/ar/icon.png");
+const icon = readFileSync(
+  "apps/mobile/store/screenshots/appgallery/ar/icon.png",
+);
 
 type Call = { method: string; url: string; body?: unknown };
 

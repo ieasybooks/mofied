@@ -16,7 +16,7 @@ import {
   readStore,
   writeFastlaneMetadata,
 } from "./store.ts";
-import { releaseInfoProblems } from "./release-info.ts";
+import { readVersion } from "./release-info.ts";
 
 // A PNG header is all the checks read.
 function png(width: number, height: number): Buffer {
@@ -35,11 +35,11 @@ afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
 });
 
-// A copy of the repository's store/ to change.
+// A copy of the repository's apps/mobile/store/ to change.
 function copyOfStore(): string {
   const dir = mkdtempSync(join(tmpdir(), "mofied-store-"));
   temps.push(dir);
-  cpSync("store", dir, { recursive: true });
+  cpSync("apps/mobile/store", dir, { recursive: true });
   return dir;
 }
 
@@ -50,15 +50,14 @@ function files(dir: string): string[] {
     .sort();
 }
 
-describe("store/", () => {
-  it("is ready for the version in package.json", () => {
-    const { version } = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(problems(readStore(), version)).toEqual([]);
+describe("apps/mobile/store/", () => {
+  it("is ready for the version in apps/mobile/package.json", () => {
+    expect(problems(readStore(), readVersion())).toEqual([]);
   });
 
   it("needs release notes for the version", () => {
     expect(problems(readStore(), "9.9.9")).toEqual([
-      "store/release-notes/9.9.9/ar.txt is missing or empty",
+      "apps/mobile/store/release-notes/9.9.9/ar.txt is missing or empty",
     ]);
   });
 
@@ -129,7 +128,9 @@ describe("store/", () => {
     expect(pngSize(png(1206, 2622))).toEqual({ width: 1206, height: 2622 });
     expect(
       pngSize(
-        readFileSync("store/screenshots/google-play/ar/feature-graphic.png"),
+        readFileSync(
+          "apps/mobile/store/screenshots/google-play/ar/feature-graphic.png",
+        ),
       ),
     ).toEqual({ width: 1024, height: 500 });
     expect(() =>
@@ -139,7 +140,7 @@ describe("store/", () => {
 });
 
 describe("writeFastlaneMetadata", () => {
-  it("lays store/ out for deliver and supply", () => {
+  it("lays the store folder out for deliver and supply", () => {
     const out = mkdtempSync(join(tmpdir(), "mofied-fastlane-"));
     temps.push(out);
     const store = readStore();
@@ -147,7 +148,7 @@ describe("writeFastlaneMetadata", () => {
     const read = (path: string) => readFileSync(join(out, path), "utf8");
     const listing = store.listings.ar;
     const notes = readFileSync(
-      "store/release-notes/0.1.2/ar.txt",
+      "apps/mobile/store/release-notes/0.1.2/ar.txt",
       "utf8",
     ).trim();
 
@@ -206,37 +207,9 @@ describe("writeFastlaneMetadata", () => {
         join(out, "app-store/screenshots/ar-SA/iphone-01-watch.png"),
       ),
     ).toEqual(
-      readFileSync("store/screenshots/app-store/ar/iphone/01-watch.png"),
+      readFileSync(
+        "apps/mobile/store/screenshots/app-store/ar/iphone/01-watch.png",
+      ),
     );
-  });
-});
-
-describe("releaseInfoProblems", () => {
-  const info = { version: "0.1.2", iosBuildNumber: "3", androidVersionCode: 3 };
-
-  it("accepts the matching tag, or none", () => {
-    expect(releaseInfoProblems(info, "v0.1.2")).toEqual([]);
-    expect(releaseInfoProblems(info)).toEqual([]);
-  });
-
-  it("reports a tag for another version", () => {
-    expect(releaseInfoProblems(info, "v0.1.3")).toEqual([
-      "the tag v0.1.3 doesn't match package.json's version 0.1.2; tag v0.1.2",
-    ]);
-    expect(releaseInfoProblems(info, "0.1.2")).toHaveLength(1);
-  });
-
-  it("reports versions and build numbers the stores won't take", () => {
-    expect(
-      releaseInfoProblems({
-        version: "0.1",
-        iosBuildNumber: "03",
-        androidVersionCode: 0,
-      }),
-    ).toEqual([
-      "package.json's version 0.1 isn't MAJOR.MINOR.PATCH",
-      `apps/mobile/app.json's ios.buildNumber "03" isn't a positive whole number`,
-      "apps/mobile/app.json's android.versionCode 0 isn't a positive whole number",
-    ]);
   });
 });

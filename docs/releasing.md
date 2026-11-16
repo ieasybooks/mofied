@@ -1,35 +1,49 @@
 # Releasing
 
-Tags release Mofied, and their prefix picks what ships:
+[release-please](https://github.com/googleapis/release-please) versions and releases Mofied from its commit messages. The web and the apps have separate versions, so a change ships only where it lands:
 
-- `v0.1.3` releases the apps. The `Release apps` workflow (`.github/workflows/release.yml`) builds and signs both apps, then sends the App Store, Google Play and AppGallery the build, the listing texts and images from [`store/`](../store/README.md), the release notes and the reviewer notes. Each store reviews the version and publishes it once approved; nothing waits for a click.
-- `web-v0.1.3` deploys mofied.com, through the `Release web` workflow (`.github/workflows/web.yml`). See [web deployment](web-deployment.md).
+| Component                               | Folder                                                       | Tag              | Ships                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------ | ---------------- | ----------------------------------------------------------------------------------------------------- |
+| apps                                    | `apps/mobile`, with the store listing in `apps/mobile/store` | `v0.1.3`         | The iOS and Android apps to the App Store, Google Play and AppGallery (`Release apps`, `release.yml`) |
+| web                                     | `apps/web`                                                   | `web-v0.1.3`     | mofied.com (`Release web`, `web.yml`); see [web deployment](web-deployment.md)                        |
+| contracts, design, fixtures and session | `packages/*`                                                 | `session-v0.2.0` | Nothing themselves: their release raises the web and the apps that use them                           |
 
-The web and the apps share `package.json`'s version, which both show. A release of both pushes both tags; a web-only fix raises the version and pushes only `web-v<version>`, and the stores keep the apps they have.
+Each component's version is its `package.json`'s, which the apps and the web show. `release-please-config.json` sets the components up and `.release-please-manifest.json` holds their released versions. The iOS build number and the Android version code follow from the apps' version (`apps/mobile/build-number.js`: 1.2.3 builds as 1002003), so a release never needs one raised by hand.
 
-## Releasing the apps
+## Commit messages
 
-1. Raise the version and both build numbers, since no store takes a build number twice:
-   - `version` in `package.json` (the apps report it), such as `0.1.3`;
-   - `expo.ios.buildNumber` and `expo.android.versionCode` in `apps/mobile/app.json`, such as `"4"` and `4`.
-2. Write the release notes in `store/release-notes/<version>/ar.txt`, at most 500 characters. Change anything else in `store/` that should change.
-3. `mise exec -- bun run release:check` must pass. Merge to `main`.
-4. Tag the merge commit and push the tag: `git tag v0.1.3 && git push origin v0.1.3`. Add `web-v0.1.3` too when the web should go out with it.
+Commit titles follow [Conventional Commits](https://www.conventionalcommits.org/), and they decide the versions. With rebase merges every commit title counts; with squash merges, the pull request's title.
 
-Only a tag that is exactly `v` and a version releases, and it must match `package.json`'s version. Only tags Ali (`AliOsm`) pushes get the release secrets from the ieasybooks vault.
+- `fix:` raises the patch version (0.1.3 → 0.1.4), and `feat:` the minor one (0.1.3 → 0.2.0). Before 1.0, a breaking change (`feat!:`, or a `BREAKING CHANGE:` footer) raises the minor version too.
+- `chore:`, `docs:`, `test:`, `ci:`, `build:`, `refactor:` and `style:` release nothing.
+- A commit counts for each component whose folder it changes. Changing a shared package releases that package, then the web and the apps, since both use every package.
+
+A scope (`fix(store): …`) only labels the changelog entry.
+
+## Releasing
+
+1. Merge commits to `main`. After each push, the **Release please** workflow (`.github/workflows/release-please.yml`) opens or updates the release pull request, **chore: release main**. It holds each raised component's new version and its `CHANGELOG.md`.
+2. When it raises the apps, write that version's store release notes in `apps/mobile/store/release-notes/<version>/ar.txt` (at most 500 characters), and anything else in `apps/mobile/store/` that should change, in an ordinary pull request (`docs: …`, which releases nothing). The release pull request's **Release check** status fails until `main` has them. `mise exec -- bun run release:check` checks the same on your Mac, once `apps/mobile/package.json` has the new version.
+3. Ali (`AliOsm`) squash-merges the release pull request. release-please then tags each raised component and creates its GitHub release. In the same run, the workflow releases the apps with `release.yml` and deploys the web with `web.yml`.
+
+GitHub runs no checks on the release pull request, since GitHub Actions opened it. Its **Release please** run keeps `bun.lock` in step with the new versions and sets the **Release check** status.
+
+Only Ali's merge ships, because the vault serves the release secrets to the workflow only when he pushed to `main`. If someone else merges the release pull request, the tags and GitHub releases are made but nothing ships. Ali then runs **Release apps** (with **dry-run** unticked) on the `v` tag and **Release web** on the `web-v` tag from the Actions tab.
+
+Pushing a version tag by hand releases too, as before: `v<version>` for the apps and `web-v<version>` for the web. The tag must match the component's version on that commit.
 
 ## What the apps workflow does
 
 | Job           | Runner | What it does                                                                                                                                                                                                                                                                                                                |
 | ------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Check         | Linux  | Checks the tag, version, build numbers and `store/`, then runs the typecheck and unit tests.                                                                                                                                                                                                                                |
+| Check         | Linux  | Checks the tag, the version and `apps/mobile/store/` with the version's release notes, then runs the typecheck and unit tests.                                                                                                                                                                                              |
 | Build iOS     | macOS  | Generates the Xcode project, signs the App Store build with the Apple Distribution certificate in a throwaway keychain (creating or reusing an App Store provisioning profile through the App Store Connect API), and uploads it to App Store Connect.                                                                      |
 | App Store     | Linux  | Waits for Apple to process the build, sends the listing, screenshots and reviewer notes, and submits the version for review, released automatically once approved. Apple's API can pull back a version still in review, so the newest one replaces it.                                                                      |
 | Build Android | Linux  | Generates the Android project and builds the AAB and APK for `armeabi-v7a`, `arm64-v8a` and `x86_64` (no phone runs 32-bit `x86`), signed with Mofied's key (`apps/mobile/plugins/with-release-signing.js`), and checks the signer. Gradle's downloads come from the cache the checks save on `main`.                       |
 | Google Play   | Linux  | Sends the AAB to the production track with the listing, release notes and changed images. Managed Publishing is off, so Google publishes it once approved.                                                                                                                                                                  |
 | AppGallery    | Linux  | `scripts/release/publish-appgallery.ts`: uploads the APK, updates the texts and any changed images, and submits the version, released once approved. While a version is still in review it stops before changing anything: the Publishing API can't cancel a review, so cancel it in AppGallery Connect and re-run the job. |
 
-The store jobs are independent: if one fails, fix the cause and re-run that job from the workflow run (**Re-run failed jobs**). That works when the store hadn't taken the build yet, as when AppGallery stops for a version in review. A store that already has the build refuses it again; push a new version instead.
+The store jobs are independent: if one fails, fix the cause and re-run that job from the workflow run (**Re-run failed jobs**). That works when the store hadn't taken the build yet, as when AppGallery stops for a version in review. A store that already has the build refuses it again; release a new version instead (a `fix:` commit).
 
 ## Dry runs
 
@@ -39,11 +53,15 @@ Any other `v*` tag is a dry run of the apps: push a throwaway one, such as `git 
 - Google Play checks the AAB and listing in an edit it never commits.
 - AppGallery reports what it would upload, change and submit, or that a version in review would stop the release, and issues an upload URL without taking the APK.
 
-A dry run uses no build number. Delete the throwaway tag afterwards: `git push origin :v0-dry-run && git tag -d v0-dry-run`. For the web, any other `web-v*` tag (`web-v0-dry-run`) builds the web and has Wrangler check the upload without deploying.
+A dry run uses no build number. Delete the throwaway tag afterwards: `git push origin :v0-dry-run && git tag -d v0-dry-run`. For the web, any other `web-v*` tag (`web-v0-dry-run`), or running `Release web` by hand on anything but a web version tag, builds the web and has Wrangler check the upload without deploying.
 
 ## Secrets
 
-The workflows get everything from the ieasybooks vault through [`ieasybooks/vault`](https://github.com/ieasybooks/vault); `cloudflare/vault-secrets.tf` in ieasybooks/infrastructure lists them and shares them on tags pushed by Ali: the store and signing secrets with `release.yml` on `v*` tags, the deploy token with `web.yml` on `web-v*` tags.
+The workflows get everything from the ieasybooks vault through [`ieasybooks/vault`](https://github.com/ieasybooks/vault). `cloudflare/vault-secrets.tf` in ieasybooks/infrastructure lists them and shares them only with runs Ali started:
+
+- the release-please workflow on `main`, whose release jobs run as it;
+- the store and signing secrets with `release.yml` on `v*` tags;
+- the deploy token with `web.yml` on `web-v*` tags.
 
 | Secret                                                                      | Used for                                                                            |
 | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |

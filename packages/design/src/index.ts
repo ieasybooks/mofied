@@ -1,6 +1,3 @@
-import { version } from "../../../package.json";
-
-export const appVersion = version;
 export const colors = {
   background: "#0A0A0A",
   surface: "#151515",
