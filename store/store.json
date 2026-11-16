@@ -1,0 +1,13 @@
+{
+  "languages": {
+    "ar": { "appStore": "ar-SA", "googlePlay": "ar", "appGallery": "ar" }
+  },
+  "appStore": {
+    "supportUrl": "https://mofied.com/support/",
+    "marketingUrl": "https://mofied.com/",
+    "privacyUrl": "https://mofied.com/privacy/"
+  },
+  "appGallery": {
+    "appId": "119708951"
+  }
+}

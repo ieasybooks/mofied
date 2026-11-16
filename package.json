@@ -23,6 +23,7 @@
     "test:native-cache": "bash scripts/test-native-interruption-cache.sh",
     "test:android-lifecycle": "bash scripts/test-android-lifecycle.sh",
     "check": "bun run typecheck && bun run test && bun run build",
+    "release:check": "bun scripts/release/check-release.ts",
     "mobile:export": "bun run --cwd apps/mobile export",
     "contract:generate": "bun scripts/generate-contract.ts",
     "format": "prettier --write ."
