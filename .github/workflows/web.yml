@@ -2,14 +2,16 @@ name: Release web
 
 # Deploys mofied.com, then checks that the site serves the new build.
 # release-please.yml calls it with the tag (such as web-v0.1.3) it made for a
-# merged release pull request; pushing a web version tag, or running it by hand
-# on one, deploys that version too. The web's version is apps/web/package.json's;
-# the apps release from release.yml. See docs/web-deployment.md.
+# merged release pull request and the commit it tagged, once main's checks
+# passed on that commit. Pushing a web version tag, or running it by hand on
+# one, deploys that version too, for a commit whose checks passed on main (its
+# "Checks" status). The web's version is apps/web/package.json's; the apps
+# release from release.yml. See docs/web-deployment.md.
 #
 # On any other ref, such as a web-v0-dry-run tag or main, it's a dry run: it
 # builds the web and has Wrangler check the upload, but deploys nothing. The
-# vault serves the deploy token only to this workflow on web-v* tags and to
-# release-please.yml on main, started by AliOsm.
+# vault serves the web's deploy token only to this workflow on web-v* tags and
+# to its jobs that release-please.yml on main calls, started by AliOsm.
 on:
   push:
     tags: ["web-v*"]
@@ -19,7 +21,15 @@ on:
       tag:
         description: The web version tag to deploy, such as web-v0.1.3
         type: string
-        required: true
+        required: false
+      sha:
+        description: The commit the tag was made at, which the job checks out
+        type: string
+        required: false
+      access-check:
+        description: Only check the vault gives this workflow the web's deploy token and not the store secrets
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,11 +41,13 @@ concurrency:
 jobs:
   web:
     name: Web
+    if: ${{ !inputs.access-check }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
+      statuses: read
     env:
       WRANGLER_SEND_METRICS: "false"
     steps:
@@ -43,24 +55,56 @@ jobs:
         id: mode
         env:
           CALLED_TAG: ${{ inputs.tag }}
+          CALLED_SHA: ${{ inputs.sha }}
         run: |
-          # The tag release-please.yml passed (it runs on main), or the ref
-          # this ran on.
-          tag=${CALLED_TAG:-$GITHUB_REF_NAME}
-          if [ -n "$CALLED_TAG" ] || [[ $tag =~ ^web-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          called=false
+          if [ -n "$CALLED_TAG" ]; then
+            # From release-please.yml, which runs on main and passes the
+            # commit it tagged.
+            if ! [[ $CALLED_SHA =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::release-please.yml passed the tag $CALLED_TAG without its commit."
+              exit 1
+            fi
+            tag=$CALLED_TAG
+            sha=$CALLED_SHA
+            called=true
+          else
+            tag=$GITHUB_REF_NAME
+            sha=$GITHUB_SHA
+          fi
+          if [ "$called" = true ] || [[ $GITHUB_REF =~ ^refs/tags/web-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "dry-run=false" >> "$GITHUB_OUTPUT"
-            echo "Deploying $tag to mofied.com."
+            echo "Deploying $tag ($sha) to mofied.com."
           else
             echo "dry-run=true" >> "$GITHUB_OUTPUT"
-            echo "A dry run of $tag: nothing is deployed."
+            echo "A dry run of $tag ($sha): nothing is deployed."
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-      # inputs.tag is empty unless release-please.yml called this, so a pushed
-      # tag checks out the commit it ran on.
+          {
+            echo "tag=$tag"
+            echo "sha=$sha"
+            echo "called=$called"
+          } >> "$GITHUB_OUTPUT"
+      # This exact commit, never the tag by name: a branch named like the tag
+      # would win, and a tag can be moved.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ steps.mode.outputs.sha }}
           persist-credentials: false
+      # The tag still points at that commit, and a tag pushed by hand is on a
+      # commit main's checks passed (release-please.yml checked its own).
+      - name: Check the tag's commit
+        if: steps.mode.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.mode.outputs.tag }}
+          SHA: ${{ steps.mode.outputs.sha }}
+          CALLED: ${{ steps.mode.outputs.called }}
+        run: |
+          if [ "$CALLED" = true ]; then
+            scripts/release/verify-release-commit.sh "$TAG" "$SHA"
+          else
+            scripts/release/verify-release-commit.sh "$TAG" "$SHA" --checked
+          fi
       - name: Check the tag matches the version
         if: steps.mode.outputs.dry-run == 'false'
         env:
@@ -82,13 +126,37 @@ jobs:
         if: steps.mode.outputs.dry-run == 'true'
         run: bun run deploy:web:check
 
+      # A token that can deploy mofied-web and no other Worker.
       - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
         if: steps.mode.outputs.dry-run == 'false'
         with:
-          secrets: CLOUDFLARE_WORKERS_DEPLOY_TOKEN=CLOUDFLARE_API_TOKEN
+          secrets: MOFIED_WEB_DEPLOY_TOKEN=CLOUDFLARE_API_TOKEN
       - name: Build and deploy mofied.com
         if: steps.mode.outputs.dry-run == 'false'
         run: bun run deploy:web
       - name: Check mofied.com serves it
         if: steps.mode.outputs.dry-run == 'false'
         run: scripts/release/check-live-web.sh
+
+  # release-please.yml's vault access check (docs/releasing.md): this
+  # workflow's jobs get the web's deploy token and not the store secrets. It
+  # deploys and prints nothing.
+  access-check:
+    name: Vault access check
+    if: ${{ inputs.access-check }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+        with:
+          secrets: MOFIED_WEB_DEPLOY_TOKEN=DEPLOY_TOKEN
+      - name: The vault serves the web's deploy token here
+        run: test -n "$DEPLOY_TOKEN" && echo "The vault served MOFIED_WEB_DEPLOY_TOKEN."
+      - name: The vault refuses the store secrets here
+        run: scripts/release/expect-vault-refusal.sh APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD

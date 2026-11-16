@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "build:release": "VITE_SESSION_API_URL=https://faqieh.com/api/v1/mofied/session?locale=ar vite build && bun scripts/write-asset-headers.ts",
+    "preview:cloudflare": "bun run build:release && wrangler dev --local --ip 127.0.0.1 --port 8787 --inspector-port 0",
+    "deploy:check": "bun run build:release && wrangler deploy --dry-run",
+    "deploy": "bun run build:release && wrangler deploy"
   },
   "dependencies": {
     "@mofied/contracts": "workspace:*",

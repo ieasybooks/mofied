@@ -9,6 +9,7 @@
 
 require "open3"
 require "securerandom"
+require File.join(__dir__, "lib/review_replacement")
 
 ROOT = File.expand_path("..", __dir__)
 APP_IDENTIFIER = "com.mofied.app"
@@ -51,7 +52,10 @@ end
 platform :ios do
   # Signs and builds the App Store IPA in a throwaway keychain, then uploads
   # it to App Store Connect. A dry run asks App Store Connect to validate the
-  # IPA instead, which doesn't use up the build number.
+  # IPA instead, which doesn't use up the build number. The upload leaves the
+  # App Store version alone: while an older version is waiting for review or
+  # in review, App Store Connect refuses to create or rename one, so the
+  # submit lane does that once it has pulled the older one out.
   lane :build do |options|
     api_key = apple_api_key
     keychain_name = "mofied-release"
@@ -108,6 +112,7 @@ platform :ios do
         ipa: ipa,
         skip_metadata: true,
         skip_screenshots: true,
+        skip_app_version_update: true,
         submit_for_review: false,
         run_precheck_before_submit: false,
         verify_only: dry_run?(options),
@@ -120,15 +125,24 @@ platform :ios do
 
   # Waits for App Store Connect to process the uploaded build, then sends the
   # store texts, screenshots and reviewer notes and submits the version for
-  # review, released once approved. A version still in review is pulled back
-  # so this one replaces it.
+  # review, released once approved. An older version still waiting for review
+  # or in review is pulled back first so this one replaces it, and a re-run
+  # finding this build already submitted stops there
+  # (fastlane/lib/review_replacement.rb). A dry run says what it would do.
   lane :submit do |options|
     api_key = apple_api_key
     info = release_info
     app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("App Store Connect has no #{APP_IDENTIFIER}")
+    replacement = Mofied::ReviewReplacement.new(
+      store: Mofied::AppStoreReviews.new(app, Spaceship::ConnectAPI::Platform::IOS),
+      version: info[:version],
+      build: info[:ios_build_number],
+      log: ->(message) { UI.message(message) }
+    )
     if dry_run?(options)
       live = app.get_live_app_store_version
       UI.message("Would submit #{info[:version]} (#{info[:ios_build_number]}) to replace #{live&.version_string || 'nothing'} on the App Store.")
+      replacement.run(dry_run: true)
       next
     end
 
@@ -141,6 +155,11 @@ platform :ios do
       timeout_duration: 3 * 60 * 60,
       return_spaceship_testflight_build: false
     )
+    begin
+      next if replacement.run == :already_submitted
+    rescue Mofied::ReviewReplacement::Error => e
+      UI.user_error!(e.message)
+    end
     upload_to_app_store(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,

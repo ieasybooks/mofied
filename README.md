@@ -25,7 +25,7 @@ The sample 10-minute budget and 20-second reminder are fixture values, not produ
 
 ## Web deployment
 
-The web build is configured for Cloudflare Workers Static Assets at `mofied.com`. See [web deployment](docs/web-deployment.md) for local hosting checks, the first-release order with `ieasybooks/infrastructure`, analytics, and rollback. Publishing is an explicit command after review; CI only validates the configuration.
+The web build is configured for Cloudflare Workers Static Assets at `mofied.com`. See [web deployment](docs/web-deployment.md) for local hosting checks, the first-release order with `ieasybooks/infrastructure`, analytics, and rollback. Releases deploy it, once every check has passed on the release commit; see [releasing](docs/releasing.md).
 
 ## Native development
 

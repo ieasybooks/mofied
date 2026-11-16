@@ -3,20 +3,33 @@ name: Release please
 # On each push to main, release-please keeps a release pull request open with
 # the next versions and changelogs, from the Conventional Commits since each
 # component's last release. Merging it tags the components it raises and
-# creates their GitHub releases, and this workflow then ships them: the apps
-# (v<version>, release.yml) and the web (web-v<version>, web.yml). See
-# docs/releasing.md.
+# creates their GitHub releases. This workflow then runs every check
+# (check.yml) on the commit it tagged, or on the pushed commit when it tagged
+# none, marks the commit with a "Checks" status once they pass, and only then
+# ships it: the apps (v<version>, release.yml) and the web (web-v<version>,
+# web.yml), each building exactly that commit. See docs/releasing.md.
 #
 # Tags made with GITHUB_TOKEN start no workflows, so this workflow calls the
 # release workflows itself, and their jobs run as this workflow on main. The
-# vault serves them the release secrets only when Ali (AliOsm) pushed, as when
-# he merges the release pull request. If someone else merges it, the tags and
-# releases are made but nothing ships: Ali runs Release apps (dry-run
-# unticked) on the v tag and pushes the web tag again, or re-runs this.
+# vault serves each its own secrets only when Ali (AliOsm) pushed, as when he
+# merges the release pull request. If someone else merges it, the tags and
+# releases are made but nothing ships, and re-running this can't help: a
+# re-run keeps the pusher's identity, and release-please finds nothing new to
+# release. Ali then runs Release apps (dry-run unticked) on the v tag and
+# Release web on the web-v tag.
+#
+# Run by hand with access-check ticked, it releases nothing and only checks
+# that the vault gives release.yml's and web.yml's jobs their own secrets and
+# refuses them each other's.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      access-check:
+        description: Only check the vault's rules for the release workflows; release nothing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,7 +37,7 @@ permissions:
 jobs:
   release-please:
     name: Release please
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !inputs.access-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -38,14 +51,33 @@ jobs:
       apps-tag: ${{ steps.release.outputs['apps/mobile--tag_name'] }}
       web: ${{ steps.release.outputs['apps/web--release_created'] }}
       web-tag: ${{ steps.release.outputs['apps/web--tag_name'] }}
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
+      # What the checks run on and the release jobs ship: the commit
+      # release-please tagged, which may not be the pushed one when pushes
+      # queue up, or the pushed commit when it tagged nothing. One release
+      # pull request raises both, so their commits can only be the same.
+      - name: Pick the commit to check
+        id: commit
+        env:
+          APPS_SHA: ${{ steps.release.outputs['apps/mobile--sha'] }}
+          WEB_SHA: ${{ steps.release.outputs['apps/web--sha'] }}
+        run: |
+          if [ -n "$APPS_SHA" ] && [ -n "$WEB_SHA" ] && [ "$APPS_SHA" != "$WEB_SHA" ]; then
+            echo "::error::release-please tagged the apps at $APPS_SHA and the web at $WEB_SHA. Release each by hand from its tag (docs/releasing.md)."
+            exit 1
+          fi
+          sha=${APPS_SHA:-${WEB_SHA:-$GITHUB_SHA}}
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Checking $sha."
 
-  # GITHUB_TOKEN's pull requests run no checks, so this one keeps the open
-  # release pull request's bun.lock in step with its versions and checks
-  # that the apps version it brings can be released (its store release
-  # notes), as the "Release check" status.
+  # The checks GitHub starts on GITHUB_TOKEN's pull requests wait for someone
+  # to approve them, and the release pull request needs none: its merge is
+  # checked on main before anything ships. So this job keeps its bun.lock in
+  # step with its versions and checks that the apps version it brings can be
+  # released (its store release notes), as the "Release check" status.
   release-pr:
     name: Release pull request
     needs: release-please
@@ -118,24 +150,81 @@ jobs:
             -f description="${description:0:140}" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
 
+  # Every check, on the commit the release jobs would ship.
+  check:
+    name: Check
+    needs: release-please
+    permissions:
+      contents: read
+    uses: ./.github/workflows/check.yml
+    with:
+      sha: ${{ needs.release-please.outputs.sha }}
+
+  # Marks the commit as checked, which a release from a tag pushed by hand
+  # requires (scripts/release/verify-release-commit.sh).
+  checks-passed:
+    name: Mark the commit checked
+    needs: [release-please, check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.release-please.outputs.sha }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f state=success -f context=Checks \
+            -f description="Every check passed on main." \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          echo "Marked $SHA checked."
+
   apps:
     name: Release apps
-    needs: release-please
+    needs: [release-please, check]
     if: needs.release-please.outputs.apps == 'true'
     permissions:
       contents: read
       id-token: write
+      statuses: read
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.apps-tag }}
+      sha: ${{ needs.release-please.outputs.sha }}
 
   web:
     name: Release web
-    needs: release-please
+    needs: [release-please, check]
     if: needs.release-please.outputs.web == 'true'
     permissions:
       contents: read
       id-token: write
+      statuses: read
     uses: ./.github/workflows/web.yml
     with:
       tag: ${{ needs.release-please.outputs.web-tag }}
+      sha: ${{ needs.release-please.outputs.sha }}
+
+  # The vault access check, run by hand on main (see the top).
+  access-check-apps:
+    name: Vault access check (apps)
+    if: github.ref == 'refs/heads/main' && inputs.access-check
+    permissions:
+      contents: read
+      id-token: write
+      statuses: read
+    uses: ./.github/workflows/release.yml
+    with:
+      access-check: true
+
+  access-check-web:
+    name: Vault access check (web)
+    if: github.ref == 'refs/heads/main' && inputs.access-check
+    permissions:
+      contents: read
+      id-token: write
+      statuses: read
+    uses: ./.github/workflows/web.yml
+    with:
+      access-check: true

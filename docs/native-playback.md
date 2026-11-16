@@ -6,7 +6,7 @@ Native media uses `expo-video` 58.0.13. Background playback, PiP, native control
 
 The pinned Expo API does not expose the complete interruption lifecycle to JavaScript. Inferring calls from buffering would incorrectly replace valid media after a network timeout.
 
-`patches/expo-video@58.0.13.patch` adds `audioInterruption` to the **ExpoVideo native module**, plus `getAudioInterruption()` returning the latest state:
+`apps/mobile/patches/expo-video@58.0.13.patch` adds `audioInterruption` to the **ExpoVideo native module**, plus `getAudioInterruption()` returning the latest state:
 
 ```ts
 {

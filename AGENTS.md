@@ -11,4 +11,4 @@ Standalone client repository for mofied.com. Rails publishing and the session AP
 - Browser tab hiding must not pause. Native background/lock must pause; focus loss alone must not.
 - Fixture mode is development-only. Never fall back to fixtures after an API error.
 - Use mise exec -- bun run check and bun run test:e2e. Report native device verification separately from web and JS bundle checks.
-- Commit titles follow Conventional Commits (fix:, feat:, chore:, docs:, ...): release-please versions and releases the apps and web from them. See docs/releasing.md.
+- Commit titles follow Conventional Commits (fix:, feat:, chore:, docs:, ...): release-please versions and releases the apps and web from them. A releasing commit (fix:, feat:, ...) must change a component's folder (apps/mobile, apps/web, packages/*); keep what ships inside them. See docs/releasing.md.

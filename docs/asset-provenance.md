@@ -36,7 +36,7 @@ ffmpeg -f lavfi -i testsrc2=size=180x320:rate=24 -f lavfi -i sine=frequency=440:
 ffmpeg -i tests/assets/media.mp4 -c:v libx264 -pix_fmt yuv420p -g 120 -keyint_min 120 -sc_threshold 0 -c:a aac -f hls -hls_time 5 -hls_playlist_type vod -hls_segment_filename tests/assets/hls/segment-%02d.ts tests/assets/hls/index.m3u8
 ```
 
-Third-party source dependencies retain their package licenses. The narrowly scoped Expo patch modifies Expo's MIT-licensed playback module and is maintained separately under `patches/`.
+Third-party source dependencies retain their package licenses. The narrowly scoped Expo patch modifies Expo's MIT-licensed playback module and is maintained separately under `apps/mobile/patches/`.
 
 ## Contact icons
 

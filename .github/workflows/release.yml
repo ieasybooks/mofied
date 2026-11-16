@@ -2,15 +2,17 @@ name: Release apps
 
 # Releases Mofied's apps to the App Store, Google Play and AppGallery: each
 # store reviews them and publishes them once approved. release-please.yml calls
-# it with the tag (such as v0.1.3) it made for a merged release pull request,
-# and pushing a version tag runs it too. The web has its own workflow
-# (web.yml). See docs/releasing.md.
+# it with the tag (such as v0.1.3) it made for a merged release pull request
+# and the commit it tagged, once main's checks passed on that commit. Pushing a
+# version tag runs it too, for a commit whose checks passed on main (its
+# "Checks" status). Every job builds exactly that commit. The web has its own
+# workflow (web.yml). See docs/releasing.md.
 #
 # Any other v* tag (such as v0-dry-run), or a run started by hand with
 # dry-run ticked, is a dry run: it builds and signs both apps and has each
 # store check what it would receive, but submits nothing. The vault serves the
-# release secrets only to this workflow on v* tags and to release-please.yml
-# on main, started by AliOsm.
+# release secrets only to this workflow on v* tags and to its jobs that
+# release-please.yml on main calls, started by AliOsm.
 on:
   push:
     tags: ["v*"]
@@ -25,7 +27,15 @@ on:
       tag:
         description: The version tag to release, such as v0.1.3
         type: string
-        required: true
+        required: false
+      sha:
+        description: The commit the tag was made at, which every job checks out
+        type: string
+        required: false
+      access-check:
+        description: Only check the vault gives this workflow the store secrets and not the web's deploy token
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,47 +54,84 @@ env:
 jobs:
   check:
     name: Check
+    if: ${{ !inputs.access-check }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      statuses: read
     outputs:
       dry-run: ${{ steps.mode.outputs.dry-run }}
+      tag: ${{ steps.mode.outputs.tag }}
+      sha: ${{ steps.mode.outputs.sha }}
     steps:
       - name: Release or dry run
         id: mode
         env:
           CALLED_TAG: ${{ inputs.tag }}
+          CALLED_SHA: ${{ inputs.sha }}
           DISPATCHED_DRY_RUN: ${{ inputs.dry-run }}
         run: |
+          called=false
           if [ -n "$CALLED_TAG" ]; then
-            # From release-please.yml, which runs on main.
+            # From release-please.yml, which runs on main and passes the
+            # commit it tagged.
+            if ! [[ $CALLED_SHA =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::release-please.yml passed the tag $CALLED_TAG without its commit."
+              exit 1
+            fi
             tag=$CALLED_TAG
+            sha=$CALLED_SHA
             dry_run=false
+            called=true
           elif [[ $GITHUB_REF != refs/tags/v* ]]; then
             echo "::error::Run the release workflow on a v* tag; the vault serves the release secrets only there."
             exit 1
           elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             tag=$GITHUB_REF_NAME
+            sha=$GITHUB_SHA
             dry_run=$DISPATCHED_DRY_RUN
           elif [[ $GITHUB_REF_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             tag=$GITHUB_REF_NAME
+            sha=$GITHUB_SHA
             dry_run=false
           else
             tag=$GITHUB_REF_NAME
+            sha=$GITHUB_SHA
             dry_run=true
           fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "dry-run=$dry_run" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$tag"
+            echo "sha=$sha"
+            echo "dry-run=$dry_run"
+            echo "called=$called"
+          } >> "$GITHUB_OUTPUT"
           if [ "$dry_run" = true ]; then
-            echo "A dry run of $tag: nothing goes to the stores."
+            echo "A dry run of $tag ($sha): nothing goes to the stores."
           else
-            echo "Releasing $tag to the stores."
+            echo "Releasing $tag ($sha) to the stores."
           fi
-      # inputs.tag is empty unless release-please.yml called this, so other
-      # runs check out the commit they ran on.
+      # Every job checks out this exact commit, never the tag by name: a
+      # branch named like the tag would win, and a tag can be moved.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ steps.mode.outputs.sha }}
           persist-credentials: false
+      # The tag still points at that commit, and a tag pushed by hand is on
+      # a commit main's checks passed (release-please.yml checked its own).
+      - name: Check the tag's commit
+        if: steps.mode.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.mode.outputs.tag }}
+          SHA: ${{ steps.mode.outputs.sha }}
+          CALLED: ${{ steps.mode.outputs.called }}
+        run: |
+          if [ "$CALLED" = true ]; then
+            scripts/release/verify-release-commit.sh "$TAG" "$SHA"
+          else
+            scripts/release/verify-release-commit.sh "$TAG" "$SHA" --checked
+          fi
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
@@ -116,7 +163,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -136,6 +183,32 @@ jobs:
           base64-files: APPLE_DISTRIBUTION_CERTIFICATE.p12
       - name: Sign, build and upload to App Store Connect
         run: bundle exec fastlane ios build dry_run:"$DRY_RUN"
+      # Kept like Android's, even when the upload failed after the build.
+      - name: Describe the build
+        if: ${{ !cancelled() }}
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+          SHA: ${{ needs.check.outputs.sha }}
+        run: |
+          mkdir -p build/release
+          jq -n \
+            --arg commit "$SHA" --arg tag "$TAG" --argjson dryRun "$DRY_RUN" \
+            --argjson app "$(bun scripts/release/release-info.ts)" \
+            --arg xcode "$(xcodebuild -version | paste -sd ' ' -)" \
+            --arg fastlane "$(awk '/^    fastlane \(/ { gsub(/[()]/, "", $2); print $2 }' Gemfile.lock)" \
+            '{commit: $commit, tag: $tag, dryRun: $dryRun, version: $app.version, buildNumber: $app.iosBuildNumber, xcode: $xcode, fastlane: $fastlane}' \
+            > build/release/release.json
+          cat build/release/release.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: ios
+          path: |
+            build/release/*.ipa
+            build/release/*.dSYM.zip
+            build/release/release.json
+          if-no-files-found: warn
+          retention-days: 14
 
   app-store:
     name: App Store
@@ -151,7 +224,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -180,7 +253,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -245,7 +318,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -280,7 +353,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -299,3 +372,26 @@ jobs:
           else
             bun scripts/release/publish-appgallery.ts build/release/*.apk
           fi
+
+  # release-please.yml's vault access check (docs/releasing.md): this
+  # workflow's jobs get the store secrets and not the web's deploy token.
+  # It deploys and prints nothing.
+  access-check:
+    name: Vault access check
+    if: ${{ inputs.access-check }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+        with:
+          secrets: APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD=STORE_SECRET
+      - name: The vault serves the store secrets here
+        run: test -n "$STORE_SECRET" && echo "The vault served APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD."
+      - name: The vault refuses the web's deploy token here
+        run: scripts/release/expect-vault-refusal.sh MOFIED_WEB_DEPLOY_TOKEN
