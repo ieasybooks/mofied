@@ -91,36 +91,53 @@ test("install and social metadata are readable without JavaScript", async ({
 });
 
 test("Chromium can install the app while automatic install prompts are suppressed", async ({
-  page,
-  context,
+  playwright,
+  launchOptions,
+  headless,
+  baseURL,
 }) => {
-  await page.route(api, (route) => route.fulfill({ json: plan() }));
-  await serveMp4(page);
-  await page.goto("/");
-  await expect(page.locator("main")).toHaveAttribute("data-status", "playing");
-  const cdp = await context.newCDPSession(page);
-  const manifest = await cdp.send("Page.getAppManifest");
-  expect(manifest.errors).toEqual([]);
-  expect(manifest.url).toBe("http://127.0.0.1:8787/manifest.webmanifest");
-  await expect
-    .poll(
-      async () =>
-        (await cdp.send("Page.getInstallabilityErrors")).installabilityErrors,
-    )
-    .toEqual([]);
-
-  const banner = await page.evaluate(() => {
-    const event = new Event("beforeinstallprompt", { cancelable: true });
-    let prompts = 0;
-    Object.assign(event, {
-      prompt: () => {
-        prompts++;
-      },
-    });
-    window.dispatchEvent(event);
-    return { prevented: event.defaultPrevented, prompts };
+  // Playwright's usual contexts are off the record, where headed Chromium
+  // won't install apps ("in-incognito"), so this uses a temporary profile.
+  const context = await playwright.chromium.launchPersistentContext("", {
+    ...launchOptions,
+    headless,
+    baseURL,
   });
-  expect(banner).toEqual({ prevented: true, prompts: 0 });
+  try {
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.route(api, (route) => route.fulfill({ json: plan() }));
+    await serveMp4(page);
+    await page.goto("/");
+    await expect(page.locator("main")).toHaveAttribute(
+      "data-status",
+      "playing",
+    );
+    const cdp = await context.newCDPSession(page);
+    const manifest = await cdp.send("Page.getAppManifest");
+    expect(manifest.errors).toEqual([]);
+    expect(manifest.url).toBe("http://127.0.0.1:8787/manifest.webmanifest");
+    await expect
+      .poll(
+        async () =>
+          (await cdp.send("Page.getInstallabilityErrors")).installabilityErrors,
+      )
+      .toEqual([]);
+
+    const banner = await page.evaluate(() => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      let prompts = 0;
+      Object.assign(event, {
+        prompt: () => {
+          prompts++;
+        },
+      });
+      window.dispatchEvent(event);
+      return { prevented: event.defaultPrevented, prompts };
+    });
+    expect(banner).toEqual({ prevented: true, prompts: 0 });
+  } finally {
+    await context.close();
+  }
 });
 
 for (const [path, heading] of [
@@ -148,9 +165,14 @@ for (const [path, heading] of [
             .locator("header img")
             .evaluate((img: HTMLImageElement) => img.naturalWidth),
         ).toBeGreaterThan(0);
-        expect(
-          await page.evaluate(() => document.documentElement.scrollWidth),
-        ).toBe(width);
+        // Nothing scrolls sideways. clientWidth is the viewport less any
+        // classic scrollbar, which headed Chromium on Linux shows.
+        const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        }));
+        expect(scrollWidth).toBe(clientWidth);
+        expect(clientWidth).toBeGreaterThan(width - 20);
         await page.getByRole("link", { name: "English", exact: true }).click();
         await expect(page.locator("#english h1")).toBeInViewport();
         await expect(
