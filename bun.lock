@@ -53,7 +53,7 @@
     },
     "apps/web": {
       "name": "@mofied/web",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@mofied/contracts": "workspace:*",
         "@mofied/design": "workspace:*",
@@ -102,7 +102,7 @@
     "workerd",
   ],
   "patchedDependencies": {
-    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch",
+    "expo-video@58.0.13": "apps/mobile/patches/expo-video@58.0.13.patch",
   },
   "packages": {
     "2g": ["2g@1.0.1", "", { "peerDependencies": { "typescript": ">=5.8.0" }, "optionalPeers": ["typescript"], "bin": { "2g": "bin/cli.js" } }, "sha512-+uViadKOS/wwR4pFu5g8TPn3QHpKqoX19JHCnp8k/3cLpImdcXozwvZA6Q/5PeW3AcU8neL8faaMidBcv7o8CA=="],

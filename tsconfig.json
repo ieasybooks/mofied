@@ -18,6 +18,7 @@
   "include": [
     "apps/web/src",
     "apps/web/vite.config.ts",
+    "apps/web/scripts/**/*.ts",
     "packages/**/*.ts",
     "tests/**/*.ts",
     "scripts/**/*.ts",

@@ -1,7 +1,10 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const output = "apps/web/dist";
+// apps/web, wherever this runs from.
+const web = fileURLToPath(new URL("..", import.meta.url));
+const output = join(web, "dist");
 const files = readdirSync(join(output, "assets"), {
   withFileTypes: true,
   recursive: true,
@@ -15,7 +18,7 @@ const files = readdirSync(join(output, "assets"), {
   )
   .sort();
 
-const common = readFileSync("apps/web/public/_headers", "utf8").trimEnd();
+const common = readFileSync(join(web, "public/_headers"), "utf8").trimEnd();
 // Cloudflare supports 100 header rules, including the shared ones.
 const limit =
   100 - common.split("\n").filter((line) => /^\//.test(line)).length;

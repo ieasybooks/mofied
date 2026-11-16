@@ -1,12 +1,12 @@
 # Cloudflare web deployment
 
-The web release uses Workers Static Assets. `wrangler.jsonc` identifies the `mofied-web` Worker in the ieasybooks account and uploads `apps/web/dist`. There is no application server or Worker handler. The browser calls the existing Faqieh API and media hosts directly.
+The web release uses Workers Static Assets. `apps/web/wrangler.jsonc` identifies the `mofied-web` Worker in the ieasybooks account and uploads `apps/web/dist`. The release build and deploy commands are `apps/web/package.json`'s, which the root's `build:web:release`, `deploy:web:check`, `deploy:web` and `preview:cloudflare` run, so changing any of them releases the web. There is no application server or Worker handler. The browser calls the existing Faqieh API and media hosts directly.
 
 ## Ownership
 
 - This repository owns the Worker, built assets, cache headers and release commands.
 - [ieasybooks/infrastructure](https://github.com/ieasybooks/infrastructure) owns the purchased `mofied.com` zone, DNS, HTTPS/DNSSEC settings, the Workers custom domain, `www` redirect and automatic Cloudflare Web Analytics.
-- Keep `routes` out of `wrangler.jsonc`. The pinned Wrangler deploy path leaves custom domains alone when no routes are configured. Do not add a Terraform Worker script resource for this app: it would compete with app releases.
+- Keep `routes` out of `apps/web/wrangler.jsonc`. The pinned Wrangler deploy path leaves custom domains alone when no routes are configured. Do not add a Terraform Worker script resource for this app: it would compete with app releases.
 - `workers.dev` and version preview URLs are disabled. Faqieh allows `https://mofied.com` and `https://www.mofied.com`; arbitrary preview origins are not allowed. A future staging domain needs an explicit API CORS decision.
 
 ## Local validation
@@ -28,18 +28,18 @@ For an interactive local check, `bun run preview:cloudflare` serves the release 
 ## First release after PR review
 
 1. Merge the app and infrastructure PRs. Install with the frozen lockfile and run the checks above at the release commit.
-2. Authenticate Wrangler with the ieasybooks Cloudflare account (`bunx wrangler login`), or provide `CLOUDFLARE_API_TOKEN` through the deployment environment. A scoped token needs Workers Scripts Write for that account. The account ID in the configuration is an identifier, not a credential; no token belongs in the repository or frontend environment.
+2. Authenticate Wrangler with the ieasybooks Cloudflare account (`bunx wrangler login`), or provide `CLOUDFLARE_API_TOKEN` through the deployment environment. Creating the Worker needs Workers Scripts Write for that account; the release workflow's own token can only edit `mofied-web` once it exists. The account ID in the configuration is an identifier, not a credential; no token belongs in the repository or frontend environment.
 3. Run `mise exec -- bun run deploy:web`. This builds with the explicit production session endpoint, then creates/uploads `mofied-web`. It has no public hostname until the next step. Record the deployed version ID from Wrangler.
 4. In `ieasybooks/infrastructure`, follow its full plan/review/apply workflow. It imports the existing zone and attaches `mofied.com` to `mofied-web`, which must already exist. Workers provisions the apex DNS record and certificate. Do not recreate the zone or add a competing apex A/CNAME record.
 5. Perform the live checks below. Later releases deploy the web from the `Release` workflow (see below) without reapplying Terraform unless infrastructure changes.
 
 ## Releases
 
-The web has its own version, `apps/web/package.json`'s, which release-please raises from the commits that change `apps/web` or the shared packages (see [releasing](releasing.md)). When Ali merges the release pull request, release-please tags `web-v<version>` and the `Release web` workflow (`.github/workflows/web.yml`) deploys it; pushing such a tag, or running `Release web` by hand on one, does the same. The workflow checks that the tag matches the web's version, runs the typecheck and unit tests, then `bun run deploy:web` with the ieasybooks vault's `CLOUDFLARE_WORKERS_DEPLOY_TOKEN` as `CLOUDFLARE_API_TOKEN`. `scripts/release/check-live-web.sh` then checks that mofied.com serves the new build's assets, the privacy and support pages, and the app-link files. On any other `web-v*` tag, such as `web-v0-dry-run`, it runs `bun run deploy:web:check` instead and deploys nothing. Other merges to `main` deploy nothing.
+The web has its own version, `apps/web/package.json`'s, which release-please raises from the commits that change `apps/web` or the shared packages (see [releasing](releasing.md)). When Ali merges the release pull request, release-please tags `web-v<version>`, and once every check has passed on the commit it tagged, the `Release web` workflow (`.github/workflows/web.yml`) deploys that commit; pushing such a tag on a commit whose checks passed on `main`, or running `Release web` by hand on one, does the same. The workflow checks out that exact commit, checks that the tag points at it and matches the web's version, runs the typecheck and unit tests, then `bun run deploy:web` with the ieasybooks vault's `MOFIED_WEB_DEPLOY_TOKEN` as `CLOUDFLARE_API_TOKEN`: a token that can edit `mofied-web` and no other Worker. `scripts/release/check-live-web.sh` then checks that mofied.com serves the new build's assets, the privacy and support pages, and the app-link files. On any other `web-v*` tag, such as `web-v0-dry-run`, it runs `bun run deploy:web:check` instead and deploys nothing. Other merges to `main` deploy nothing.
 
 Deploying by hand still works, with `bun run deploy:web` (signed in with `bunx wrangler login`), followed by `scripts/release/check-live-web.sh`.
 
-`build:web:release` pins `VITE_SESSION_API_URL` to `https://faqieh.com/api/v1/mofied/session?locale=ar`, overriding a developer's local endpoint setting. Native builds and app behavior are unaffected.
+`build:web:release` (`apps/web`'s `build:release`) pins `VITE_SESSION_API_URL` to `https://faqieh.com/api/v1/mofied/session?locale=ar`, overriding a developer's local endpoint setting. Native builds and app behavior are unaffected.
 
 ## Serving and analytics
 

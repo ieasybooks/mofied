@@ -11,15 +11,16 @@
     "dev": "bun run --cwd apps/web dev",
     "dev:mobile": "bun run --cwd apps/mobile start",
     "build": "bun run --cwd apps/web build",
-    "build:web:release": "VITE_SESSION_API_URL=https://faqieh.com/api/v1/mofied/session?locale=ar bun run build && bun scripts/write-asset-headers.ts",
-    "preview:cloudflare": "bun run build:web:release && wrangler dev --local --ip 127.0.0.1 --port 8787 --inspector-port 0",
-    "deploy:web:check": "bun run build:web:release && wrangler deploy --dry-run",
-    "deploy:web": "bun run build:web:release && wrangler deploy",
+    "build:web:release": "bun run --cwd apps/web build:release",
+    "preview:cloudflare": "bun run --cwd apps/web preview:cloudflare",
+    "deploy:web:check": "bun run --cwd apps/web deploy:check",
+    "deploy:web": "bun run --cwd apps/web deploy",
     "test:cloudflare": "playwright test --config playwright.cloudflare.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/mobile/tsconfig.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:native-cache": "bash scripts/test-native-interruption-cache.sh",
+    "test:fastlane": "ruby -Ifastlane/lib fastlane/test/review_replacement_test.rb",
     "test:android-lifecycle": "bash scripts/test-android-lifecycle.sh",
     "check": "bun run typecheck && bun run test && bun run build",
     "release:check": "bun scripts/release/check-release.ts",
@@ -47,6 +48,6 @@
     "workerd"
   ],
   "patchedDependencies": {
-    "expo-video@58.0.13": "patches/expo-video@58.0.13.patch"
+    "expo-video@58.0.13": "apps/mobile/patches/expo-video@58.0.13.patch"
   }
 }
