@@ -3,10 +3,13 @@
 // vault's APPGALLERY_CONNECT_SERVICE_ACCOUNT). fastlane has no support for
 // service accounts, hence this script.
 //
-// A release withdraws a version still in review, uploads the APK, updates the
-// listing texts and, when they changed, the icon and screenshots, then
-// submits the version for review with the reviewer notes. AppGallery releases
-// it once approved.
+// A release uploads the APK, updates the listing texts and, when they
+// changed, the icon and screenshots, then submits the version for review with
+// the reviewer notes. AppGallery releases it once approved.
+//
+// A version still in review can't be changed, and the Publishing API has no
+// call to cancel a review, so a release stops before changing anything while
+// one is in review: cancel it in AppGallery Connect, then re-run.
 
 import { constants, createHash, createPrivateKey, sign } from "node:crypto";
 import { join } from "node:path";
@@ -131,13 +134,6 @@ export class AppGallery {
 
   appInfo(): Promise<AppInfo> {
     return this.call("GET", `/publish/v2/app-info?appId=${this.appId}`);
-  }
-
-  async withdrawReview(): Promise<void> {
-    await this.call(
-      "POST",
-      `/publish/v1/app-info/withdraw?appId=${this.appId}`,
-    );
   }
 
   // Where to PUT a file in Huawei's object storage; the URL lasts minutes.
@@ -290,10 +286,11 @@ export async function publishToAppGallery({
     `AppGallery has ${current.appInfo.versionNumber ?? "no version"} in release state ${current.appInfo.releaseState}.`,
   );
   if (current.appInfo.releaseState === REVIEWING) {
-    await act(
-      `withdraw ${current.appInfo.versionNumber} from review, so ${version} replaces it`,
-      () => gallery.withdrawReview(),
-    );
+    const reviewing =
+      `AppGallery is reviewing ${current.appInfo.versionNumber}, which can't change until its review is cancelled. ` +
+      `Cancel it in AppGallery Connect (the version's page, Cancel review), then run this again.`;
+    if (!dryRun) throw new AppGalleryError(reviewing);
+    io.log(`A release would stop here: ${reviewing}`);
   }
 
   if (dryRun) {
