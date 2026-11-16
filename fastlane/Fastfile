@@ -1,0 +1,170 @@
+# Store releases, run by .github/workflows/release.yml (see docs/releasing.md).
+# Secrets come from the ieasybooks vault through the job's environment:
+#   APPLE_API_KEY_FILE                       App Store Connect API key, as fastlane's JSON
+#   APPLE_DISTRIBUTION_CERTIFICATE_FILE      the Apple Distribution .p12
+#   APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD  its password
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_FILE         Google Play service account key (JSON)
+# Store texts and images come from store/, written for deliver and supply by
+# scripts/release/write-fastlane-metadata.ts into STORE_METADATA_DIR.
+
+require "securerandom"
+
+ROOT = File.expand_path("..", __dir__)
+APP_IDENTIFIER = "com.mofied.app"
+TEAM_ID = "KJ597HLVMB"
+IOS_PROJECT = File.join(ROOT, "apps/mobile/ios")
+OUTPUT = File.join(ROOT, "build/release")
+
+skip_docs
+opt_out_usage
+
+def release_info
+  app = JSON.parse(File.read(File.join(ROOT, "apps/mobile/app.json")))["expo"]
+  {
+    version: JSON.parse(File.read(File.join(ROOT, "package.json")))["version"],
+    ios_build_number: app.dig("ios", "buildNumber"),
+    android_version_code: app.dig("android", "versionCode")
+  }
+end
+
+def dry_run?(options)
+  options[:dry_run].to_s == "true"
+end
+
+def metadata_dir
+  ENV.fetch("STORE_METADATA_DIR")
+end
+
+platform :ios do
+  # Signs and builds the App Store IPA in a throwaway keychain, then uploads
+  # it to App Store Connect. A dry run asks App Store Connect to validate the
+  # IPA instead, which doesn't use up the build number.
+  lane :build do |options|
+    api_key_path = ENV.fetch("APPLE_API_KEY_FILE")
+    keychain_name = "mofied-release"
+    keychain_password = SecureRandom.hex(24)
+    create_keychain(
+      name: keychain_name,
+      password: keychain_password,
+      unlock: true,
+      timeout: 0,
+      lock_when_sleeps: false,
+      default_keychain: false,
+      add_to_search_list: true
+    )
+    begin
+      import_certificate(
+        certificate_path: ENV.fetch("APPLE_DISTRIBUTION_CERTIFICATE_FILE"),
+        certificate_password: ENV.fetch("APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD"),
+        keychain_name: keychain_name,
+        keychain_password: keychain_password
+      )
+      # Reuses the App Store profile for the certificate, or creates one.
+      get_provisioning_profile(
+        api_key_path: api_key_path,
+        app_identifier: APP_IDENTIFIER,
+        team_id: TEAM_ID,
+        readonly: false,
+        output_path: OUTPUT
+      )
+      profile = lane_context[SharedValues::SIGH_NAME]
+      update_code_signing_settings(
+        path: File.join(IOS_PROJECT, "mfyd.xcodeproj"),
+        use_automatic_signing: false,
+        team_id: TEAM_ID,
+        targets: ["mfyd"],
+        build_configurations: ["Release"],
+        code_sign_identity: "Apple Distribution",
+        profile_name: profile,
+        bundle_identifier: APP_IDENTIFIER
+      )
+      ipa = build_app(
+        workspace: File.join(IOS_PROJECT, "mfyd.xcworkspace"),
+        scheme: "mfyd",
+        configuration: "Release",
+        clean: true,
+        export_method: "app-store",
+        export_team_id: TEAM_ID,
+        export_options: { signingStyle: "manual", provisioningProfiles: { APP_IDENTIFIER => profile } },
+        output_directory: OUTPUT,
+        output_name: "Mofied.ipa"
+      )
+      upload_to_app_store(
+        api_key_path: api_key_path,
+        app_identifier: APP_IDENTIFIER,
+        ipa: ipa,
+        skip_metadata: true,
+        skip_screenshots: true,
+        submit_for_review: false,
+        run_precheck_before_submit: false,
+        verify_only: dry_run?(options),
+        force: true
+      )
+    ensure
+      delete_keychain(name: keychain_name)
+    end
+  end
+
+  # Waits for App Store Connect to process the uploaded build, then sends the
+  # store/ texts, screenshots and reviewer notes and submits the version for
+  # review, released once approved. A version still in review is pulled back
+  # so this one replaces it.
+  lane :submit do |options|
+    api_key_path = ENV.fetch("APPLE_API_KEY_FILE")
+    info = release_info
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(filepath: api_key_path)
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("App Store Connect has no #{APP_IDENTIFIER}")
+    if dry_run?(options)
+      live = app.get_live_app_store_version
+      UI.message("Would submit #{info[:version]} (#{info[:ios_build_number]}) to replace #{live&.version_string || 'nothing'} on the App Store.")
+      next
+    end
+
+    FastlaneCore::BuildWatcher.wait_for_build_processing_to_be_complete(
+      app_id: app.id,
+      platform: Spaceship::ConnectAPI::Platform::IOS,
+      app_version: info[:version],
+      build_version: info[:ios_build_number],
+      poll_interval: 30,
+      timeout_duration: 3 * 60 * 60,
+      return_spaceship_testflight_build: false
+    )
+    upload_to_app_store(
+      api_key_path: api_key_path,
+      app_identifier: APP_IDENTIFIER,
+      app_version: info[:version],
+      build_number: info[:ios_build_number],
+      skip_binary_upload: true,
+      metadata_path: File.join(metadata_dir, "app-store/metadata"),
+      screenshots_path: File.join(metadata_dir, "app-store/screenshots"),
+      overwrite_screenshots: true,
+      submit_for_review: true,
+      automatic_release: true,
+      reject_if_possible: true,
+      run_precheck_before_submit: false,
+      submission_information: { add_id_info_uses_idfa: false },
+      force: true
+    )
+  end
+end
+
+platform :android do
+  # Sends the AAB to Google Play's production track with the store/ texts,
+  # release notes and images (only those that changed). Google reviews it and,
+  # with Managed Publishing off, publishes it once approved. A dry run checks
+  # the same edit with Google Play without committing it.
+  lane :publish do |options|
+    info = release_info
+    upload_to_play_store(
+      json_key: ENV.fetch("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE"),
+      package_name: APP_IDENTIFIER,
+      aab: options.fetch(:aab),
+      track: "production",
+      release_status: "completed",
+      version_name: "#{info[:version]} (#{info[:android_version_code]})",
+      metadata_path: File.join(metadata_dir, "google-play/metadata"),
+      sync_image_upload: true,
+      validate_only: dry_run?(options)
+    )
+  end
+end
