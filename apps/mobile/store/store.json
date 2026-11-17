@@ -1,6 +1,11 @@
 {
+  "name": "Mofied",
   "languages": {
-    "ar": { "appStore": "ar-SA", "googlePlay": "ar", "appGallery": "ar" }
+    "ar": {
+      "appStore": "ar-SA",
+      "googlePlay": "ar",
+      "appGallery": "ar"
+    }
   },
   "appStore": {
     "supportUrl": "https://mofied.com/support/",

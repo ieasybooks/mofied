@@ -31,10 +31,12 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
-      # Needs no packages.
+      # The check comes from ieasybooks/release, pinned in bun.lock; nothing
+      # else is needed, so no lifecycle scripts run.
+      - run: bun install --frozen-lockfile --ignore-scripts
       - name: Check every releasing commit changes a component
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           TITLE: ${{ github.event.pull_request.title }}
-        run: bun scripts/release/release-routing.ts "$BASE" "$HEAD"
+        run: ./node_modules/.bin/ieasybooks-release routing "$BASE" "$HEAD"

@@ -1,5 +1,5 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
-import { buildNumber } from "./build-number.js";
+import { buildNumber } from "@ieasybooks/release/build-number";
 import { version } from "./package.json";
 
 // The apps' version is apps/mobile/package.json's, which release-please raises;

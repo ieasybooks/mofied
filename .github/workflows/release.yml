@@ -122,6 +122,12 @@ jobs:
         with:
           ref: ${{ steps.mode.outputs.sha }}
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      # The release checks come from ieasybooks/release, pinned in bun.lock,
+      # and run from node_modules/.bin, never downloaded.
+      - run: bun install --frozen-lockfile
       # The tag still points at that commit, and a tag pushed by hand is on
       # a commit main's checks passed (release-please.yml checked its own).
       - name: Check the tag's commit
@@ -133,9 +139,9 @@ jobs:
           CALLED: ${{ steps.mode.outputs.called }}
         run: |
           if [ "$CALLED" = true ]; then
-            scripts/release/verify-release-commit.sh "$TAG" "$SHA"
+            ./node_modules/.bin/ieasybooks-release verify-commit "$TAG" "$SHA"
           else
-            scripts/release/verify-release-commit.sh "$TAG" "$SHA" --checked
+            ./node_modules/.bin/ieasybooks-release verify-commit "$TAG" "$SHA" --checked
           fi
       # Each job that uploads checks again, for a re-run of only that job.
       - name: Check no newer release has replaced it
@@ -143,20 +149,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.mode.outputs.tag }}
-        run: scripts/release/check-not-superseded.sh "$TAG"
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.4
-      - run: bun install --frozen-lockfile
+        run: ./node_modules/.bin/ieasybooks-release not-superseded "$TAG"
       - name: Check the tag, version and store listing
         env:
           DRY_RUN: ${{ steps.mode.outputs.dry-run }}
           TAG: ${{ steps.mode.outputs.tag }}
         run: |
           if [ "$DRY_RUN" = true ]; then
-            bun scripts/release/check-release.ts
+            ./node_modules/.bin/ieasybooks-release store check --app apps/mobile
           else
-            bun scripts/release/check-release.ts --tag "$TAG"
+            ./node_modules/.bin/ieasybooks-release store check --app apps/mobile --tag "$TAG"
           fi
       - run: bun run typecheck
       - run: bun run test
@@ -177,16 +179,16 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
       - name: Check no newer release has replaced it
         if: needs.check.outputs.dry-run == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.check.outputs.tag }}
-        run: scripts/release/check-not-superseded.sh "$TAG"
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.4
-      - run: bun install --frozen-lockfile
+        run: ./node_modules/.bin/ieasybooks-release not-superseded "$TAG"
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: "3.4"
@@ -194,7 +196,7 @@ jobs:
       - name: Generate the Xcode project
         working-directory: apps/mobile
         run: bunx expo prebuild --platform ios
-      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+      - uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
         with:
           secrets: APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD
           files: APPLE_API_KEY.json
@@ -211,7 +213,7 @@ jobs:
           mkdir -p build/release
           jq -n \
             --arg commit "$SHA" --arg tag "$TAG" --argjson dryRun "$DRY_RUN" \
-            --argjson app "$(bun scripts/release/release-info.ts)" \
+            --argjson app "$(./node_modules/.bin/ieasybooks-release release-info --app apps/mobile)" \
             --arg xcode "$(xcodebuild -version | paste -sd ' ' -)" \
             --arg fastlane "$(awk '/^    fastlane \(/ { gsub(/[()]/, "", $2); print $2 }' Gemfile.lock)" \
             '{commit: $commit, tag: $tag, dryRun: $dryRun, version: $app.version, buildNumber: $app.iosBuildNumber, xcode: $xcode, fastlane: $fastlane}' \
@@ -244,21 +246,23 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      # Only the release tool is needed here: no lifecycle scripts.
+      - run: bun install --frozen-lockfile --ignore-scripts
       - name: Check no newer release has replaced it
         if: needs.check.outputs.dry-run == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.check.outputs.tag }}
-        run: scripts/release/check-not-superseded.sh "$TAG"
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.4
+        run: ./node_modules/.bin/ieasybooks-release not-superseded "$TAG"
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: "3.4"
           bundler-cache: true
-      - run: bun scripts/release/write-fastlane-metadata.ts "$RUNNER_TEMP/store"
-      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+      - run: ./node_modules/.bin/ieasybooks-release store fastlane-metadata --app apps/mobile "$RUNNER_TEMP/store"
+      - uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
         with:
           files: APPLE_API_KEY.json
       - name: Send the listing and submit for review
@@ -297,7 +301,7 @@ jobs:
       - name: Generate the Android project
         working-directory: apps/mobile
         run: bunx expo prebuild --platform android --no-install
-      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+      - uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
         with:
           secrets: MOFIED_ANDROID_KEYSTORE_PASSWORD
           base64-files: MOFIED_ANDROID_KEYSTORE.p12
@@ -311,7 +315,7 @@ jobs:
           SHA256: 2C:F5:F2:29:E9:35:C4:BA:6A:D9:D4:38:54:A1:8B:BB:4A:41:23:8E:AB:AA:CD:40:D1:EA:49:1A:D2:E9:AB:37
         run: |
           set -euo pipefail
-          name=$(bun scripts/release/release-info.ts | jq -r '"mofied-\(.version)-\(.androidVersionCode)"')
+          name=$(./node_modules/.bin/ieasybooks-release release-info --app apps/mobile | jq -r '"mofied-\(.version)-\(.androidVersionCode)"')
           mkdir -p build/release
           cp apps/mobile/android/app/build/outputs/bundle/release/app-release.aab "build/release/$name.aab"
           cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "build/release/$name.apk"
@@ -344,15 +348,17 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      # Only the release tool is needed here: no lifecycle scripts.
+      - run: bun install --frozen-lockfile --ignore-scripts
       - name: Check no newer release has replaced it
         if: needs.check.outputs.dry-run == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.check.outputs.tag }}
-        run: scripts/release/check-not-superseded.sh "$TAG"
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.4
+        run: ./node_modules/.bin/ieasybooks-release not-superseded "$TAG"
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: "3.4"
@@ -361,8 +367,8 @@ jobs:
         with:
           name: android
           path: build/release
-      - run: bun scripts/release/write-fastlane-metadata.ts "$RUNNER_TEMP/store"
-      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+      - run: ./node_modules/.bin/ieasybooks-release store fastlane-metadata --app apps/mobile "$RUNNER_TEMP/store"
+      - uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
         with:
           files: GOOGLE_PLAY_SERVICE_ACCOUNT.json
       - name: Upload to production with the listing
@@ -385,28 +391,30 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      # Only the release tool is needed here: no lifecycle scripts.
+      - run: bun install --frozen-lockfile --ignore-scripts
       - name: Check no newer release has replaced it
         if: needs.check.outputs.dry-run == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.check.outputs.tag }}
-        run: scripts/release/check-not-superseded.sh "$TAG"
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.4
+        run: ./node_modules/.bin/ieasybooks-release not-superseded "$TAG"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: android
           path: build/release
-      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+      - uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
         with:
           secrets: APPGALLERY_CONNECT_SERVICE_ACCOUNT
       - name: Upload and submit for review
         run: |
           if [ "$DRY_RUN" = true ]; then
-            bun scripts/release/publish-appgallery.ts build/release/*.apk --dry-run
+            ./node_modules/.bin/ieasybooks-release appgallery publish --app apps/mobile build/release/*.apk --dry-run
           else
-            bun scripts/release/publish-appgallery.ts build/release/*.apk
+            ./node_modules/.bin/ieasybooks-release appgallery publish --app apps/mobile build/release/*.apk
           fi
 
   # release-please.yml's vault access check (docs/releasing.md): this
@@ -421,13 +429,13 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ieasybooks/vault@4900bee8cf4a356501cbd69c19e25d67bd21334c # v1.0.0
+      - uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
         with:
           secrets: APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD=STORE_SECRET
       - name: The vault serves the store secrets here
         run: test -n "$STORE_SECRET" && echo "The vault served APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD."
+      # Asked for alone, it must be refused because no rule matches.
       - name: The vault refuses the web's deploy token here
-        run: scripts/release/expect-vault-refusal.sh MOFIED_WEB_DEPLOY_TOKEN
+        uses: ieasybooks/vault@1bce5652d3d2461b0c6d590c3358d8c877fe61c8 # v1.1.0
+        with:
+          expect-refused: MOFIED_WEB_DEPLOY_TOKEN
