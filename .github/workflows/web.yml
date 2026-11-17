@@ -9,9 +9,13 @@ name: Release web
 # release from release.yml. See docs/web-deployment.md.
 #
 # On any other ref, such as a web-v0-dry-run tag or main, it's a dry run: it
-# builds the web and has Wrangler check the upload, but deploys nothing. The
-# vault serves the web's deploy token only to this workflow on web-v* tags and
-# to its jobs that release-please.yml on main calls, started by AliOsm.
+# builds the web and has Wrangler check the upload, but deploys nothing. A
+# release that a newer web release has superseded stops before it deploys, so
+# re-running an older release, or one whose checks finished after a newer
+# one's, can't put an older version back; going back is a rollback
+# (docs/releasing.md). The vault serves the web's deploy token only to
+# this workflow on web-v* tags and to its jobs that release-please.yml on main
+# calls, started by AliOsm.
 on:
   push:
     tags: ["web-v*"]
@@ -34,8 +38,11 @@ on:
 permissions:
   contents: read
 
+# One deployment at a time. The vault access check has its own group: GitHub
+# keeps only the newest waiting run in a group, cancelling the one it
+# replaces, so a check waiting here would cancel a release waiting here.
 concurrency:
-  group: release-web
+  group: ${{ inputs.access-check && 'release-web-access-check' || 'release-web' }}
   cancel-in-progress: false
 
 jobs:
@@ -105,6 +112,14 @@ jobs:
           else
             scripts/release/verify-release-commit.sh "$TAG" "$SHA" --checked
           fi
+      # While this workflow holds the release-web group, so a newer release
+      # either deployed before this one or waits for it.
+      - name: Check no newer release has replaced it
+        if: steps.mode.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.mode.outputs.tag }}
+        run: scripts/release/check-not-superseded.sh "$TAG"
       - name: Check the tag matches the version
         if: steps.mode.outputs.dry-run == 'false'
         env:

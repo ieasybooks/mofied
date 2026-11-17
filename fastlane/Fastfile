@@ -126,9 +126,10 @@ platform :ios do
   # Waits for App Store Connect to process the uploaded build, then sends the
   # store texts, screenshots and reviewer notes and submits the version for
   # review, released once approved. An older version still waiting for review
-  # or in review is pulled back first so this one replaces it, and a re-run
-  # finding this build already submitted stops there
-  # (fastlane/lib/review_replacement.rb). A dry run says what it would do.
+  # or in review is pulled back first so this one replaces it, a newer one
+  # stops the lane, and a re-run finding this build already submitted stops
+  # there (fastlane/lib/review_replacement.rb, which alone cancels reviews:
+  # deliver's reject_if_possible stays off). A dry run says what it would do.
   lane :submit do |options|
     api_key = apple_api_key
     info = release_info
@@ -139,10 +140,15 @@ platform :ios do
       build: info[:ios_build_number],
       log: ->(message) { UI.message(message) }
     )
+    clear_review = lambda do |dry_run|
+      replacement.run(dry_run: dry_run)
+    rescue Mofied::ReviewReplacement::Error => e
+      UI.user_error!(e.message)
+    end
     if dry_run?(options)
       live = app.get_live_app_store_version
       UI.message("Would submit #{info[:version]} (#{info[:ios_build_number]}) to replace #{live&.version_string || 'nothing'} on the App Store.")
-      replacement.run(dry_run: true)
+      clear_review.call(true)
       next
     end
 
@@ -155,11 +161,7 @@ platform :ios do
       timeout_duration: 3 * 60 * 60,
       return_spaceship_testflight_build: false
     )
-    begin
-      next if replacement.run == :already_submitted
-    rescue Mofied::ReviewReplacement::Error => e
-      UI.user_error!(e.message)
-    end
+    next if clear_review.call(false) == :already_submitted
     upload_to_app_store(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
@@ -171,7 +173,6 @@ platform :ios do
       overwrite_screenshots: true,
       submit_for_review: true,
       automatic_release: true,
-      reject_if_possible: true,
       run_precheck_before_submit: false,
       submission_information: { add_id_info_uses_idfa: false },
       force: true
