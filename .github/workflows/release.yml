@@ -10,7 +10,9 @@ name: Release apps
 #
 # Any other v* tag (such as v0-dry-run), or a run started by hand with
 # dry-run ticked, is a dry run: it builds and signs both apps and has each
-# store check what it would receive, but submits nothing. The vault serves the
+# store check what it would receive, but submits nothing. A release that a
+# newer apps release has superseded stops before each upload, so re-running an
+# older release can't replace a newer one in the stores. The vault serves the
 # release secrets only to this workflow on v* tags and to its jobs that
 # release-please.yml on main calls, started by AliOsm.
 on:
@@ -40,8 +42,11 @@ on:
 permissions:
   contents: read
 
+# One release at a time. The vault access check has its own group: GitHub
+# keeps only the newest waiting run in a group, cancelling the one it
+# replaces, so a check waiting here would cancel a release waiting here.
 concurrency:
-  group: release
+  group: ${{ inputs.access-check && 'release-access-check' || 'release' }}
   cancel-in-progress: false
 
 env:
@@ -132,6 +137,13 @@ jobs:
           else
             scripts/release/verify-release-commit.sh "$TAG" "$SHA" --checked
           fi
+      # Each job that uploads checks again, for a re-run of only that job.
+      - name: Check no newer release has replaced it
+        if: steps.mode.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.mode.outputs.tag }}
+        run: scripts/release/check-not-superseded.sh "$TAG"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
@@ -165,6 +177,12 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - name: Check no newer release has replaced it
+        if: needs.check.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: scripts/release/check-not-superseded.sh "$TAG"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
@@ -226,6 +244,12 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - name: Check no newer release has replaced it
+        if: needs.check.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: scripts/release/check-not-superseded.sh "$TAG"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
@@ -320,6 +344,12 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - name: Check no newer release has replaced it
+        if: needs.check.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: scripts/release/check-not-superseded.sh "$TAG"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
@@ -355,6 +385,12 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
+      - name: Check no newer release has replaced it
+        if: needs.check.outputs.dry-run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: scripts/release/check-not-superseded.sh "$TAG"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4

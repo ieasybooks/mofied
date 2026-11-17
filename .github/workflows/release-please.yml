@@ -5,9 +5,10 @@ name: Release please
 # component's last release. Merging it tags the components it raises and
 # creates their GitHub releases. This workflow then runs every check
 # (check.yml) on the commit it tagged, or on the pushed commit when it tagged
-# none, marks the commit with a "Checks" status once they pass, and only then
-# ships it: the apps (v<version>, release.yml) and the web (web-v<version>,
-# web.yml), each building exactly that commit. See docs/releasing.md.
+# none, marks the commit with a "Checks" status saying how they ended, and
+# only once they passed ships it: the apps (v<version>, release.yml) and the
+# web (web-v<version>, web.yml), each building exactly that commit. See
+# docs/releasing.md.
 #
 # Tags made with GITHUB_TOKEN start no workflows, so this workflow calls the
 # release workflows itself, and their jobs run as this workflow on main. The
@@ -160,11 +161,15 @@ jobs:
     with:
       sha: ${{ needs.release-please.outputs.sha }}
 
-  # Marks the commit as checked, which a release from a tag pushed by hand
-  # requires (scripts/release/verify-release-commit.sh).
-  checks-passed:
-    name: Mark the commit checked
+  # Marks the commit with how its checks ended, as its "Checks" status: a
+  # release from a tag pushed by hand needs it to say they passed
+  # (scripts/release/verify-release-commit.sh). It runs however they ended,
+  # also on a re-run, so a later run whose checks failed or was cancelled
+  # takes an earlier success back.
+  checks-status:
+    name: Mark the commit's checks
     needs: [release-please, check]
+    if: ${{ always() && needs.release-please.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -173,12 +178,18 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ needs.release-please.outputs.sha }}
+          RESULT: ${{ needs.check.result }}
         run: |
+          case $RESULT in
+            success) state=success description="Every check passed on main." ;;
+            failure) state=failure description="A check failed on main." ;;
+            *) state=error description="Main's checks didn't finish ($RESULT)." ;;
+          esac
           gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
-            -f state=success -f context=Checks \
-            -f description="Every check passed on main." \
+            -f state="$state" -f context=Checks \
+            -f description="$description" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
-          echo "Marked $SHA checked."
+          echo "Marked $SHA: $description"
 
   apps:
     name: Release apps
