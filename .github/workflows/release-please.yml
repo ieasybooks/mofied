@@ -123,8 +123,13 @@ jobs:
             git commit --quiet -m "chore: update bun.lock to the release's versions" -- bun.lock
             git push --quiet origin "HEAD:$BRANCH"
           fi
+      # The release check comes from ieasybooks/release, pinned in bun.lock;
+      # nothing else is needed, so no lifecycle scripts run.
+      - name: Install the release tool
+        if: steps.pr.outputs.number
+        run: bun install --frozen-lockfile --ignore-scripts
       # Against main as the merge will be: main's store folder, with the
-      # pull request's apps version. Needs no packages.
+      # pull request's apps version.
       - name: Check the apps can be released
         if: steps.pr.outputs.number
         run: |
@@ -138,7 +143,7 @@ jobs:
             state=success
             description="This release leaves the apps at $version."
             echo "$description" > check.log
-          elif bun scripts/release/check-release.ts > check.log 2>&1; then
+          elif ./node_modules/.bin/ieasybooks-release store check --app apps/mobile > check.log 2>&1; then
             state=success
             description=$(tail -1 check.log)
           else
@@ -163,7 +168,7 @@ jobs:
 
   # Marks the commit with how its checks ended, as its "Checks" status: a
   # release from a tag pushed by hand needs it to say they passed
-  # (scripts/release/verify-release-commit.sh). It runs however they ended,
+  # (ieasybooks-release verify-commit). It runs however they ended,
   # also on a re-run, so a later run whose checks failed or was cancelled
   # takes an earlier success back.
   checks-status:

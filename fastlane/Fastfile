@@ -5,11 +5,12 @@
 #   APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD  its password
 #   GOOGLE_PLAY_SERVICE_ACCOUNT_FILE         Google Play service account key (JSON)
 # Store texts and images come from apps/mobile/store/, written for deliver and
-# supply by scripts/release/write-fastlane-metadata.ts into STORE_METADATA_DIR.
+# supply into STORE_METADATA_DIR by ieasybooks-release store fastlane-metadata
+# (ieasybooks/release, pinned in package.json).
 
 require "open3"
 require "securerandom"
-require File.join(__dir__, "lib/review_replacement")
+require "ieasybooks/release"
 
 ROOT = File.expand_path("..", __dir__)
 APP_IDENTIFIER = "com.mofied.app"
@@ -21,10 +22,12 @@ skip_docs
 opt_out_usage
 
 # The version in apps/mobile/package.json and the build numbers that follow
-# from it, from scripts/release/release-info.ts.
+# from it, from ieasybooks-release in node_modules, never a downloaded one.
+RELEASE_TOOL = File.join(ROOT, "node_modules/.bin/ieasybooks-release")
+
 def release_info
-  out, status = Open3.capture2("bun", File.join(ROOT, "scripts/release/release-info.ts"), chdir: ROOT)
-  UI.user_error!("scripts/release/release-info.ts failed") unless status.success?
+  out, status = Open3.capture2(RELEASE_TOOL, "release-info", "--app", "apps/mobile", chdir: ROOT)
+  UI.user_error!("ieasybooks-release release-info failed; is node_modules installed?") unless status.success?
   info = JSON.parse(out)
   {
     version: info.fetch("version"),
@@ -128,21 +131,21 @@ platform :ios do
   # review, released once approved. An older version still waiting for review
   # or in review is pulled back first so this one replaces it, a newer one
   # stops the lane, and a re-run finding this build already submitted stops
-  # there (fastlane/lib/review_replacement.rb, which alone cancels reviews:
+  # there (Ieasybooks::Release::ReviewReplacement, which alone cancels reviews:
   # deliver's reject_if_possible stays off). A dry run says what it would do.
   lane :submit do |options|
     api_key = apple_api_key
     info = release_info
     app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("App Store Connect has no #{APP_IDENTIFIER}")
-    replacement = Mofied::ReviewReplacement.new(
-      store: Mofied::AppStoreReviews.new(app, Spaceship::ConnectAPI::Platform::IOS),
+    replacement = Ieasybooks::Release::ReviewReplacement.new(
+      store: Ieasybooks::Release::AppStoreReviews.new(app, Spaceship::ConnectAPI::Platform::IOS),
       version: info[:version],
       build: info[:ios_build_number],
       log: ->(message) { UI.message(message) }
     )
     clear_review = lambda do |dry_run|
       replacement.run(dry_run: dry_run)
-    rescue Mofied::ReviewReplacement::Error => e
+    rescue Ieasybooks::Release::ReviewReplacement::Error => e
       UI.user_error!(e.message)
     end
     if dry_run?(options)

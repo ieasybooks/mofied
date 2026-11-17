@@ -8,7 +8,7 @@
 | web                                     | `apps/web`                                                   | `web-v0.1.3`     | mofied.com (`Release web`, `web.yml`); see [web deployment](web-deployment.md)                        |
 | contracts, design, fixtures and session | `packages/*`                                                 | `session-v0.2.0` | Nothing themselves: their release raises the web and the apps that use them                           |
 
-Each component's version is its `package.json`'s, which the apps and the web show. `release-please-config.json` sets the components up and `.release-please-manifest.json` holds their released versions. The iOS build number and the Android version code follow from the apps' version (`apps/mobile/build-number.js`: 1.2.3 builds as 1002003), so a release never needs one raised by hand.
+Each component's version is its `package.json`'s, which the apps and the web show. `release-please-config.json` sets the components up and `.release-please-manifest.json` holds their released versions. The iOS build number and the Android version code follow from the apps' version ([ieasybooks/release](#the-shared-release-tooling)'s build numbers: 1.2.3 builds as 1002003), so a release never needs one raised by hand.
 
 ## Commit messages
 
@@ -20,7 +20,7 @@ Commit titles follow [Conventional Commits](https://www.conventionalcommits.org/
 
 A scope (`fix(store): …`) only labels the changelog entry.
 
-So everything that changes what ships lives in a component's folder: the apps' native patch in `apps/mobile/patches`, the web's Wrangler configuration, build and deploy commands in `apps/web`. The root holds tooling: the pinned tools, tests, CI and release scripts. A `fix:` that changes only the root releases nothing, and the **Commits** check on pull requests (`.github/workflows/commits.yml`, `scripts/release/release-routing.ts`) fails on one: every releasing commit, and a releasing title across the pull request's files, must change a component. Give such a change a type that releases nothing, or move what ships into its component.
+So everything that changes what ships lives in a component's folder: the apps' native patch in `apps/mobile/patches`, the web's Wrangler configuration, build and deploy commands in `apps/web`. The root holds tooling: the pinned tools, tests, CI and release scripts. A `fix:` that changes only the root releases nothing, and the **Commits** check on pull requests (`.github/workflows/commits.yml`, `ieasybooks-release routing`) fails on one: every releasing commit, and a releasing title across the pull request's files, must change a component. Give such a change a type that releases nothing, or move what ships into its component.
 
 A change to `bun.lock` alone, such as a transitive dependency update, ships with the next release of each component. To ship one now, change the component's own `package.json` too (`bun add` the dependency there).
 
@@ -42,7 +42,7 @@ Pushing a version tag by hand releases too, as before: `v<version>` for the apps
 
 A re-run keeps the identity of whoever started the run, so it gets the release secrets only for a run Ali started.
 
-Every job that uploads or deploys first checks that no newer release of its component exists (`scripts/release/check-not-superseded.sh`), and stops if one does. So re-running an older release's failed job after a newer release can't put the older version back on mofied.com or pull the newer one out of App Store review, and an older release whose checks finished after a newer one's deploys nothing. Re-run the newer release instead, or release a newer version. Going back to an older version on purpose is a [rollback](#rolling-back).
+Every job that uploads or deploys first checks that no newer release of its component exists (`ieasybooks-release not-superseded`), and stops if one does. So re-running an older release's failed job after a newer release can't put the older version back on mofied.com or pull the newer one out of App Store review, and an older release whose checks finished after a newer one's deploys nothing. Re-run the newer release instead, or release a newer version. Going back to an older version on purpose is a [rollback](#rolling-back).
 
 | What failed                             | What to do                                                                                                                                                                                                                                                                                     |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -71,7 +71,7 @@ What re-running each release job does:
 | App Store     | Linux  | Waits for Apple to process the build, pulls an older version still waiting for review or in review back out and waits until Apple has finished (giving up, without submitting, after 15 minutes), then sends the listing, screenshots and reviewer notes and submits the version for review, released automatically once approved. A newer version in review stops it instead, untouched. |
 | Build Android | Linux  | Generates the Android project and builds the AAB and APK for `armeabi-v7a`, `arm64-v8a` and `x86_64` (no phone runs 32-bit `x86`), signed with Mofied's key (`apps/mobile/plugins/with-release-signing.js`), and checks the signer. Gradle's downloads come from the cache the checks save on `main`.                                                                                     |
 | Google Play   | Linux  | Sends the AAB to the production track with the listing, release notes and changed images. Managed Publishing is off, so Google publishes it once approved.                                                                                                                                                                                                                                |
-| AppGallery    | Linux  | `scripts/release/publish-appgallery.ts`: uploads the APK, updates the texts and any changed images, and submits the version, released once approved. While a version is still in review it stops before changing anything: the Publishing API can't cancel a review, so cancel it in AppGallery Connect and re-run the job.                                                               |
+| AppGallery    | Linux  | `ieasybooks-release appgallery publish`: uploads the APK, updates the texts and any changed images, and submits the version, released once approved. While a version is still in review it stops before changing anything: the Publishing API can't cancel a review, so cancel it in AppGallery Connect and re-run the job.                                                               |
 
 The store jobs are independent: one failing doesn't stop the others.
 
@@ -110,8 +110,18 @@ So each release workflow gets only its own secrets, even when `release-please.ym
 | `APPGALLERY_CONNECT_SERVICE_ACCOUNT`                                        | AppGallery                                                                        |
 | `MOFIED_WEB_DEPLOY_TOKEN`                                                   | Deploying mofied.com from `web.yml`: it can edit `mofied-web` and no other Worker |
 
-To check those rules, run **Release please** by hand on `main` with **access-check** ticked (`gh workflow run release-please.yml --ref main -f access-check=true`). It releases nothing: `release.yml`'s and `web.yml`'s jobs each ask the vault for their own secret, which must be served, and for the other's, which must be refused (`scripts/release/expect-vault-refusal.sh`). Its jobs have their own concurrency groups, so they neither wait for a release nor cancel one waiting. Run it after changing the vault's rules.
+To check those rules, run **Release please** by hand on `main` with **access-check** ticked (`gh workflow run release-please.yml --ref main -f access-check=true`). It releases nothing: `release.yml`'s and `web.yml`'s jobs each ask the vault for their own secret, which must be served, and for the other's, which must be refused because no rule matches (the vault action's `expect-refused`). Its jobs have their own concurrency groups, so they neither wait for a release nor cancel one waiting. Run it after changing the vault's rules.
+
+## The shared release tooling
+
+The release commands and the App Store review helper come from [ieasybooks/release](https://github.com/ieasybooks/release), which ieasybooks apps share, pinned to one commit in three places:
+
+- `@ieasybooks/release` in `package.json`, for the `ieasybooks-release` command;
+- `@ieasybooks/release` in `apps/mobile/package.json`, whose `app.config.ts` imports the build numbers;
+- the `ieasybooks-release` gem in the `Gemfile`, which the Fastfile's submit lane uses.
+
+The workflows run the command from `node_modules/.bin`, never through `bunx`, which would download whatever npm has under that name if the package were missing. To take a newer version, change all three to the same commit in one pull request, then run `mise exec -- bun install` and `mise exec -- bundle lock`. Its README describes each command and the store folder's format.
 
 ## Running the steps on a Mac
 
-fastlane runs on Ruby (pinned in `mise.toml`): `mise exec -- bundle install`. With the secrets from `mise run vault:run` in ieasybooks/infrastructure, the lanes in `fastlane/Fastfile` and `scripts/release/publish-appgallery.ts` run as they do in the workflow; pass `dry_run:true` (or `--dry-run`) to check without releasing. `mise exec -- bun run test:fastlane` tests the App Store submit lane's review logic (`fastlane/lib/review_replacement.rb`) without fastlane or Apple.
+fastlane runs on Ruby (pinned in `mise.toml`): `mise exec -- bundle install`. With the secrets from `mise run vault:run` in ieasybooks/infrastructure, the lanes in `fastlane/Fastfile` and `node_modules/.bin/ieasybooks-release appgallery publish --app apps/mobile <apk>` run as they do in the workflow; pass `dry_run:true` (or `--dry-run`) to check without releasing. `mise exec -- bun run fastlane:check` loads the Fastfile with its gems, as the checks do.

@@ -39,11 +39,13 @@ jobs:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run check
-      # The fastlane lanes' own logic, on plain Ruby: no gems, no Apple.
+      # The Fastfile loads with its gems, including ieasybooks/release's review
+      # helper at the commit Gemfile.lock pins: no Apple, no secrets.
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: "3.4"
-      - run: bun run test:fastlane
+          bundler-cache: true
+      - run: bun run fastlane:check
       - run: bun run contract:generate && git diff --exit-code -- docs/session.schema.json docs/session.example.json
       - run: bun run mobile:export
       - run: bunx playwright install --with-deps chromium
