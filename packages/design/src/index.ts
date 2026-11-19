@@ -53,7 +53,7 @@ const ar = {
   aboutBody: "مفيد مساحة لمواد نافعة وجلسات محدودة، تتخلّلها لحظات للتفكر.",
   privacyBody:
     "لا يتطلّب مفيد حسابًا. تبدأ جلسة جديدة عند فتح التطبيق أو تحديث الصفحة، ولا يُحفظ تقدم الجلسة. تُحمّل المواد والصور من خوادم الوسائط، وقد تسجّل هذه الخوادم معلومات الاتصال المعتادة. لا يتضمّن هذا الإصدار أدوات إعلانية أو تحليلات.",
-  supportBody: "مفيد من تطوير مبادرة الكتب المُيسّرة. يمكنكم التواصل معنا عبر:",
+  supportBody: "مفيد من تطوير الكتب المُيسّرة. يمكنكم التواصل معنا عبر:",
   offline: "الاتصال غير متاح حاليًا",
   linkError: "تعذّر فتح الرابط",
   linkErrorBody: "تأكّد من وجود تطبيق مناسب لفتح الرابط، ثم أعد المحاولة.",
@@ -102,8 +102,7 @@ const en: Record<keyof typeof ar, string> = {
     "Mofied offers useful media in finite sessions, with moments to reflect.",
   privacyBody:
     "Mofied does not require an account. A new session starts when you open the app or refresh the page. Session progress is not saved. Media and images load from media servers, which may record ordinary connection information. This version has no advertising or analytics tools.",
-  supportBody:
-    "Mofied is developed by the EasyBooks initiative. You can contact us through:",
+  supportBody: "Mofied is developed by EasyBooks. You can contact us through:",
   offline: "You are currently offline",
   linkError: "Could not open the link",
   linkErrorBody:
