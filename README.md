@@ -114,3 +114,13 @@ LIVE_API=1 HEADED=1 mise exec -- bunx playwright test tests/live-api.spec.ts
 ```
 
 Before launch: publish the final privacy/support URLs, complete device checks and store packaging, and confirm independent-app font licensing. The supplied design and local privacy copy are implemented; public hosting and store submission are separate work.
+
+## License
+
+- **Code:** [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, change and share it for any noncommercial purpose, and commercial use needs our permission. Required Notice: Copyright 2026 الكتب المُيسّرة (EasyBooks).
+- **Content:** [CC BY-NC-SA 4.0](LICENSE-CONTENT.txt), with attribution, noncommercially, and sharing changes under the same terms. That covers our own texts, images and design: the store listings and screenshots, the design boards and the copy in the apps and on mofied.com.
+- **Not covered by either:**
+  - The Mofied name and mark.
+  - The fonts. Thmanyah Serif Display, Gilroy and Kitab are licensed to EasyBooks and aren't licensed to you. Noto Naskh Arabic is under the SIL Open Font License.
+  - The speakers' media and portraits, which belong to their owners.
+  - Third-party dependencies and the patched Expo module, under their own licenses.
