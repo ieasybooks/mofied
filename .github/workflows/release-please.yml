@@ -41,8 +41,13 @@ jobs:
     if: github.ref == 'refs/heads/main' && !inputs.access-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # One run at a time, each in turn: queue: max keeps up to 100 waiting,
+    # where GitHub would cancel all but the newest, and a cancelled run's
+    # pushed commit would go unchecked, with no Checks status for a tag
+    # pushed by hand.
     concurrency:
       group: release-please
+      queue: max
       cancel-in-progress: false
     permissions:
       contents: write

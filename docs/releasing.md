@@ -32,6 +32,8 @@ A change to `bun.lock` alone, such as a transitive dependency update, ships with
 
 On other pushes to `main`, the same run checks the pushed commit and marks it, and ships nothing.
 
+The **Release please** runs take their turns (`queue: max`), so none is cancelled while it waits and every pushed commit is checked. So do the releases and the web deployments: an older release whose checks finished after a newer one's would otherwise replace it in the queue, then stop as superseded, so neither shipped.
+
 GitHub's checks on the release pull request wait for someone to approve them, since GitHub Actions opened it. They're not needed: the merge is checked on `main` before anything ships, and its **Release please** run keeps `bun.lock` in step with the new versions and sets the **Release check** status.
 
 Only Ali's merge ships, because the vault serves the release secrets only when he pushed to `main`. If someone else merges the release pull request, the tags, GitHub releases and checks still run, but nothing ships. Ali then runs **Release apps** (with **dry-run** unticked) on the `v` tag and **Release web** on the `web-v` tag from the Actions tab.
