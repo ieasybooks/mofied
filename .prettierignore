@@ -9,3 +9,5 @@ dist
 node_modules
 
 tests/assets/
+# License texts stay verbatim.
+LICENSE.md
