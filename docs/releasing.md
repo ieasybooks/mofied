@@ -32,6 +32,8 @@ A change to `bun.lock` alone, such as a transitive dependency update, ships with
 
 On other pushes to `main`, the same run checks the pushed commit and marks it, and ships nothing.
 
+The **Release please** runs take their turns (`queue: max`), so none is cancelled while it waits and every pushed commit is checked. So do the releases and the web deployments: an older release whose checks finished after a newer one's would otherwise replace it in the queue, then stop as superseded, so neither shipped.
+
 GitHub's checks on the release pull request wait for someone to approve them, since GitHub Actions opened it. They're not needed: the merge is checked on `main` before anything ships, and its **Release please** run keeps `bun.lock` in step with the new versions and sets the **Release check** status.
 
 Only Ali's merge ships, because the vault serves the release secrets only when he pushed to `main`. If someone else merges the release pull request, the tags, GitHub releases and checks still run, but nothing ships. Ali then runs **Release apps** (with **dry-run** unticked) on the `v` tag and **Release web** on the `web-v` tag from the Actions tab.
@@ -86,7 +88,7 @@ The release workflows never ship a version older than the component's newest rel
 
 Any other `v*` tag is a dry run of the apps: push a throwaway one, such as `git tag v0-dry-run && git push origin v0-dry-run`, on the commit to test. Running the `Release apps` workflow by hand on a `v*` tag is a dry run too, unless **dry-run** is unticked. A dry run builds and signs both apps and checks everything without releasing:
 
-- App Store Connect validates the signed IPA without taking it, and the App Store job only reads the app, saying which version it would pull out of review.
+- App Store Connect validates the signed IPA without taking it, and the App Store job only reads the app, saying which version it would pull out of review. The IPA is built as the next patch version (0.1.3 when `apps/mobile/package.json` has 0.1.2): App Store Connect refuses a version it has released and a build number it has, even only to validate them.
 - Google Play checks the AAB and listing in an edit it never commits.
 - AppGallery reports what it would upload, change and submit, or that a version in review would stop the release, and issues an upload URL without taking the APK.
 
