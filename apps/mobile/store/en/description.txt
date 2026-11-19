@@ -1,0 +1,14 @@
+Mofied is a place to watch short, useful Islamic media, with pauses to read and reflect along the way. Open the app and start watching, swipe between items, then get back to your day when the session ends.
+
+• Short media from a range of speakers.
+• Smooth swiping between items, with playback and sound controls.
+• Reading pauses whose timer you can stop to read at your own pace.
+• A clear time remaining and a calm end to each session.
+• A new session every time you open the app; viewing progress isn't saved.
+• An Arabic or English interface, with each item in its original language.
+
+Mofied needs no account and has no ads or in-app purchases. Loading media and images requires an internet connection.
+
+Mofied is made by EasyBooks.
+
+Share any item with a link that opens it straight in Mofied, and mofied.com links open the app. Your session continues when you switch to another app and back, each item you move to plays automatically, and reminder verses appear together.
