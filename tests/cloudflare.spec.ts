@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readdirSync } from "node:fs";
+import { inline, pageIds, pagePath, pages } from "@mofied/design";
 import { plan, serveMp4 } from "./fixtures";
 
 const api = "https://faqieh.com/api/v1/mofied/session?locale=ar";
@@ -140,52 +141,151 @@ test("Chromium can install the app while automatic install prompts are suppresse
   }
 });
 
-for (const [path, heading] of [
-  ["privacy", "سياسة الخصوصية"],
-  ["support", "التواصل والدعم"],
-]) {
-  test(`store ${path} page works without JavaScript or a session`, async ({
-    browser,
-  }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
-    const page = await context.newPage();
-    const requests: string[] = [];
-    page.on("request", (request) => requests.push(request.url()));
-    try {
-      for (const width of [320, 1440]) {
-        await page.setViewportSize({ width, height: 800 });
-        const response = await page.goto(`http://127.0.0.1:8787/${path}/`);
-        expect(response?.status()).toBe(200);
-        await expect(
-          page.getByRole("heading", { name: heading, exact: true }),
-        ).toBeVisible();
-        await expect(page.locator("header img")).toBeVisible();
+const origin = "http://127.0.0.1:8787";
+const plain = (paragraph: string) =>
+  inline(paragraph)
+    .map((part) => part.text)
+    .join("");
+
+for (const locale of ["ar", "en"] as const)
+  for (const id of pageIds) {
+    const path = pagePath(id, locale);
+    const source = pages[locale][id];
+    const twin = locale === "ar" ? "en" : "ar";
+    test(`${path} serves the ${locale} ${id} page without a redirect, JavaScript or a session`, async ({
+      browser,
+      request,
+    }) => {
+      // Stores and links reach it directly: no redirect to /privacy/.
+      const direct = await request.get(path, { maxRedirects: 0 });
+      expect(direct.status()).toBe(200);
+      expect(direct.headers()["content-type"]).toContain("text/html");
+      expect(direct.headers()["cache-control"]).toContain("max-age=0");
+
+      const context = await browser.newContext({ javaScriptEnabled: false });
+      const page = await context.newPage();
+      const requests: string[] = [];
+      page.on("request", (request) => requests.push(request.url()));
+      try {
+        for (const width of [320, 1440]) {
+          await page.setViewportSize({ width, height: 800 });
+          const response = await page.goto(path);
+          expect(response?.status()).toBe(200);
+          expect(response?.request().redirectedFrom()).toBeNull();
+          await expect(page.locator("html")).toHaveAttribute("lang", locale);
+          await expect(page.locator("html")).toHaveAttribute(
+            "dir",
+            locale === "ar" ? "rtl" : "ltr",
+          );
+          await expect(
+            page.getByRole("heading", { level: 1, name: source.title }),
+          ).toBeVisible();
+          expect(
+            await page
+              .locator("header img")
+              .evaluate((img: HTMLImageElement) => img.naturalWidth),
+          ).toBeGreaterThan(0);
+          // Nothing scrolls sideways. clientWidth is the viewport less any
+          // classic scrollbar, which headed Chromium on Linux shows.
+          const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+          }));
+          expect(scrollWidth).toBe(clientWidth);
+          expect(clientWidth).toBeGreaterThan(width - 20);
+          await expect(page.locator("video")).toHaveCount(0);
+        }
+        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+          "href",
+          `https://mofied.com${path}`,
+        );
+
+        // The shared text, heading for heading and paragraph for paragraph.
+        await expect(page.locator("article h2")).toHaveText(
+          source.sections.flatMap((section) => section.heading ?? []),
+        );
+        await expect(page.locator("article p:not(.date)")).toHaveText(
+          source.sections.flatMap((section) => section.paragraphs.map(plain)),
+        );
+        await expect(page.locator("article .date")).toHaveText(
+          source.updated ? [source.updated] : [],
+        );
+        // Its links, with this language's pages for links to the others.
+        const links = source.sections.flatMap((section) =>
+          section.paragraphs.flatMap((paragraph) =>
+            inline(paragraph).flatMap((part) =>
+              "page" in part
+                ? [pagePath(part.page, locale)]
+                : "href" in part
+                  ? [part.href]
+                  : [],
+            ),
+          ),
+        );
         expect(
           await page
-            .locator("header img")
-            .evaluate((img: HTMLImageElement) => img.naturalWidth),
-        ).toBeGreaterThan(0);
-        // Nothing scrolls sideways. clientWidth is the viewport less any
-        // classic scrollbar, which headed Chromium on Linux shows.
-        const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-          scrollWidth: document.documentElement.scrollWidth,
-          clientWidth: document.documentElement.clientWidth,
-        }));
-        expect(scrollWidth).toBe(clientWidth);
-        expect(clientWidth).toBeGreaterThan(width - 20);
-        await page.getByRole("link", { name: "English", exact: true }).click();
-        await expect(page.locator("#english h1")).toBeInViewport();
+            .locator("article a")
+            .evaluateAll((links) =>
+              links.map((link) => link.getAttribute("href")),
+            ),
+        ).toEqual(links);
+
+        // It ends with the other three pages in its language.
+        const others = pageIds.filter((other) => other !== id);
+        const footer = page.locator("footer a");
+        await expect(footer).toHaveText(
+          others.map((other) => pages[locale][other].title),
+        );
+        expect(
+          await footer.evaluateAll((links) =>
+            links.map((link) => link.getAttribute("href")),
+          ),
+        ).toEqual(others.map((other) => pagePath(other, locale)));
+        // Each link on the site answers itself, without a redirect.
+        const local = await page
+          .locator('a[href^="/"]')
+          .evaluateAll((links) =>
+            links.map((link) => link.getAttribute("href")!),
+          );
+        for (const href of new Set(local)) {
+          const response = await request.get(href, { maxRedirects: 0 });
+          expect(response.status(), href).toBe(200);
+        }
+
+        // The same page in the other language.
+        const other = page.locator(`header a[hreflang="${twin}"]`);
+        await expect(other).toHaveAttribute("href", pagePath(id, twin));
+        await other.click();
+        await expect(page).toHaveURL(`${origin}${pagePath(id, twin)}`);
+        await expect(page.locator("html")).toHaveAttribute("lang", twin);
+        await expect(page.locator("h1")).toHaveText(pages[twin][id].title);
         await expect(
-          page.locator('a[href="mailto:easybooksdev@gmail.com"]').first(),
-        ).toBeAttached();
-        await expect(page.locator("video")).toHaveCount(0);
+          page.locator(`header a[hreflang="${locale}"]`),
+        ).toHaveAttribute("href", path);
+        expect(requests.some((url) => url.includes("/session"))).toBe(false);
+      } finally {
+        await context.close();
       }
-      expect(requests.some((url) => url.includes("/session"))).toBe(false);
-    } finally {
-      await context.close();
-    }
-  });
-}
+    });
+  }
+
+test("the /privacy/ and /support/ the stores linked redirect to /privacy and /support", async ({
+  page,
+  request,
+}) => {
+  for (const [path, title] of [
+    ["/privacy", pages.ar.privacy.title],
+    ["/support", pages.ar.support.title],
+  ]) {
+    const old = await request.get(`${path}/`, { maxRedirects: 0 });
+    expect(old.status()).toBe(307);
+    expect(new URL(old.headers().location!, origin).pathname).toBe(path);
+    const response = await page.goto(`${path}/`);
+    expect(response?.status()).toBe(200);
+    expect(page.url()).toBe(`${origin}${path}`);
+    await expect(page.locator("h1")).toHaveText(title!);
+  }
+});
 
 test("Cloudflare serves revalidated HTML and immutable fingerprinted assets", async ({
   request,

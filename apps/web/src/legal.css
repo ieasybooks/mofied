@@ -81,13 +81,8 @@ p {
   font-size: 15px;
   color: #aaa;
 }
-section[lang="en"] {
-  border-top: 1px solid #ffffff25;
-  margin-top: 48px;
-  padding-top: 40px;
-}
-section[lang="en"] h1,
-section[lang="en"] h2 {
+html[lang="en"] h1,
+html[lang="en"] h2 {
   font-family: NotoNaskhUI, serif;
 }
 footer {

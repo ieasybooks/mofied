@@ -1,3 +1,5 @@
+import type { Locale } from "./pages";
+
 export const colors = {
   background: "#0A0A0A",
   surface: "#151515",
@@ -11,7 +13,6 @@ export const typography = {
   quran: "Kitab",
   latin: "Gilroy",
 } as const;
-export type Locale = "ar" | "en";
 const ar = {
   name: "مفيد",
   info: "عن التطبيق",
@@ -177,3 +178,14 @@ export function formatCitation(citation: string) {
   );
 }
 export { contactLinks } from "./contact";
+export {
+  inline,
+  pageIds,
+  pagePath,
+  pages,
+  type Inline,
+  type Locale,
+  type Page,
+  type PageId,
+  type PageSection,
+} from "./pages";

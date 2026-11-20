@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks that mofied.com serves the build in apps/web/dist: its index.html
 # loads the same fingerprinted assets, and the pages and app-link files the
-# stores and apps rely on answer. The release workflow runs it after
-# deploying; run it after a manual `bun run deploy:web` too.
+# stores and apps rely on answer, without a redirect. The release workflow
+# runs it after deploying; run it after a manual `bun run deploy:web` too.
 #
 #   scripts/release/check-live-web.sh [https://mofied.com]
 set -euo pipefail
@@ -30,8 +30,18 @@ for attempt in $(seq 1 12); do
   sleep 10
 done
 
-for path in /privacy/ /support/ /.well-known/apple-app-site-association /.well-known/assetlinks.json; do
-  if ! curl -fsS -o /dev/null "$site$path"; then
+# The About, privacy, terms and support pages in Arabic and English.
+pages=(/about /privacy /terms /support /en/about /en/privacy /en/terms /en/support)
+for path in "${pages[@]}" /.well-known/apple-app-site-association /.well-known/assetlinks.json; do
+  status=$(curl -sS -o /dev/null -w '%{http_code}' "$site$path")
+  if [ "$status" != 200 ]; then
+    echo "$site$path answers $status, not 200." >&2
+    exit 1
+  fi
+done
+# The addresses the stores first linked redirect to those pages.
+for path in /privacy/ /support/; do
+  if ! curl -fsSL -o /dev/null "$site$path"; then
     echo "$site$path doesn't answer." >&2
     exit 1
   fi
