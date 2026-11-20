@@ -12,6 +12,20 @@
   font-weight: 400 700;
   font-display: swap;
 }
+@font-face {
+  font-family: Gilroy;
+  src: url("../../../packages/design/assets/fonts/Gilroy-Regular.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: Gilroy;
+  src: url("../../../packages/design/assets/fonts/Gilroy-Medium.woff2")
+    format("woff2");
+  font-weight: 500 700;
+  font-display: swap;
+}
 * {
   box-sizing: border-box;
 }
@@ -81,9 +95,10 @@ p {
   font-size: 15px;
   color: #aaa;
 }
+html[lang="en"] body,
 html[lang="en"] h1,
 html[lang="en"] h2 {
-  font-family: NotoNaskhUI, serif;
+  font-family: Gilroy, NotoNaskhUI, sans-serif;
 }
 footer {
   border-top: 1px solid #ffffff25;
