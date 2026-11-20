@@ -1,6 +1,7 @@
 {
   "purpose": "Approved product design and behavior baseline for implementation.",
   "precedence": [
+    "Latest pages approval (2026-11-20): About lists About, Privacy policy, Terms of use and Contact & support with the full texts of the matching mofied.com pages, and keeps the version; EasyBooks' accounts are a linked line on the About page instead of Contact icons",
     "Accepted lighter playback overlay: apply player-overlay.md over the older screenshots; phone sound beside Info, no visible swipe hint, lower metadata and content-sized fade; desktop keeps its sound rail",
     "Latest correction: remove Sources & Licenses; Contact credits the EasyBooks initiative and uses the public footer channels, with no private Mofied repository link",
     "Latest corrections: no Quran/hadith source footnotes on reminders; plain hyphen between citation numbers; selected language before trailing arrow; localized timer plurals",
@@ -21,7 +22,7 @@
   ],
   "shared": [
     "Direct-to-player; no homepage, account, social actions or catalog screen",
-    "Small persistent About access with privacy, support, language and version",
+    "Small persistent About access with About, privacy, terms, support, language and version",
     "Remaining session time; keep timer from the original designs, not a 3-of-8 item counter",
     "Speaker name and 28-32px circular portrait when available; missing portrait gives name alone",
     "Title opens the actual Faqieh media page; speaker name/portrait opens actual speaker page",

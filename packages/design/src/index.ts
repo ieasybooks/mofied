@@ -16,8 +16,6 @@ export const typography = {
 const ar = {
   name: "مفيد",
   info: "عن التطبيق",
-  privacy: "سياسة الخصوصية",
-  support: "التواصل والدعم",
   language: "اللغة",
   version: "الإصدار",
   resume: "متابعة المشاهدة",
@@ -51,10 +49,6 @@ const ar = {
   pauseRead: "أوقف العدّ لمواصلة القراءة",
   resumeRead: "متابعة العدّ",
   back: "رجوع",
-  aboutBody: "مفيد مساحة لمواد نافعة وجلسات محدودة، تتخلّلها لحظات للتفكر.",
-  privacyBody:
-    "لا يتطلّب مفيد حسابًا. تبدأ جلسة جديدة عند فتح التطبيق أو تحديث الصفحة، ولا يُحفظ تقدم الجلسة. تُحمّل المواد والصور من خوادم الوسائط، وقد تسجّل هذه الخوادم معلومات الاتصال المعتادة. لا يتضمّن هذا الإصدار أدوات إعلانية أو تحليلات.",
-  supportBody: "مفيد من تطوير الكتب المُيسّرة. يمكنكم التواصل معنا عبر:",
   offline: "الاتصال غير متاح حاليًا",
   linkError: "تعذّر فتح الرابط",
   linkErrorBody: "تأكّد من وجود تطبيق مناسب لفتح الرابط، ثم أعد المحاولة.",
@@ -64,8 +58,6 @@ const ar = {
 const en: Record<keyof typeof ar, string> = {
   name: "Mofied",
   info: "About Mofied",
-  privacy: "Privacy policy",
-  support: "Contact & support",
   language: "Language",
   version: "Version",
   resume: "Continue watching",
@@ -99,11 +91,6 @@ const en: Record<keyof typeof ar, string> = {
   pauseRead: "Pause the countdown to read",
   resumeRead: "Resume countdown",
   back: "Back",
-  aboutBody:
-    "Mofied offers useful media in finite sessions, with moments to reflect.",
-  privacyBody:
-    "Mofied does not require an account. A new session starts when you open the app or refresh the page. Session progress is not saved. Media and images load from media servers, which may record ordinary connection information. This version has no advertising or analytics tools.",
-  supportBody: "Mofied is developed by EasyBooks. You can contact us through:",
   offline: "You are currently offline",
   linkError: "Could not open the link",
   linkErrorBody:
@@ -177,7 +164,6 @@ export function formatCitation(citation: string) {
       `\u2066${range.replace(/\s*[-–—]\s*/g, "\u200E - \u200E")}\u2069`,
   );
 }
-export { contactLinks } from "./contact";
 export {
   inline,
   pageIds,

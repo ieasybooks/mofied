@@ -32,7 +32,9 @@ test("opens directly into playback; About pauses and restores the same position 
   await page
     .getByRole("button", { name: "سياسة الخصوصية", exact: true })
     .click();
-  await expect(page.getByText(/لا يتطلّب مفيد حسابًا/)).toBeVisible();
+  await expect(
+    page.getByText(/لا يحفظ مفيد شيئًا من تقدّمك أو إعداداتك/),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: "متابعة المشاهدة", exact: true })
     .click();
@@ -274,7 +276,9 @@ test("failed session responses show an error instead of silently playing fixture
   await page
     .getByRole("button", { name: "سياسة الخصوصية", exact: true })
     .click();
-  await expect(page.getByText(/لا يتطلّب مفيد حسابًا/)).toBeVisible();
+  await expect(
+    page.getByText(/لا يحفظ مفيد شيئًا من تقدّمك أو إعداداتك/),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "متابعة المشاهدة", exact: true }),
   ).toHaveCount(0);

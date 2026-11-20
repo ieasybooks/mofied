@@ -34,6 +34,7 @@ import {
   ChevronRight,
   X,
   Shield,
+  FileText,
   Mail,
   Globe,
   Share,
@@ -47,9 +48,11 @@ import {
 import {
   colors,
   copy,
+  pages,
   remainingLabel,
   formatTime,
   type Locale,
+  type PageId,
 } from "@mofied/design";
 import { version as appVersion } from "../package.json";
 import { SlidePages } from "./SlidePages";
@@ -58,7 +61,7 @@ import type { Direction } from "@mofied/session";
 import { NativeMedia } from "./NativeMedia";
 import { loadSession } from "./provider";
 import { watchSessions } from "./session-lifetime";
-import { ContactLinks } from "./ContactLinks";
+import { PageText } from "./PageText";
 import { useSessionLifecycle } from "./use-session-lifecycle";
 import { Reminder } from "./Reminder";
 import { Ending } from "./Ending";
@@ -555,7 +558,6 @@ function SessionPage({
   );
 }
 
-type AboutPage = "info" | "privacy" | "support";
 function About({
   visible,
   hasPlayback,
@@ -570,9 +572,9 @@ function About({
   close: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [page, setPage] = useState<AboutPage | null>(null);
-  const [detailPage, setDetailPage] = useState<AboutPage>("info");
-  const navigate = (next: AboutPage | null) => {
+  const [page, setPage] = useState<PageId | null>(null);
+  const [detailPage, setDetailPage] = useState<PageId>("about");
+  const navigate = (next: PageId | null) => {
     if (next) setDetailPage(next);
     setPage(next);
   };
@@ -581,15 +583,11 @@ function About({
     if (!visible) setPage(null);
   }, [visible]);
   const rows = [
-    [Info, "info"],
+    [Info, "about"],
     [Shield, "privacy"],
+    [FileText, "terms"],
     [Mail, "support"],
   ] as const;
-  const bodies = {
-    info: t.aboutBody,
-    privacy: t.privacyBody,
-    support: t.supportBody,
-  };
   const Chevron = locale === "ar" ? ChevronLeft : ChevronRight;
   const isArabic = locale === "ar";
   const textDirection: TextStyle = {
@@ -637,7 +635,7 @@ function About({
             <Image source={appIcon} style={styles.aboutIcon} />
             <View style={styles.aboutHeadCopy}>
               <Text style={[styles.aboutName, textDirection, textAlignment]}>
-                {page ? t[page] : t.name}
+                {page ? pages[locale][page].title : t.name}
               </Text>
               {hasPlayback && (
                 <Text style={[styles.aboutSubtitle, uiStyle, textAlignment]}>
@@ -676,7 +674,9 @@ function About({
                   >
                     <View style={[styles.rowLead, rowDirection]}>
                       <Icon size={20} color="#aaa" />
-                      <Text style={[styles.rowText, uiStyle]}>{t[key]}</Text>
+                      <Text style={[styles.rowText, uiStyle]}>
+                        {pages[locale][key].title}
+                      </Text>
                     </View>
                     <Chevron size={18} color="#888" />
                   </Pressable>
@@ -703,15 +703,13 @@ function About({
             }
           >
             <View style={styles.aboutCopy}>
-              <Text style={[styles.body, uiStyle, textAlignment]}>
-                {bodies[detailPage]}
-              </Text>
-              {detailPage === "support" && (
-                <ContactLinks
-                  locale={locale}
-                  open={(url) => void openLink(url, locale)}
-                />
-              )}
+              <PageText
+                page={pages[locale][detailPage]}
+                textStyle={{ ...uiStyle, ...textAlignment }}
+                titleStyle={{ ...textDirection, ...textAlignment }}
+                openUrl={(url) => void openLink(url, locale)}
+                openPage={navigate}
+              />
               <Pressable
                 style={styles.readButton}
                 onPress={() => navigate(null)}

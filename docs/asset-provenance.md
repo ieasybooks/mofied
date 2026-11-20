@@ -37,7 +37,3 @@ ffmpeg -i tests/assets/media.mp4 -c:v libx264 -pix_fmt yuv420p -g 120 -keyint_mi
 ```
 
 Third-party source dependencies retain their package licenses. The narrowly scoped Expo patch modifies Expo's MIT-licensed playback module and is maintained separately under `apps/mobile/patches/`.
-
-## Contact icons
-
-The five social brand paths in `packages/design/src/contact.ts` are from the public Simple Icons SVGs (`telegram`, `youtube`, `x`, `facebook`, `github`), retrieved on 2026-11-05 from `https://github.com/simple-icons/simple-icons/tree/develop/icons`. Their CC0 license is retained in `packages/design/assets/icons/simple-icons-LICENSE.md`. Email uses the existing Lucide icon. Public destinations and accessible labels match Faqieh’s footer; no Rails implementation was copied.
