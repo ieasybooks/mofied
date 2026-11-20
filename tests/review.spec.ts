@@ -91,7 +91,7 @@ for (const variant of [
       if (shipped.kind === "reminder") reminder.content = shipped.content;
     } else {
       reminder.content.body =
-        "التأمل في العلم والعمل به ينفع المرء في حياته. ".repeat(35);
+        "التفكر في العلم والعمل به ينفع المرء في حياته. ".repeat(35);
     }
     await start(page, session);
     await page.keyboard.press("ArrowDown");

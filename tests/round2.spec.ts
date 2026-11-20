@@ -9,7 +9,7 @@ test("consecutive reminders start at the top while About and language preserve r
   if (first.kind !== "reminder") throw new Error("Expected reminder");
   first.content.body =
     "بداية التذكير الأول. " +
-    "التأمل في العلم والعمل به ينفع المرء في حياته. ".repeat(100);
+    "التفكر في العلم والعمل به ينفع المرء في حياته. ".repeat(100);
   const second = {
     ...first,
     id: "second-reminder",
@@ -61,7 +61,7 @@ for (const enlarged of [false, true]) {
     session.items = [session.items[0]!];
     session.ending = {
       title: "حان الآن وقت التأمّل",
-      body: "التأمل في العلم والعمل به ينفع المرء في حياته. ".repeat(9),
+      body: "التفكر في العلم والعمل به ينفع المرء في حياته. ".repeat(9),
     };
     await start(page, session);
     await page.keyboard.press("ArrowDown");
