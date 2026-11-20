@@ -13,9 +13,9 @@
     }
   },
   "appStore": {
-    "supportUrl": "https://mofied.com/support/",
+    "supportUrl": "https://mofied.com/support",
     "marketingUrl": "https://mofied.com/",
-    "privacyUrl": "https://mofied.com/privacy/",
+    "privacyUrl": "https://mofied.com/privacy",
     "copyrightHolder": "الكتب المُيسّرة"
   },
   "appGallery": {
@@ -36,8 +36,8 @@
     },
     "appGallery": {
       "ageRating": "3+",
-      "privacyUrl": "https://mofied.com/privacy/",
-      "dataRightsUrl": "https://mofied.com/support/"
+      "privacyUrl": "https://mofied.com/privacy",
+      "dataRightsUrl": "https://mofied.com/support"
     }
   }
 }

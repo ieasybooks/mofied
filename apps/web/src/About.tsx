@@ -3,19 +3,19 @@ import {
   X,
   Info,
   Shield,
+  FileText,
   Mail,
   Globe,
   ChevronLeft,
   ChevronRight,
   Play,
 } from "lucide-react";
-import { copy, type Locale } from "@mofied/design";
+import { copy, pages, type Locale, type PageId } from "@mofied/design";
 import { version as appVersion } from "../package.json";
 import appIcon from "@mofied/design/assets/icons/app-icon-flat-dark-1024.png";
 import { SlidePages } from "./SlidePages";
-import { ContactLinks } from "./ContactLinks";
+import { PageText } from "./PageText";
 
-type Page = "info" | "privacy" | "support";
 export function About({
   locale,
   setLocale,
@@ -28,14 +28,16 @@ export function About({
   hasPlayback: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [page, setPage] = useState<Page | null>(null);
-  const [detailPage, setDetailPage] = useState<Page>("info");
+  const [page, setPage] = useState<PageId | null>(null);
+  const [detailPage, setDetailPage] = useState<PageId>("about");
   const changedPage = useRef(false);
   const content = useRef<HTMLDivElement>(null);
-  const navigate = (next: Page | null) => {
+  const navigate = (next: PageId | null) => {
     changedPage.current = true;
     if (next) setDetailPage(next);
     setPage(next);
+    // A page opened from a link further down another starts at its top.
+    dialog.current?.scrollTo({ top: 0 });
   };
   useEffect(() => {
     if (!changedPage.current) return;
@@ -59,15 +61,11 @@ export function About({
     dialog.current?.showModal();
   }, []);
   const rows = [
-    [Info, "info"],
+    [Info, "about"],
     [Shield, "privacy"],
+    [FileText, "terms"],
     [Mail, "support"],
   ] as const;
-  const bodies = {
-    info: t.aboutBody,
-    privacy: t.privacyBody,
-    support: t.supportBody,
-  };
   return (
     <dialog
       ref={dialog}
@@ -103,7 +101,7 @@ export function About({
       <div className="about-heading">
         <img src={appIcon} alt="" />
         <div>
-          <h2 id="about-title">{page ? t[page] : t.name}</h2>
+          <h2 id="about-title">{page ? pages[locale][page].title : t.name}</h2>
           {hasPlayback && <p>{t.pausedAbout}</p>}
         </div>
       </div>
@@ -123,7 +121,7 @@ export function About({
                 >
                   <span className="row-lead">
                     <Icon size={20} />
-                    <span>{t[key]}</span>
+                    <span>{pages[locale][key].title}</span>
                   </span>
                   {locale === "ar" ? (
                     <ChevronLeft size={18} />
@@ -154,8 +152,11 @@ export function About({
           }
         >
           <div className="about-content">
-            <p>{bodies[detailPage]}</p>
-            {detailPage === "support" && <ContactLinks locale={locale} />}
+            <PageText
+              page={pages[locale][detailPage]}
+              locale={locale}
+              open={navigate}
+            />
             <button
               type="button"
               className="text-button"

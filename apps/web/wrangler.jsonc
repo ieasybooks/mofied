@@ -9,7 +9,8 @@
   // Omit routes: Wrangler must not manage that association on app releases.
   "assets": {
     "directory": "./dist",
-    // Player screens use /; privacy and support have standalone HTML pages.
+    // Player screens use /; the About, privacy, terms and support pages are
+    // standalone HTML, such as privacy.html for /privacy (see scripts/legal-pages.ts).
     // Unknown paths and stale asset URLs must be 404s,
     // not HTML responses cached as immutable JavaScript.
     "not_found_handling": "none",

@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { legalPages } from "./scripts/legal-pages.ts";
 
 const launchMark = readFileSync(
   new URL("../../packages/design/assets/icons/icon-white.svg", import.meta.url),
@@ -12,6 +13,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Adds the About, privacy, terms and support pages, in Arabic and English.
+    legalPages(),
     {
       name: "mofied-launch-mark",
       transformIndexHtml: {
@@ -44,8 +47,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: fileURLToPath(new URL("index.html", import.meta.url)),
-        privacy: fileURLToPath(new URL("privacy/index.html", import.meta.url)),
-        support: fileURLToPath(new URL("support/index.html", import.meta.url)),
       },
     },
   },

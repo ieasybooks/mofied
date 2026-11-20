@@ -41,7 +41,8 @@ export function SlidePages({
   return (
     <View
       style={{
-        height: Math.min(sizes[detail ? 1 : 0]!, height * 0.42),
+        // A page of text gets more room than the menu; flexShrink keeps both inside the sheet.
+        height: Math.min(sizes[detail ? 1 : 0]!, height * (detail ? 0.6 : 0.42)),
         flexShrink: 1,
         overflow: "hidden",
         marginTop: 28,

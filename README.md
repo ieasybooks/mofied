@@ -25,7 +25,7 @@ The sample 10-minute budget and 20-second reminder are fixture values, not produ
 
 ## Web deployment
 
-The web build is configured for Cloudflare Workers Static Assets at `mofied.com`. See [web deployment](docs/web-deployment.md) for local hosting checks, the first-release order with `ieasybooks/infrastructure`, analytics, and rollback. Releases deploy it, once every check has passed on the release commit; see [releasing](docs/releasing.md).
+The web build is configured for Cloudflare Workers Static Assets at `mofied.com`. Besides the player at `/`, it serves the About, Privacy policy, Terms of use and Contact & support pages: Arabic at `/about`, `/privacy`, `/terms` and `/support`, English at `/en/about`, `/en/privacy`, `/en/terms` and `/en/support`. Their text is written once, in `packages/design/src/pages.ts`; the build makes the pages from it, and About in the apps and the player shows the same text. See [web deployment](docs/web-deployment.md) for local hosting checks, the first-release order with `ieasybooks/infrastructure`, analytics, and rollback. Releases deploy it, once every check has passed on the release commit; see [releasing](docs/releasing.md).
 
 ## Native development
 
@@ -77,7 +77,7 @@ Commit titles follow [Conventional Commits](https://www.conventionalcommits.org/
 | `apps/mobile/store`  | Store listings, release notes, reviewer notes and screenshots       |
 | `packages/contracts` | Versioned Zod wire contract and HTTP provider                       |
 | `packages/session`   | Shared session controller, time accounting and navigation           |
-| `packages/design`    | Approved mark, fonts, colors and UI copy                            |
+| `packages/design`    | Approved mark, fonts, colors, UI copy and page texts                |
 | `packages/fixtures`  | Development-only session plans with public media URLs               |
 | `docs/design`        | Approved screen references and decisions                            |
 
@@ -113,7 +113,7 @@ mise exec -- bun run build
 LIVE_API=1 HEADED=1 mise exec -- bunx playwright test tests/live-api.spec.ts
 ```
 
-Before launch: publish the final privacy/support URLs, complete device checks and store packaging, and confirm independent-app font licensing. The supplied design and local privacy copy are implemented; public hosting and store submission are separate work.
+Before launch: complete device checks and store packaging, and confirm independent-app font licensing. The supplied design is implemented; public hosting and store submission are separate work.
 
 ## License
 
