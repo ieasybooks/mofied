@@ -105,3 +105,42 @@ footer {
   margin-top: 48px;
   padding-top: 24px;
 }
+/* /app: the stores' badges, and on wide windows a QR code of the page. */
+.stores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+.stores a {
+  display: block;
+  border-radius: 8px;
+}
+.stores img {
+  display: block;
+  height: 48px;
+  width: auto;
+}
+.qr {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 48px 0 0;
+}
+.qr img {
+  flex: none;
+  width: 160px;
+  height: 160px;
+  border-radius: 12px;
+}
+.qr figcaption {
+  max-width: 320px;
+  font-size: 16px;
+  color: #aaa;
+}
+/* A phone has no use for a code it would scan itself. */
+@media (max-width: 599px) {
+  .qr {
+    display: none;
+  }
+}

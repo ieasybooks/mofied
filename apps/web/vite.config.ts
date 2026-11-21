@@ -13,7 +13,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // Adds the About, privacy, terms and support pages, in Arabic and English.
+    // Adds the About, privacy, terms and support pages, and /app, in Arabic
+    // and English.
     legalPages(),
     {
       name: "mofied-launch-mark",

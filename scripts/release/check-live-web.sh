@@ -30,8 +30,8 @@ for attempt in $(seq 1 12); do
   sleep 10
 done
 
-# The About, privacy, terms and support pages in Arabic and English.
-pages=(/about /privacy /terms /support /en/about /en/privacy /en/terms /en/support)
+# The About, privacy, terms and support pages, and /app, in Arabic and English.
+pages=(/about /privacy /terms /support /app /en/about /en/privacy /en/terms /en/support /en/app)
 for path in "${pages[@]}" /.well-known/apple-app-site-association /.well-known/assetlinks.json; do
   status=$(curl -sS -o /dev/null -w '%{http_code}' "$site$path")
   if [ "$status" != 200 ]; then
