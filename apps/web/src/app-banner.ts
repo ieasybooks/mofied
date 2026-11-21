@@ -1,6 +1,7 @@
-export const APP_STORE_URL = "https://apps.apple.com/app/id6831969465";
-export const PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.mofied.app";
+import { STORES } from "./stores";
+
+export const APP_STORE_URL = STORES.appStore;
+export const PLAY_STORE_URL = STORES.googlePlay;
 
 // iOS browsers and in-app browsers other than Safari. Safari shows Apple's own
 // Smart App Banner (index.html), so ours stays hidden there.

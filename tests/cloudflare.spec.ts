@@ -287,6 +287,66 @@ test("the /privacy/ and /support/ the stores linked redirect to /privacy and /su
   }
 });
 
+test("/app sends a phone on to its store, and gives a computer the stores' badges", async ({
+  browser,
+  page,
+  request,
+}) => {
+  for (const path of ["/app", "/en/app"]) {
+    // Served as the page itself: phones leave from the page, not the server.
+    const direct = await request.get(path, { maxRedirects: 0 });
+    expect(direct.status()).toBe(200);
+    expect(direct.headers()["content-type"]).toContain("text/html");
+    expect(direct.headers()["cache-control"]).toContain("max-age=0");
+    const html = await direct.text();
+    expect(html).toContain("location.replace(");
+    expect(html).toContain('<meta name="robots" content="noindex" />');
+    // The badges are fingerprinted assets, cached for good.
+    const badges = [...html.matchAll(/<img src="(\/assets\/[^"]+)"/g)].map(
+      (match) => match[1]!,
+    );
+    expect(badges).toHaveLength(3);
+    for (const badge of badges) {
+      const asset = await request.get(badge);
+      expect(asset.status()).toBe(200);
+      expect(asset.headers()["content-type"]).toMatch(/^image\//);
+      expect(asset.headers()["cache-control"]).toBe(
+        "public, max-age=31536000, immutable",
+      );
+    }
+    const slash = await request.get(`${path}/`, { maxRedirects: 0 });
+    expect(slash.status()).toBe(307);
+    expect(new URL(slash.headers().location!, origin).pathname).toBe(path);
+  }
+
+  await page.goto("/app");
+  await page.waitForLoadState("networkidle");
+  expect(page.url()).toBe(`${origin}/app`);
+  for (const image of await page.locator(".stores img").all())
+    expect(
+      await image.evaluate((image: HTMLImageElement) => image.naturalWidth),
+    ).toBeGreaterThan(0);
+
+  const play = "https://play.google.com/store/apps/details?id=com.mofied.app";
+  const phone = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    await phone.route(/^https:\/\/play\.google\.com\//, (route) =>
+      route.fulfill({ contentType: "text/html", body: "<title>store</title>" }),
+    );
+    const tab = await phone.newPage();
+    await tab.goto(`${origin}/app`, { waitUntil: "commit" });
+    await tab.waitForURL(play);
+  } finally {
+    await phone.close();
+  }
+});
+
 test("Cloudflare serves revalidated HTML and immutable fingerprinted assets", async ({
   request,
 }) => {
